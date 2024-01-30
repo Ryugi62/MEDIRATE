@@ -1,13 +1,11 @@
 <template>
   <div id="app">
     <header class="app-header">
-      <h1>My Application</h1>
-
-      <!-- 유저 이름 -->
-      <div class="user-info">
-        <p class="user-name">Logged in as</p>
-
-        <!-- 로그아웃 -->
+      <div class="logo">
+        <p class="logo-text">의료이미지평가시스템</p>
+      </div>
+      <div class="user-info" v-if="isAuthenticated">
+        <p class="user-name">{{ getUser().username }}</p>
         <button class="logout-button" @click="logout">Logout</button>
       </div>
     </header>
@@ -16,13 +14,27 @@
       <div class="sidebar">
         <nav class="navbar">
           <ul class="nav-links">
-            <li><router-link to="/">Home</router-link></li>
-            <!-- <li><router-link to="/login">Login</router-link></li> -->
-            <li><router-link to="/dashboard">Dashboard</router-link></li>
-            <li><router-link to="/board">Board</router-link></li>
-            <li><router-link to="/tasks">Tasks</router-link></li>
-            <li><router-link to="/evaluation">Evaluation</router-link></li>
-            <!-- More links can be added here -->
+            <li :class="{ active: $route.path === '/' }">
+              <router-link to="/">홈</router-link>
+            </li>
+            <li v-if="isAdmin" :class="{ active: $route.path === '/users' }">
+              <router-link to="/dashboard">Dashboard</router-link>
+            </li>
+            <!-- /board or /post/1 or /post/2 ... -->
+            <li
+              :class="{
+                active:
+                  $route.path === '/board' || $route.path.includes('/post'),
+              }"
+            >
+              <router-link to="/board">Q&A 게시판</router-link>
+            </li>
+            <li :class="{ active: $route.path === '/tasks' }">
+              <router-link to="/tasks">과제 게시판</router-link>
+            </li>
+            <li :class="{ active: $route.path === '/evaluation' }">
+              <router-link to="/evaluation">Evaluation</router-link>
+            </li>
           </ul>
         </nav>
       </div>
@@ -32,42 +44,65 @@
     </div>
 
     <footer class="app-footer">
-      <p>© 2024 My Application. All rights reserved.</p>
+      <p>© 2024 Medical Image Evaluation System. All rights reserved.</p>
     </footer>
   </div>
 </template>
 
 <script>
 export default {
-  name: "App",
+  computed: {
+    isAuthenticated() {
+      return this.$store.getters.isAuthenticated;
+    },
+    isAdmin() {
+      return this.isAuthenticated && this.getUser().isAdministrator;
+    },
+  },
+  methods: {
+    getUser() {
+      return this.$store.getters.getUser;
+    },
+    logout() {
+      this.$store.dispatch("logoutUser");
+      this.$router.push("/login");
+    },
+  },
 };
 </script>
 
 <style>
-html,
+/* General styles */
 body {
   margin: 0;
-  padding: 0;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.4;
+  font-family: "Helvetica Neue", sans-serif;
+  font-size: 16px;
   color: #333;
 }
 
 /* Header styles */
 .app-header {
-  background-color: #f3f4f6; /* Light grey for a clean look */
-  color: #333; /* Dark grey for contrast */
-  border-bottom: 1px solid #e1e1e1;
-  height: 62px; /* Height of the header */
+  background-color: #333;
+  color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 10px 20px;
+  height: 40px;
 }
 
-.app-header h1 {
+/* Logo styles */
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
   margin: 0;
-  padding: 15px 20px;
+  padding: 0;
 }
 
 .user-info {
@@ -76,77 +111,79 @@ body {
 }
 
 .user-name {
-  margin: 0;
-  padding: 15px 20px;
+  margin-right: 20px;
+  font-weight: bold;
 }
 
 .logout-button {
-  background-color: #ffffff;
-  border: 1px solid #e1e1e1;
-  border-radius: 3px;
-  padding: 10px 15px;
-  margin: 0 20px;
-  cursor: pointer;
+  background-color: #fff;
   color: #333;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .logout-button:hover {
-  background-color: #f3f4f6;
+  background-color: #444;
+  color: #fff;
 }
 
-.logout-button:active {
-  background-color: #e1e1e1;
-}
-
-/* Main content styles */
 .main-content {
   display: flex;
-  height: calc(100vh - 62px); /* Adjusting height for header and footer */
+  flex-direction: row;
+  min-height: calc(100vh - 50px);
 }
 
 /* Sidebar styles */
 .sidebar {
-  width: 200px;
-  background-color: #ffffff; /* Pure white for sidebar */
-  color: #333; /* Dark grey for text */
-  border-right: 1px solid #e1e1e1;
+  width: 220px;
+  background-color: #fff;
+  color: #333;
+  border-right: 1px solid #ddd;
+  padding-top: 20px;
 }
 
 .nav-links {
-  list-style-type: none;
+  margin: 0;
   padding: 0;
 }
 
 .nav-links li {
-  margin: 10px 0;
+  list-style: none;
 }
 
 .nav-links a {
   color: #333;
   text-decoration: none;
-  padding: 10px 15px;
   display: block;
+  padding: 20px;
+  transition: background-color 0.3s;
 }
 
 .nav-links a:hover {
-  background-color: #f3f4f6; /* Light grey for hover */
+  background-color: #eee;
+}
+
+.nav-links .active a {
+  background-color: #ddd;
 }
 
 /* Content area styles */
 .content {
   flex-grow: 1;
   padding: 20px;
-  background-color: #fafafa; /* Slightly off-white for the main content */
+  background-color: #f9f9f9;
   color: #333;
-  overflow-y: auto;
+  /* 넘어가면 자동으로 늘어나게 */
 }
 
 /* Footer styles */
 .app-footer {
-  background-color: #f3f4f6;
-  color: #333;
-  padding: 15px 20px;
-  border-top: 1px solid #e1e1e1;
+  background-color: #333;
+  color: #fff;
   text-align: center;
+  padding: 15px 0;
 }
 </style>
