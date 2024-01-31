@@ -1,49 +1,83 @@
 <template>
   <div id="app">
-    <header class="app-header">
-      <div class="logo">
-        <p class="logo-text">의료이미지평가시스템</p>
-      </div>
-      <div class="user-info" v-if="isAuthenticated">
-        <p class="user-name">{{ getUser().username }}</p>
-        <button class="logout-button" @click="logout">Logout</button>
-      </div>
-    </header>
-
-    <div class="main-content">
-      <div class="sidebar">
-        <nav class="navbar">
-          <ul class="nav-links">
-            <li :class="{ active: $route.path === '/' }">
-              <router-link to="/">홈</router-link>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="#">의료이미지평가시스템</a>
+        <button
+          v-if="isAuthenticated"
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item" v-if="isAuthenticated">
+              <a class="nav-link">{{ getUser().username }}</a>
             </li>
-            <li v-if="isAdmin" :class="{ active: $route.path === '/users' }">
-              <router-link to="/dashboard">Dashboard</router-link>
-            </li>
-            <!-- /board or /post/1 or /post/2 ... -->
-            <li
-              :class="{
-                active:
-                  $route.path === '/board' || $route.path.includes('/post'),
-              }"
-            >
-              <router-link to="/board">Q&A 게시판</router-link>
-            </li>
-            <li :class="{ active: $route.path === '/tasks' }">
-              <router-link to="/tasks">과제 게시판</router-link>
-            </li>
-            <li :class="{ active: $route.path === '/evaluation' }">
-              <router-link to="/evaluation">Evaluation</router-link>
+            <li class="nav-item" v-if="isAuthenticated">
+              <button class="btn btn-outline-light" @click="logout">
+                Logout
+              </button>
             </li>
           </ul>
-        </nav>
+        </div>
       </div>
-      <div class="content">
+    </nav>
+
+    <div class="d-flex">
+      <!-- Sidebar -->
+      <div class="sidebar bg-light">
+        <div class="list-group list-group-flush">
+          <router-link
+            to="/"
+            class="list-group-item list-group-item-action"
+            :class="{ active: $route.path === '/' }"
+            >홈</router-link
+          >
+          <router-link
+            to="/dashboard"
+            v-if="isAdmin"
+            class="list-group-item list-group-item-action"
+            :class="{ active: $route.path === '/dashboard' }"
+            >Dashboard</router-link
+          >
+          <router-link
+            to="/board"
+            class="list-group-item list-group-item-action"
+            :class="{
+              active: $route.path === '/board' || $route.path.includes('/post'),
+            }"
+            >Q&A 게시판</router-link
+          >
+          <router-link
+            to="/tasks"
+            class="list-group-item list-group-item-action"
+            :class="{ active: $route.path === '/tasks' }"
+            >과제 게시판</router-link
+          >
+          <router-link
+            to="/evaluation"
+            class="list-group-item list-group-item-action"
+            :class="{ active: $route.path === '/evaluation' }"
+            >Evaluation</router-link
+          >
+        </div>
+      </div>
+      <!-- Content -->
+      <div class="content flex-grow-1 p-3">
         <router-view />
       </div>
     </div>
 
-    <footer class="app-footer">
+    <!-- Footer -->
+    <footer class="footer bg-dark text-light text-center p-3">
       <p>© 2024 Medical Image Evaluation System. All rights reserved.</p>
     </footer>
   </div>
@@ -55,14 +89,17 @@ export default {
     isAuthenticated() {
       return this.$store.getters.isAuthenticated;
     },
+
     isAdmin() {
       return this.isAuthenticated && this.getUser().isAdministrator;
     },
   },
+
   methods: {
     getUser() {
       return this.$store.getters.getUser;
     },
+
     logout() {
       this.$store.dispatch("logoutUser");
       this.$router.push("/login");
@@ -72,118 +109,23 @@ export default {
 </script>
 
 <style>
-/* General styles */
-body {
-  margin: 0;
-  font-family: "Helvetica Neue", sans-serif;
-  font-size: 16px;
-  color: #333;
+html,
+body,
+#app {
+  height: 100%;
 }
 
-/* Header styles */
-.app-header {
-  background-color: #333;
-  color: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  height: 40px;
-}
-
-/* Logo styles */
-.logo {
-  display: flex;
-  align-items: center;
-}
-
-.logo-text {
-  font-size: 18px;
-  font-weight: bold;
-  color: #fff;
-  margin: 0;
-  padding: 0;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-}
-
-.user-name {
-  margin-right: 20px;
-  font-weight: bold;
-}
-
-.logout-button {
-  background-color: #fff;
-  color: #333;
-  border: none;
-  border-radius: 5px;
-  padding: 10px 15px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.logout-button:hover {
-  background-color: #444;
-  color: #fff;
-}
-
-.main-content {
-  display: flex;
-  flex-direction: row;
-  min-height: calc(100vh - 50px);
-}
-
-/* Sidebar styles */
 .sidebar {
-  width: 220px;
-  background-color: #fff;
-  color: #333;
-  border-right: 1px solid #ddd;
-  padding-top: 20px;
+  top: 0;
+  width: 250px;
+  position: sticky;
 }
 
-.nav-links {
-  margin: 0;
-  padding: 0;
-}
-
-.nav-links li {
-  list-style: none;
-}
-
-.nav-links a {
-  color: #333;
-  text-decoration: none;
-  display: block;
-  padding: 20px;
-  transition: background-color 0.3s;
-}
-
-.nav-links a:hover {
-  background-color: #eee;
-}
-
-.nav-links .active a {
-  background-color: #ddd;
-}
-
-/* Content area styles */
 .content {
-  flex-grow: 1;
-  padding: 20px;
-  background-color: #f9f9f9;
-  color: #333;
-  /* 넘어가면 자동으로 늘어나게 */
+  min-height: calc(100vh - 100px);
 }
 
-/* Footer styles */
-.app-footer {
-  background-color: #333;
-  color: #fff;
-  text-align: center;
-  padding: 15px 0;
+.footer {
+  height: 100px;
 }
 </style>
