@@ -1,131 +1,95 @@
 <template>
   <div id="app">
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-      <div class="container">
-        <a class="navbar-brand" href="#">의료이미지평가시스템</a>
-        <button
-          v-if="isAuthenticated"
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item" v-if="isAuthenticated">
-              <a class="nav-link">{{ getUser().username }}</a>
-            </li>
-            <li class="nav-item" v-if="isAuthenticated">
-              <button class="btn btn-outline-light" @click="logout">
-                Logout
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
+    <HeaderComponent />
 
-    <div class="d-flex">
-      <!-- Sidebar -->
-      <div class="sidebar bg-light">
-        <div class="list-group list-group-flush">
-          <router-link
-            to="/"
-            class="list-group-item list-group-item-action"
-            :class="{ active: $route.path === '/' }"
-            >홈</router-link
-          >
-          <router-link
-            to="/dashboard"
-            v-if="isAdmin"
-            class="list-group-item list-group-item-action"
-            :class="{ active: $route.path === '/dashboard' }"
-            >Dashboard</router-link
-          >
-          <router-link
-            to="/board"
-            class="list-group-item list-group-item-action"
-            :class="{
-              active: $route.path === '/board' || $route.path.includes('/post'),
-            }"
-            >Q&A 게시판</router-link
-          >
-          <router-link
-            to="/tasks"
-            class="list-group-item list-group-item-action"
-            :class="{ active: $route.path === '/tasks' }"
-            >과제 게시판</router-link
-          >
-          <router-link
-            to="/evaluation"
-            class="list-group-item list-group-item-action"
-            :class="{ active: $route.path === '/evaluation' }"
-            >Evaluation</router-link
-          >
-        </div>
-      </div>
-      <!-- Content -->
-      <div class="content flex-grow-1 p-3">
-        <router-view />
-      </div>
+    <div class="container">
+      <SlideBarComponent v-if="this.$store.getters.isSlideBarOpen" />
+
+      <router-view />
     </div>
-
-    <!-- Footer -->
-    <footer class="footer bg-dark text-light text-center p-3">
-      <p>© 2024 Medical Image Evaluation System. All rights reserved.</p>
-    </footer>
   </div>
 </template>
 
 <script>
+import SlideBarComponent from "./components/SlideBarComponent.vue";
+import HeaderComponent from "./components/HeaderComponent.vue";
+
 export default {
-  computed: {
-    isAuthenticated() {
-      return this.$store.getters.isAuthenticated;
-    },
+  name: "App",
 
-    isAdmin() {
-      return this.isAuthenticated && this.getUser().isAdministrator;
-    },
-  },
-
-  methods: {
-    getUser() {
-      return this.$store.getters.getUser;
-    },
-
-    logout() {
-      this.$store.dispatch("logoutUser");
-      this.$router.push("/login");
-    },
+  components: {
+    HeaderComponent,
+    SlideBarComponent,
   },
 };
 </script>
 
 <style>
-html,
-body,
+/* 색 정의 */
+:root {
+  --white: #ffffff;
+  --black: #25313c;
+  --black-hover: #15213c;
+  --black-active: #05113c;
+  --gray: #6d7d8b;
+  --light-gray: #bbc8d4;
+  --ultra-light-gray: #bbc8d4;
+  --green: #00c04d;
+  --yellow: #ffbb00;
+  --pink: #ed455d;
+  --blue: #5a4ff3;
+  --blue-hover: #4a3ff3;
+  --blue-active: #3a2ff3;
+}
+
+* {
+  /* border: 1px solid red; */
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  outline: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  outline: 0;
+}
+
 #app {
-  height: 100%;
+  color: var(--black);
+  margin: 0;
+  padding: 0;
+  outline: 0;
 }
 
-.sidebar {
-  top: 0;
-  width: 250px;
-  position: sticky;
+a {
+  color: var(--black);
+  text-decoration: none;
 }
 
-.content {
-  min-height: calc(100vh - 100px);
+button {
+  background-color: var(--blue);
+  color: var(--white);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 10px 20px;
+  transition: 0.105s;
+}
+button:hover {
+  background-color: var(--blue-hover);
+}
+button:active {
+  background-color: var(--blue-active);
 }
 
-.footer {
-  height: 100px;
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 71px);
 }
 </style>
