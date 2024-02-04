@@ -1,20 +1,8 @@
 <template>
-  <!-- slide bar component -->
   <div class="slide-bar">
     <ul>
-      <!-- / -> home -->
-      <router-link to="/">
-        <li>Home</li>
-      </router-link>
-
-      <!-- /board -> board -->
-      <router-link to="/board">
-        <li>Board</li>
-      </router-link>
-
-      <!-- /post -> post -->
-      <router-link to="/post">
-        <li>Post</li>
+      <router-link v-for="link in links" :key="link.path" :to="link.path">
+        <li :class="{ active: nowRoute === link.path }">{{ link.name }}</li>
       </router-link>
     </ul>
   </div>
@@ -23,22 +11,32 @@
 <script>
 export default {
   name: "SlideBarComponent",
+
+  data() {
+    return {
+      nowRoute: this.$route.path,
+      links: [
+        { name: "게시판", path: "/board" },
+        { name: "과제 평가", path: "/post" },
+        { name: "과제 관리", path: "/assignment" },
+        { name: "대시보드", path: "/dashboard" },
+      ],
+    };
+  },
+
+  watch: {
+    $route(to) {
+      this.nowRoute = to.path;
+    },
+  },
 };
 </script>
 
 <style scoped>
 .slide-bar {
   width: 200px;
-  background-color: #fafbfb;
   height: 100%;
-}
-
-.slide-bar h1 {
-  margin: 0;
-  margin: 20px;
-  font-size: 20px;
-  font-weight: bold;
-  border-bottom: 1px solid #eaecef;
+  border-right: 1px solid var(--light-gray);
 }
 
 .slide-bar ul {
@@ -46,15 +44,18 @@ export default {
   padding: 0;
   list-style: none;
   position: sticky;
-  top: 71px;
+  top: 70px;
 }
 
 .slide-bar li {
-  padding: 10px 20px;
-  border-bottom: 1px solid #eaecef;
+  border-bottom: 1px solid var(--light-gray);
+  padding-left: 32px;
+  line-height: 60px;
 }
 
+.slide-bar li.active,
 .slide-bar li:hover {
-  background-color: #eaecef;
+  color: var(--white);
+  background-color: var(--blue);
 }
 </style>
