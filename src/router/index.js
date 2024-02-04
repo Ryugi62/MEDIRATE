@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import store from "../store/index";
 import HomeView from "../views/HomeView.vue";
+import CreatePostView from "../views/CreatePostView.vue";
 import LoginView from "../views/LoginView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import BoardView from "../views/BoardView.vue";
@@ -34,6 +35,12 @@ const routes = [
     name: "board",
     component: BoardView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: "/create-post", // 게시물 생성 페이지 경로
+    name: "create-post", // 게시물 생성 페이지 이름
+    component: CreatePostView, // 게시물 생성 컴포넌트
+    meta: { requiresAuth: true }, // 인증이 필요한지 여부
   },
   {
     path: "/post/:id",

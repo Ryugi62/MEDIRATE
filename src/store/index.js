@@ -2,12 +2,14 @@ import { createStore } from "vuex";
 
 export default createStore({
   state: {
-    isAuthenticated: false,
     user: null, // 초기에는 로그인하지 않은 상태이므로 null로 초기화
+    isAuthenticated: false, // 초기에는 로그인하지 않은 상태이므로 false로 초기화
+    isSlideBarOpen: false, // 초기에는 사이드바가 닫힌 상태이
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
     getUser: (state) => state.user,
+    isSlideBarOpen: (state) => state.isSlideBarOpen,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -18,6 +20,9 @@ export default createStore({
     },
     clearUser(state) {
       state.user = null;
+    },
+    toggleSlideBar(state) {
+      state.isSlideBarOpen = !state.isSlideBarOpen;
     },
   },
   actions: {
