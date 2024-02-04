@@ -1,6 +1,5 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import store from "../store/index";
-import HomeView from "../views/HomeView.vue";
 import CreatePostView from "../views/CreatePostView.vue";
 import LoginView from "../views/LoginView.vue";
 import DashboardView from "../views/DashboardView.vue";
@@ -14,7 +13,7 @@ const routes = [
   {
     path: "/",
     name: "home",
-    component: HomeView,
+    component: BoardView,
     meta: { requiresAuth: true },
   },
 

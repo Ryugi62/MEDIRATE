@@ -67,6 +67,9 @@ header {
   font-size: 24px;
   margin: auto;
   font-weight: bold;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .title:hover {
   color: var(--blue-hover);
@@ -88,5 +91,27 @@ header {
 
 .user-info span {
   margin-right: 24px;
+}
+
+@media (max-width: 768px) {
+  .menu-icon {
+    margin-left: 16px;
+  }
+
+  .user-info {
+    margin-right: 16px;
+
+    i {
+      display: none;
+    }
+
+    span {
+      display: none;
+    }
+
+    button {
+      font-size: 12px;
+    }
+  }
 }
 </style>
