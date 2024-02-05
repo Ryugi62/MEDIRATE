@@ -1,11 +1,11 @@
 <template>
   <div class="login-container">
     <h1>로그인</h1>
-    <form @submit.prevent="submitForm">
+    <form @submit.prevent="handleSubmit">
       <div class="form-group" v-for="field in formFields" :key="field.id">
         <div class="input-wrapper">
           <input
-            :type="field.id === 'password' ? passwordFieldType : field.type"
+            :type="getFieldType(field)"
             :id="field.id"
             v-model="field.model"
             required
@@ -19,7 +19,7 @@
         </div>
       </div>
       <div class="form-group">
-        <input type="checkbox" id="remember" v-model="rememberUsername" />
+        <input type="checkbox" id="remember" v-model="rememberMe" />
         <label for="remember">아이디를 기억할까요?</label>
       </div>
       <button type="submit">Login</button>
@@ -30,6 +30,7 @@
 <script>
 export default {
   name: "LoginView",
+
   data() {
     return {
       formFields: [
@@ -43,62 +44,74 @@ export default {
         {
           id: "password",
           label: "비밀번호",
-          type: "password", // 이 필드는 'password' 타입으로 시작
+          type: "password",
           model: "",
           icon: true,
-          iconClass: "far fa-eye", // 초기 아이콘 클래스는 'far fa-eye'
+          iconClass: "far fa-eye",
         },
       ],
-      passwordFieldType: "password", // 비밀번호 필드 타입 초기값을 'password'로 설정
+      passwordFieldType: "password",
       rememberMe: false,
       loginError: "",
     };
   },
 
   mounted() {
-    this.loadUsername();
+    this.retrieveRememberedUsername();
   },
+
   methods: {
-    submitForm() {
-      const { username, password } = this.formFields.reduce(
-        (acc, field) => ({ ...acc, [field.id]: field.model }),
-        {}
-      );
+    handleSubmit() {
+      const credentials = this.extractCredentials();
+      if (this.rememberMe) this.rememberUsername(credentials.username);
+      else this.forgetUsername();
 
-      if (this.rememberMe) {
-        localStorage.setItem("rememberedUsername", username);
-      } else {
-        localStorage.removeItem("rememberedUsername");
-      }
-
-      const isAdministrator = username === "admin" && password === "password";
-      if (this.isValidLogin(username, password)) {
-        this.$store.dispatch("loginUser", {
-          username,
-          password,
-          isAdministrator,
-        });
-        this.$router.push({ name: "home" });
+      if (this.isLoginValid(credentials.username, credentials.password)) {
+        this.login(credentials);
       } else {
         this.loginError = "Invalid username or password. Please try again.";
       }
     },
 
-    isValidLogin(username, password) {
+    extractCredentials() {
+      return this.formFields.reduce(
+        (acc, field) => ({ ...acc, [field.id]: field.model }),
+        {}
+      );
+    },
+
+    isLoginValid(username, password) {
       return (
         (username === "user" && password === "password") ||
         (username === "admin" && password === "password")
       );
     },
+
+    login({ username, password }) {
+      const isAdministrator = username === "admin" && password === "password";
+      this.$store.dispatch("loginUser", {
+        username,
+        password,
+        isAdministrator,
+      });
+      this.$router.push({ name: "home" });
+    },
+
     togglePasswordVisibility() {
       this.passwordFieldType =
         this.passwordFieldType === "password" ? "text" : "password";
-      this.formFields.find((field) => field.id === "password").iconClass =
-        this.passwordFieldType === "password"
-          ? "far fa-eye-slash"
-          : "far fa-eye"; // 아이콘 클래스 동적 변경
+      this.updateIconClass();
     },
-    loadUsername() {
+
+    updateIconClass() {
+      const passwordField = this.formFields.find(
+        (field) => field.id === "password"
+      );
+      passwordField.iconClass =
+        this.passwordFieldType === "text" ? "far fa-eye-slash" : "far fa-eye";
+    },
+
+    retrieveRememberedUsername() {
       const rememberedUsername = localStorage.getItem("rememberedUsername");
       if (rememberedUsername) {
         const usernameField = this.formFields.find(
@@ -107,6 +120,18 @@ export default {
         usernameField.model = rememberedUsername;
         this.rememberMe = true;
       }
+    },
+
+    rememberUsername(username) {
+      localStorage.setItem("rememberedUsername", username);
+    },
+
+    forgetUsername() {
+      localStorage.removeItem("rememberedUsername");
+    },
+
+    getFieldType(field) {
+      return field.id === "password" ? this.passwordFieldType : field.type;
     },
   },
 };
