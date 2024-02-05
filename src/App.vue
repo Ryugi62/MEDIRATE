@@ -97,6 +97,7 @@ button:active {
 
 .content {
   flex: 1;
+  height: 100%;
   padding: 0 20px;
 }
 </style>

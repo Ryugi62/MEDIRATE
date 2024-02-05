@@ -139,6 +139,7 @@ export default {
 
 <style scoped>
 .login-container {
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
