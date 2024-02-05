@@ -35,7 +35,6 @@ export default {
 <style scoped>
 .slide-bar {
   width: 200px;
-  height: 100%;
   border-right: 1px solid var(--light-gray);
 }
 

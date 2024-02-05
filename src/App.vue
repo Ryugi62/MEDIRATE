@@ -90,14 +90,11 @@ button:active {
 
 .container {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  height: calc(100vh - 71px);
+  height: fit-content;
+  min-height: calc(100vh - 71px);
 }
 
 .content {
   flex: 1;
-  height: 100%;
-  padding: 0 20px;
 }
 </style>
