@@ -14,7 +14,7 @@
     <!-- user_name and logout button -->
     <div class="user-info" v-if="this.$store.getters.isAuthenticated">
       <i class="fa-solid fa-user user-icon"></i>
-      <span>user_name</span>
+      <span>{{ $store.getters.getUser.username }}</span>
       <button @click="logout">로그아웃</button>
     </div>
   </header>
