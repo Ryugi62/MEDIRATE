@@ -5,7 +5,9 @@
     <div class="container">
       <SlideBarComponent v-if="this.$store.getters.isSlideBarOpen" />
 
-      <router-view />
+      <div class="content">
+        <router-view />
+      </div>
     </div>
   </div>
 </template>
@@ -91,5 +93,10 @@ button:active {
   justify-content: center;
   align-items: center;
   height: calc(100vh - 71px);
+}
+
+.content {
+  flex: 1;
+  padding: 0 20px;
 }
 </style>
