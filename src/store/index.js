@@ -24,6 +24,9 @@ export default createStore({
     toggleSlideBar(state) {
       state.isSlideBarOpen = !state.isSlideBarOpen;
     },
+    openSlideBar(state) {
+      state.isSlideBarOpen = true;
+    },
   },
   actions: {
     loginUser({ commit }, user) {

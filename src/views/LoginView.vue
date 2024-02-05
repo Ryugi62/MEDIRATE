@@ -94,6 +94,8 @@ export default {
         password,
         isAdministrator,
       });
+      // mutateion
+      this.$store.commit("openSlideBar", true);
       this.$router.push({ name: "home" });
     },
 
