@@ -1,71 +1,73 @@
 <template>
-  <div class="board-view container my-4 py-4">
-    <h1 class="board-title text-center text-primary mb-4">Q&A 게시판</h1>
-    <router-link
-      :to="{ name: 'create-post' }"
-      class="btn btn-success mb-4 me-2"
-    >
-      게시물 생성하기
-    </router-link>
-    <div class="board-posts">
-      <ul class="list-group">
-        <li
-          v-for="post in paginatedPosts"
-          :key="post.id"
-          class="list-group-item d-flex justify-content-between align-items-center"
-          @click="goToPost(post.id)"
-        >
-          <div class="post-content">
-            <h3 class="post-title h5">{{ post.title }}</h3>
-            <div class="post-details small text-muted">
-              <span class="post-author fw-bold">작성자: {{ post.author }}</span>
-              <span class="post-category badge bg-primary rounded-pill">{{
-                post.category
-              }}</span>
-            </div>
-            <div class="post-stats mt-2">
-              <span class="post-comments">댓글: {{ post.comments }}</span>
-              <span class="post-views">조회: {{ post.views }}</span>
-              <span class="post-updated">업데이트: {{ post.lastUpdated }}</span>
-              <span class="post-attachments"
-                >첨부 파일 수: {{ post.attachments }}</span
-              >
-            </div>
-          </div>
-        </li>
-      </ul>
-      <!-- 페이지네이션 -->
-      <nav aria-label="페이지네이션" class="mt-4">
-        <ul class="pagination justify-content-center">
-          <li class="page-item">
-            <a
-              class="page-link"
-              @click="changePage(currentPage - 1)"
-              :disabled="currentPage === 1"
-            >
-              이전
-            </a>
-          </li>
-          <li
-            class="page-item"
-            v-for="(page, pageIndex) in visiblePages"
-            :key="pageIndex"
-            :class="{ active: currentPage === page }"
+  <div class="board">
+    <h1 class="board__title">게시판</h1>
+    <div class="board__table-container">
+      <table class="board__table">
+        <thead>
+          <tr class="table__head-row">
+            <th class="head-row__cell head-row__cell--number">번호</th>
+            <th class="head-row__cell head-row__cell--title">제목</th>
+            <th class="head-row__cell head-row__cell--author">작성자</th>
+            <th class="head-row__cell head-row__cell--date">날짜</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="post in paginatedPosts"
+            :key="post.id"
+            @click="navigateToPost(post.id)"
+            class="table__body-row"
           >
-            <a class="page-link" @click="changePage(page)">{{ page }}</a>
-          </li>
-          <li class="page-item">
-            <a
-              class="page-link"
-              @click="changePage(currentPage + 1)"
-              :disabled="currentPage === pageCount"
-            >
-              다음
-            </a>
-          </li>
-        </ul>
-      </nav>
+            <td class="body-row__cell body-row__cell--number">{{ post.id }}</td>
+            <td class="body-row__cell body-row__cell--title">
+              {{ post.title }}
+            </td>
+            <td class="body-row__cell body-row__cell--author">
+              {{ post.author }}
+            </td>
+            <td class="body-row__cell body-row__cell--date">
+              {{ post.lastUpdated.split(" ")[0] }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+    <nav class="board__pagination-nav" aria-label="페이지네이션">
+      <ul class="pagination">
+        <i
+          class="fa-solid fa-angles-left pagination__button"
+          @click="changePage(1)"
+        ></i>
+        <i
+          class="fa-solid fa-angle-left pagination__button"
+          @click="changePage(currentPage - 1)"
+        ></i>
+        <li
+          v-for="page in visiblePages"
+          :key="page"
+          :class="{ 'pagination__item--active': currentPage === page }"
+          class="pagination__item"
+        >
+          <a @click="changePage(page)" class="pagination__link">{{ page }}</a>
+        </li>
+
+        <i
+          class="fa-solid fa-chevron-right pagination__button"
+          @click="changePage(currentPage + 1)"
+        ></i>
+        <i
+          class="fa-solid fa-angles-right pagination__button"
+          @click="changePage(pageCount)"
+        ></i>
+      </ul>
+
+      <router-link
+        to="/create-post"
+        class="pagination__link--write"
+        style="margin-left: 10px"
+        >글쓰기</router-link
+      >
+    </nav>
   </div>
 </template>
 
@@ -74,116 +76,149 @@ import mockPosts from "@/data/mock-posts.js";
 
 export default {
   name: "BoardView",
-
   data() {
     return {
       posts: mockPosts,
-      currentPage: 1, // 현재 페이지
-      postsPerPage: 10, // 페이지당 표시할 게시물 수
-      maxVisiblePages: 6, // 최대 보여질 페이지 수
+      currentPage: 1,
+      postsPerPage: 14,
+      maxVisiblePages: 6,
     };
   },
-
   computed: {
-    // 현재 페이지의 게시물을 계산합니다.
     paginatedPosts() {
-      const startIndex = (this.currentPage - 1) * this.postsPerPage;
-      const endIndex = startIndex + this.postsPerPage;
-      return this.posts.slice(startIndex, endIndex);
+      const start = (this.currentPage - 1) * this.postsPerPage;
+      return this.posts.slice(start, start + this.postsPerPage);
     },
-
-    // 페이지 개수를 계산합니다.
     pageCount() {
       return Math.ceil(this.posts.length / this.postsPerPage);
     },
-
-    // 현재 페이지 주변의 보여질 페이지 목록을 계산합니다.
     visiblePages() {
-      const pageCount = this.pageCount;
-      const currentPage = this.currentPage;
-      const maxVisiblePages = this.maxVisiblePages;
-      const half = Math.floor(maxVisiblePages / 2);
-
-      let startPage = currentPage - half;
-      let endPage = currentPage + half;
-
-      if (startPage < 1) {
-        startPage = 1;
-        endPage = Math.min(maxVisiblePages, pageCount);
-      }
-
-      if (endPage > pageCount) {
-        endPage = pageCount;
-        startPage = Math.max(1, pageCount - maxVisiblePages + 1);
-      }
-
-      const visiblePages = [];
-      for (let i = startPage; i <= endPage; i++) {
-        visiblePages.push(i);
-      }
-
-      return visiblePages;
+      let start = Math.max(
+        this.currentPage - Math.floor(this.maxVisiblePages / 2),
+        1
+      );
+      const end = Math.min(start + this.maxVisiblePages - 1, this.pageCount);
+      start = Math.max(end - this.maxVisiblePages + 1, 1); // Adjust if near the end
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     },
   },
-
   methods: {
-    goToPost(id) {
-      // 게시물 ID를 이용하여 상세 페이지로 라우팅
+    navigateToPost(id) {
       this.$router.push({ name: "post", params: { id } });
     },
-
     changePage(page) {
-      // 페이지 변경 시 현재 페이지 업데이트
-      if (page >= 1 && page <= this.pageCount) {
-        this.currentPage = page;
-      }
+      if (page >= 1 && page <= this.pageCount) this.currentPage = page;
     },
   },
 };
 </script>
 
 <style scoped>
-.board-view {
-  background-color: #f8f9fa; /* 변경: Bootstrap 5의 기본 배경색 */
-  border-radius: 10px; /* 변경: 둥근 테두리 */
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); /* 변경: 그림자 효과 */
+.board__title {
+  margin: 0;
+  padding: 14px 24px;
+  font-size: 24px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--light-gray);
 }
 
-.list-group-item {
+.board__table-container {
+  min-height: 676px;
+}
+
+.board__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table__head-row {
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.head-row__cell {
+  padding: 12px 24px;
+  text-align: center;
+}
+
+.table__body-row {
   cursor: pointer;
-  transition: background-color 0.3s;
-  border: none;
-  border-bottom: 1px solid #e1e1e1; /* 변경: Bootstrap 5의 기본 테두리 스타일 */
 }
 
-.list-group-item:last-child {
-  border-bottom: none;
+.table__body-row:hover {
+  background-color: #f5f5f5;
 }
 
-.list-group-item:hover {
-  background-color: #f7f7f7; /* 변경: 호버 효과 배경색 */
+.body-row__cell {
+  padding: 12px 24px;
+  text-align: center;
+}
+.body-row__cell:last-child {
+  padding-right: 46px;
 }
 
-.post-title {
+.body-row__cell--number {
+  width: 40px;
+}
+
+.body-row__cell--title {
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.post-category {
-  font-size: 12px;
-  padding: 3px 10px;
+.body-row__cell--author {
+  width: 75px;
 }
 
-.post-stats {
+.body-row__cell--date {
+  width: 100px;
+}
+
+.board__pagination-nav {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-  font-size: 12px;
+  justify-content: center;
+  margin-top: 20px;
+  position: relative;
 }
 
-.post-stats span {
-  margin-right: 10px;
+.pagination {
+  list-style: none;
+  padding: 0;
+}
+
+.pagination__item {
+  display: inline;
+}
+
+.pagination__button,
+.pagination__link {
+  display: inline-block;
+  margin: 0 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 1px solid var(--white);
+}
+.pagination__link:hover {
+  color: var(--gray);
+  border: 1px solid var(--gray);
+}
+.pagination__item--active .pagination__link {
+  color: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+.pagination__link--write {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  text-decoration: none;
+  transition: background-color 0.3s;
+  position: absolute;
+  right: 46px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 </style>
