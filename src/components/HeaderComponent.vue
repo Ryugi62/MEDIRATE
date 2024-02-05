@@ -15,7 +15,7 @@
     <div class="user-info" v-if="this.$store.getters.isAuthenticated">
       <i class="fa-solid fa-user user-icon"></i>
       <span>user_name</span>
-      <button>로그아웃</button>
+      <button @click="logout">로그아웃</button>
     </div>
   </header>
 </template>
@@ -24,9 +24,16 @@
 export default {
   name: "HeaderComponent",
 
-  data() {},
+  methods: {
+    logout() {
+      this.$store.dispatch("logoutUser");
 
-  mounted() {},
+      // close sidebar
+      this.$store.commit("closeSlideBar");
+
+      this.$router.push({ name: "login" });
+    },
+  },
 };
 </script>
 

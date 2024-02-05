@@ -24,6 +24,9 @@ export default createStore({
     toggleSlideBar(state) {
       state.isSlideBarOpen = !state.isSlideBarOpen;
     },
+    closeSlideBar(state) {
+      state.isSlideBarOpen = false;
+    },
     openSlideBar(state) {
       state.isSlideBarOpen = true;
     },
