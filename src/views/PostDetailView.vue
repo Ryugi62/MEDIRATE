@@ -1,190 +1,189 @@
 <template>
-  <div class="container my-5">
-    <div class="card shadow">
-      <div class="card-body">
-        <!-- Post Editing -->
-        <div v-if="isEditingPost">
-          <input
-            type="text"
-            class="form-control mb-2"
-            v-model="editedPostTitle"
-            placeholder="제목을 입력하세요"
-          />
+  <div class="board-container">
+    <h1 class="board-title">게시판</h1>
+    <div class="post-container">
+      <div class="post-header">
+        <h1 class="post-title">{{ postData.title }}</h1>
+        <div class="post-meta">
+          <span class="author-name">{{ postData.author }}</span>
+          <span class="post-date">{{ postData.lastUpdated }}(수정됨)</span>
+        </div>
+      </div>
+
+      <div class="post-content">
+        {{ postData.content }}
+      </div>
+
+      <div class="post-actions">
+        <button class="edit-post-button" @click="startEditingPost">수정</button>
+        <button class="delete-post-button" @click="removePost">삭제</button>
+      </div>
+
+      <div class="comments-section">
+        <div class="comment-input">
+          <i class="fa-solid fa-circle-user user-icon"></i>
           <textarea
-            class="form-control"
-            v-model="editedPostContent"
-            placeholder="내용을 입력하세요"
+            class="reply-input"
+            v-model="commentInput"
+            placeholder="댓글을 입력하세요"
           ></textarea>
-          <button @click="savePost" class="btn btn-success me-2 mt-2">
-            저장
-          </button>
-          <button @click="cancelEditPost" class="btn btn-secondary mt-2">
-            취소
+          <button class="submit-comment-button" @click="addComment">
+            등록
           </button>
         </div>
-        <!-- Post Display -->
-        <div v-else>
-          <h1 class="card-title fs-2">{{ post.title }}</h1>
-          <hr />
-          <p class="card-text">{{ post.content }}</p>
-          <div v-if="post.author === currentUser.username">
-            <button @click="editPost" class="btn btn-primary me-2">수정</button>
-            <button @click="deletePost" class="btn btn-danger">삭제</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Comments Section -->
-    <div class="comments-section mt-4">
-      <h2 class="fs-3">댓글 ({{ post.commentsData.length }})</h2>
-      <!-- Comment Form -->
-      <div class="comment-form mb-3">
-        <input
-          type="text"
-          class="form-control"
-          v-model="newComment"
-          placeholder="댓글을 입력하세요"
-        />
-        <button @click="submitComment" class="btn btn-outline-primary mt-2">
-          댓글 작성
-        </button>
-      </div>
-
-      <!-- Comments List -->
-      <ul class="list-group">
-        <li
-          v-for="(comment, index) in post.commentsData"
+        <div
+          v-for="(comment, commentIndex) in postData.commentsData"
           :key="comment.id"
-          class="list-group-item"
+          class="comment-container"
         >
-          <!-- Comment Editing -->
-          <div v-if="editingCommentIndex === index">
-            <strong>{{ comment.author }}</strong>
-            <input type="text" class="form-control" v-model="editedComment" />
-
-            <div class="d-flex justify-content-end">
-              <button
-                @click="saveEditedComment(index)"
-                class="btn btn-primary btn-sm me-2 mt-2"
-              >
-                저장
-              </button>
-              <button
-                @click="cancelEditingComment"
-                class="btn btn-secondary btn-sm mt-2"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-
-          <!-- Comment Display -->
-          <div v-else>
+          <div :class="{ comment: true, reply: commentIndex > 0 }">
+            <i class="fa-solid fa-circle-user user-icon"></i>
             <div class="comment-body">
-              <strong>{{ comment.author }}</strong>
-              <p>{{ comment.text }}</p>
-              <div
-                class="d-flex justify-content-end"
-                v-if="comment.author === currentUser.username"
-              >
-                <button
-                  @click="editComment(index, comment.text)"
-                  class="btn btn-primary btn-sm me-2"
-                >
-                  수정
-                </button>
-                <button
-                  @click="deleteComment(index)"
-                  class="btn btn-danger btn-sm"
-                >
-                  삭제
-                </button>
+              <div class="comment-text">
+                <textarea
+                  v-if="editingCommentIndex === commentIndex"
+                  v-model="editedCommentText"
+                  class="edit-comment-textarea"
+                ></textarea>
+                <div v-else>
+                  {{ comment.text }}
+                </div>
+              </div>
+              <div class="comment-meta">
+                <span class="comment-author">{{ comment.author }}</span>
+                <span class="comment-date">{{ comment.date }}</span>
+                <i
+                  class="fa-solid fa-reply reply-icon"
+                  @click="
+                    editingReply.commentIndex === commentIndex
+                      ? resetEditingReply()
+                      : startEditingReply(commentIndex, -1, '')
+                  "
+                ></i>
               </div>
             </div>
-
-            <!-- Replies List -->
-            <ul class="list-group mt-2">
-              <li
-                v-for="(reply, rIndex) in comment.replies"
-                :key="reply.id"
-                class="list-group-item list-group-item-light"
-              >
-                <!-- Reply Editing -->
-                <div
-                  v-if="
-                    editingReplyCommentIndex === index &&
-                    editingReplyIndex === rIndex
-                  "
+            <div class="comment-actions">
+              <span v-if="editingCommentIndex === commentIndex">
+                <button
+                  class="save-comment-button"
+                  @click="saveEditedComment(commentIndex)"
                 >
-                  <strong>{{ reply.author }}</strong>
-
-                  <input
-                    type="text"
-                    class="form-control"
-                    v-model="editedReply"
-                  />
-
-                  <div class="d-flex justify-content-end">
-                    <button
-                      @click="saveEditedReply(index, rIndex)"
-                      class="btn btn-primary btn-sm me-2 mt-2"
-                    >
-                      저장
-                    </button>
-                    <button
-                      @click="cancelEditingReply"
-                      class="btn btn-secondary btn-sm mt-2"
-                    >
-                      취소
-                    </button>
-                  </div>
+                  저장
+                </button>
+                <button
+                  class="cancel-comment-button"
+                  @click="resetEditingComment"
+                >
+                  취소
+                </button>
+              </span>
+              <span v-else-if="comment.author === loggedInUser.username">
+                <div
+                  class="edit-comment-button"
+                  @click="startEditingComment(commentIndex, comment.text)"
+                >
+                  수정
                 </div>
-                <!-- Reply Display -->
-                <div v-else>
-                  <div class="reply-body">
-                    <strong>{{ reply.author }}</strong>
-                    <p>{{ reply.text }}</p>
-                    <div
-                      class="d-flex justify-content-end"
-                      v-if="reply.author === currentUser.username"
-                    >
-                      <button
-                        @click="editReply(index, rIndex, reply.text)"
-                        class="btn btn-primary btn-sm me-2"
-                      >
-                        수정
-                      </button>
-                      <button
-                        @click="deleteReply(index, rIndex)"
-                        class="btn btn-danger btn-sm"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
+                <div
+                  class="delete-comment-button"
+                  @click="removeComment(commentIndex)"
+                >
+                  삭제
                 </div>
-              </li>
-            </ul>
-
-            <!-- Reply Form -->
-            <div class="reply-form mt-2 comment-form">
-              <input
-                type="text"
-                class="form-control"
-                v-model="newReply[index]"
-                placeholder="대댓글을 입력하세요"
-              />
-              <button
-                @click="submitReply(index)"
-                class="btn btn-outline-secondary mt-2"
-              >
-                대댓글 작성
-              </button>
+              </span>
             </div>
           </div>
-        </li>
-      </ul>
+
+          <!-- 대댓글 루프 -->
+          <div
+            v-for="(reply, replyIndex) in comment.replies"
+            :key="reply.id"
+            class="comment-reply"
+          >
+            <i class="fa-solid fa-circle-user user-icon"></i>
+            <div class="comment-body">
+              <div class="comment-text">
+                <textarea
+                  v-if="
+                    editingReply.commentIndex === commentIndex &&
+                    editingReply.replyIndex === replyIndex
+                  "
+                  v-model="editedReplyText"
+                  class="edit-comment-textarea"
+                ></textarea>
+                <div v-else>
+                  {{ reply.text }}
+                </div>
+              </div>
+              <div class="comment-meta">
+                <span class="comment-author">{{ reply.author }}</span>
+                <span class="comment-date">{{ reply.date }}</span>
+                <!-- i 클릭시 대댓글 
+                작성창이 나타나도록 합니다
+                 -->
+                <i
+                  class="fa-solid fa-reply reply-icon"
+                  @click="
+                    editingReply.commentIndex === commentIndex
+                      ? resetEditingReply()
+                      : startEditingReply(commentIndex, -1, '')
+                  "
+                ></i>
+              </div>
+            </div>
+            <div class="comment-actions">
+              <span
+                v-if="
+                  editingReply.commentIndex === commentIndex &&
+                  editingReply.replyIndex === replyIndex
+                "
+              >
+                <button class="save-reply-button" @click="saveEditedReply">
+                  저장
+                </button>
+                <button class="cancel-reply-button" @click="resetEditingReply">
+                  취소
+                </button>
+              </span>
+              <span v-else-if="reply.author === loggedInUser.username">
+                <div
+                  class="edit-reply-button"
+                  @click="
+                    startEditingReply(commentIndex, replyIndex, reply.text)
+                  "
+                >
+                  수정
+                </div>
+                <div
+                  class="delete-reply-button"
+                  @click="removeReply(commentIndex, replyIndex)"
+                >
+                  삭제
+                </div>
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="reply-input-container"
+            v-if="editingReply.commentIndex === commentIndex"
+          >
+            <i class="fa-solid fa-circle-user user-icon"></i>
+            <textarea
+              class="reply-input"
+              v-model="replyInputs[commentIndex]"
+              placeholder="답글을 입력하세요"
+            ></textarea>
+            <button
+              class="submit-comment-button"
+              @click="addReplyToComment(commentIndex)"
+            >
+              등록
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -194,168 +193,384 @@ import mockPosts from "@/data/mock-posts.js";
 
 export default {
   name: "PostDetailView",
+
   data() {
     return {
-      postId: null,
-      post: null,
-      newComment: "",
-      newReply: [],
+      currentPostId: null,
+      postData: null,
+      commentInput: "",
+      replyInputs: [],
       isEditingPost: false,
       editedPostTitle: "",
       editedPostContent: "",
       editingCommentIndex: -1,
-      editedComment: "",
-      editingReplyCommentIndex: -1,
-      editingReplyIndex: -1,
-      editedReply: "",
+      editedCommentText: "",
+      editingReply: {
+        commentIndex: -1,
+        replyIndex: -1,
+      },
+      editedReplyText: "",
     };
   },
+
   computed: {
-    currentUser() {
+    loggedInUser() {
       return this.$store.getters.getUser;
     },
   },
+
   created() {
-    this.postId = this.$route.params.id;
-    this.post = mockPosts.find((post) => post.id === Number(this.postId));
-    this.newReply = Array(this.post.commentsData.length).fill("");
+    this.currentPostId = this.$route.params.id;
+    this.postData = mockPosts.find(
+      (post) => post.id === Number(this.currentPostId)
+    );
+    this.replyInputs = Array(this.postData.commentsData.length).fill("");
   },
+
   methods: {
-    editPost() {
+    startEditingPost() {
       this.isEditingPost = true;
-      this.editedPostTitle = this.post.title;
-      this.editedPostContent = this.post.content;
+      this.editedPostTitle = this.postData.title;
+      this.editedPostContent = this.postData.content;
     },
-    savePost() {
+
+    saveEditedPost() {
       if (this.editedPostTitle.trim() && this.editedPostContent.trim()) {
-        this.post.title = this.editedPostTitle;
-        this.post.content = this.editedPostContent;
+        this.postData.title = this.editedPostTitle;
+        this.postData.content = this.editedPostContent;
         this.isEditingPost = false;
       }
     },
-    cancelEditPost() {
+
+    cancelPostEditing() {
       this.isEditingPost = false;
     },
-    deletePost() {
-      console.log("게시물 삭제");
+
+    removePost() {
+      console.log("게시물 삭제됨");
     },
-    submitComment() {
-      if (this.newComment.trim() !== "") {
-        this.post.commentsData.push({
-          author: this.currentUser.username,
-          text: this.newComment,
+
+    addComment() {
+      if (this.commentInput.trim() !== "") {
+        this.postData.commentsData.push({
+          author: this.loggedInUser.username,
+          text: this.commentInput,
           replies: [],
         });
-        this.newComment = "";
+        this.commentInput = "";
       }
     },
-    editComment(index, text) {
+
+    startEditingComment(index, text) {
       this.editingCommentIndex = index;
-      this.editedComment = text;
+      this.editedCommentText = text;
     },
+
     saveEditedComment(index) {
-      if (this.editedComment.trim() !== "") {
-        this.post.commentsData[index].text = this.editedComment;
-        this.cancelEditingComment();
+      if (this.editedCommentText.trim() !== "") {
+        this.postData.commentsData[index].text = this.editedCommentText;
+        this.resetEditingComment();
       }
     },
-    cancelEditingComment() {
+
+    resetEditingComment() {
       this.editingCommentIndex = -1;
-      this.editedComment = "";
+      this.editedCommentText = "";
     },
-    deleteComment(index) {
-      this.post.commentsData.splice(index, 1);
+
+    removeComment(index) {
+      this.postData.commentsData.splice(index, 1);
     },
-    submitReply(commentIndex) {
-      const replyText = this.newReply[commentIndex];
+
+    addReplyToComment(commentIndex) {
+      const replyText = this.replyInputs[commentIndex];
       if (replyText.trim() !== "") {
-        if (!this.post.commentsData[commentIndex].replies) {
-          this.post.commentsData[commentIndex].replies = [];
-        }
-        this.post.commentsData[commentIndex].replies.push({
-          author: this.currentUser.username,
+        const repliesArray = this.postData.commentsData[commentIndex].replies;
+        repliesArray.push({
+          author: this.loggedInUser.username,
           text: replyText,
         });
-        this.newReply[commentIndex] = "";
+        this.replyInputs[commentIndex] = "";
       }
     },
-    editReply(commentIndex, replyIndex, text) {
-      this.editingReplyCommentIndex = commentIndex;
-      this.editingReplyIndex = replyIndex;
-      this.editedReply = text;
+
+    startEditingReply(commentIndex, replyIndex, text) {
+      this.editingReply.commentIndex = commentIndex;
+      this.editingReply.replyIndex = replyIndex;
+      this.editedReplyText = text;
     },
-    saveEditedReply(commentIndex, replyIndex) {
-      if (this.editedReply.trim() !== "") {
-        this.post.commentsData[commentIndex].replies[replyIndex].text =
-          this.editedReply;
-        this.cancelEditingReply();
+
+    saveEditedReply() {
+      const { commentIndex, replyIndex } = this.editingReply;
+      if (this.editedReplyText.trim() !== "") {
+        this.postData.commentsData[commentIndex].replies[replyIndex].text =
+          this.editedReplyText;
+        this.resetEditingReply();
       }
     },
-    cancelEditingReply() {
-      this.editingReplyCommentIndex = -1;
-      this.editingReplyIndex = -1;
-      this.editedReply = "";
+
+    resetEditingReply() {
+      this.editingReply.commentIndex = -1;
+      this.editingReply.replyIndex = -1;
+      this.editedReplyText = "";
     },
-    deleteReply(commentIndex, replyIndex) {
-      this.post.commentsData[commentIndex].replies.splice(replyIndex, 1);
+
+    removeReply(commentIndex, replyIndex) {
+      this.postData.commentsData[commentIndex].replies.splice(replyIndex, 1);
     },
   },
 };
 </script>
 
 <style scoped>
-.card {
-  border-radius: 0.5rem;
-  border: none; /* 변경: 카드의 테두리 제거 */
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* 변경: 그림자 효과 추가 */
+h1 {
+  margin: 0;
 }
-.card-title {
-  color: #007bff;
-  margin-bottom: 1rem;
+
+.board-title {
+  margin: 0;
+  padding: 14px 24px;
+  font-size: 24px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--light-gray);
 }
-.card-text {
-  font-size: 1.1rem;
-  color: #495057;
-  min-height: 150px;
+
+.post-container {
+  padding: 48px 24px;
+  margin-right: 12px;
 }
+
+.post-title {
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.post-meta {
+  gap: 8px;
+  display: flex;
+}
+
+.post-content {
+  margin-top: 16px;
+  margin-bottom: 46px;
+  padding-top: 16px;
+  line-height: 1.6;
+  border-top: 1px solid var(--light-gray);
+  min-height: 200px;
+}
+
+.post-actions {
+  gap: 8px;
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid var(--light-gray);
+  padding-bottom: 28px;
+}
+
+.edit-post-button {
+  color: var(--blue);
+  border: 1px solid var(--blue);
+  background-color: var(--white);
+}
+
+.edit-post-button:hover {
+  color: var(--white);
+  background-color: var(--blue-hover);
+}
+.edit-post-button:active {
+  color: var(--white);
+  background-color: var(--blue-active);
+}
+
+.delete-post-button {
+  background-color: var(--pink);
+}
+.delete-post-button:hover {
+  background-color: var(--pink-hover);
+}
+.delete-post-button:active {
+  background-color: var(--pink-active);
+}
+
 .comments-section {
-  margin-top: 2rem;
+  margin-top: 47px;
 }
-.comments-section h2 {
-  font-size: 1.75rem;
-  margin-bottom: 1rem;
+
+.comment,
+.comment-reply {
+  gap: 26px;
+  display: flex;
+  margin-bottom: 40px;
 }
-.comment-form input,
-.comment-form button,
-.reply-form input,
-.reply-form button {
-  border-radius: 0.25rem;
+
+.comment-reply {
+  margin-left: 70px;
 }
-.btn-primary,
-.btn-danger {
-  margin-right: 0.5rem;
+
+.user-icon {
+  font-size: 50px;
+  color: var(--gray);
 }
-.btn-outline-primary {
-  color: #0d6efd;
-  border-color: #0d6efd;
+
+.comment-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.btn-outline-primary:hover {
-  background-color: #0d6efd;
-  color: white;
+
+.comment-text {
+  line-height: 1.6;
 }
-.btn-outline-secondary {
-  color: #6c757d;
-  border-color: #6c757d;
+
+.comment-meta {
+  gap: 8px;
+  display: flex;
 }
-.btn-outline-secondary:hover {
-  background-color: #6c757d;
-  color: white;
+
+.comment-actions {
+  gap: 8px;
+  display: flex;
+  cursor: pointer;
+  align-items: center;
 }
-.list-group-item {
-  border: 1px solid #e9ecef;
-  border-radius: 0.25rem;
+
+.comment-actions span {
+  gap: 8px;
+  display: flex;
+  cursor: pointer;
+  align-items: center;
 }
-.list-group-item-light {
-  background-color: #f8f9fa;
+
+.cancel-reply-button {
+  background-color: var(--pink);
+}
+
+.reply-icon {
+  color: var(--gray);
+}
+
+.edit-comment-button,
+.edit-reply-button {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.edit-comment-button,
+.edit-reply-button:hover {
+  color: var(--blue-hover);
+}
+
+.edit-comment-button,
+.edit-reply-button:active {
+  color: var(--blue-active);
+}
+
+.delete-comment-button,
+.delete-reply-button {
+  color: var(--pink);
+  text-decoration: underline;
+}
+
+.delete-comment-button,
+.delete-reply-button:hover {
+  color: var(--pink-hover);
+}
+
+.delete-comment-button,
+.delete-reply-button:active {
+  color: var(--pink-active);
+}
+
+.comment-input {
+  padding-bottom: 32px;
+  display: flex;
+  gap: 16px;
+  height: 60px;
+  align-items: center;
+}
+
+.reply-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+}
+
+.submit-comment-button {
+  height: 100%;
+}
+
+.reply-input-container {
+  margin-left: 70px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding-bottom: 32px;
+
+  textarea {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--light-gray);
+    border-radius: 4px;
+  }
+
+  .submit-comment-button {
+    height: 100%;
+  }
+
+  .user-icon {
+    font-size: 30px;
+    margin-top: 10px;
+  }
+
+  .reply-input {
+    padding: 12px 16px;
+    border: 1px solid var(--light-gray);
+    border-radius: 4px;
+  }
+}
+
+.reply-input-container textarea {
+  width: 100%;
+}
+
+.reply-input-container .submit-comment-button {
+  height: 100%;
+}
+
+.reply-input-container .user-icon {
+  font-size: 30px;
+  margin-top: 10px;
+}
+
+.reply-input-container .reply-input {
+  padding: 12px 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+}
+
+.edit-comment-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 50px; /* 원하는 높이로 조절하세요 */
+  font-size: 14px; /* 원하는 폰트 크기로 조절하세요 */
+}
+
+/* 취소 버튼 스타일 */
+.cancel-comment-button {
+  background-color: var(--pink); /* 원하는 배경색으로 변경하세요 */
+}
+
+.cancel-comment-button:hover {
+  background-color: var(--pink-hover); /* 원하는 hover 배경색으로 변경하세요 */
+}
+
+.comment-reply .user-icon {
+  font-size: 30px;
+  margin-top: 10px;
 }
 </style>
