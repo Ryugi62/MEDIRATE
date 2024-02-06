@@ -17,8 +17,8 @@ export default {
       nowRoute: this.$route.path,
       links: [
         { name: "게시판", path: "/board" },
-        { name: "과제 평가", path: "/post" },
-        { name: "과제 관리", path: "/assignment" },
+        { name: "과제 평가", path: "/tasks" },
+        { name: "과제 관리", path: "/evaluation" },
         { name: "대시보드", path: "/dashboard" },
       ],
     };
