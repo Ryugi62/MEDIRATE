@@ -2,6 +2,14 @@
   <h1 class="board__title">게시판</h1>
   <div class="board">
     <form class="create-post__form" @submit.prevent="createPost">
+      <!-- select box 공지사항 or 게시물 -->
+      <div class="form__group" v-if="isAdministrator">
+        <select class="form__input select-box">
+          <option value="notice">공지사항</option>
+          <option value="post">게시물</option>
+        </select>
+      </div>
+
       <div class="form__group">
         <input
           type="text"
@@ -86,6 +94,11 @@ export default {
       },
     };
   },
+  computed: {
+    isAdministrator() {
+      return this.$store.getters.getUser.isAdministrator;
+    },
+  },
   methods: {
     createPost() {
       console.log("게시물 생성:", this.postTitle, this.postContent);
@@ -137,6 +150,16 @@ export default {
   margin-top: 41px;
   margin-left: 24px;
   margin-right: 46px;
+}
+
+/* select */
+.select-box {
+  width: 320px;
+  font-size: 16px;
+  padding: 16px 8px;
+  border: 2px solid var(--black);
+  border-radius: 4px;
+  font-weight: bold;
 }
 
 #post-title {
