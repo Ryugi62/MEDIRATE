@@ -26,11 +26,6 @@ export default {
 
   methods: {
     logout() {
-      this.$store.dispatch("logoutUser");
-
-      // close sidebar
-      this.$store.commit("closeSlideBar");
-
       this.$router.push({ name: "login" });
     },
   },

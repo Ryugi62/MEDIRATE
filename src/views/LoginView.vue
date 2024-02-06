@@ -57,6 +57,9 @@ export default {
   },
 
   mounted() {
+    this.$store.dispatch("logoutUser");
+    this.$store.commit("closeSlideBar");
+
     this.retrieveRememberedUsername();
   },
 
