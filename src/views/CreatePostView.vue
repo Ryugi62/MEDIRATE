@@ -28,6 +28,24 @@
         ></quill-editor>
       </div>
 
+      <div class="form__group file-upload">
+        <input
+          type="file"
+          @change="handleFileUpload"
+          multiple
+          id="file-upload"
+          style="display: none"
+        />
+        <label for="file-upload" class="file-upload__label">파일 선택</label>
+        <div class="file-upload__preview">
+          <ul v-if="fileNames.length > 0">
+            <li v-for="(fileName, index) in fileNames" :key="index">
+              {{ fileName }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div class="form__group button-group">
         <button type="submit" class="form__submit-button">작성</button>
         <button
@@ -54,6 +72,7 @@ export default {
     return {
       postTitle: "",
       postContent: "",
+      fileNames: [], // 파일 이름을 저장할 배열
       editorOptions: {
         modules: {
           toolbar: [
@@ -69,15 +88,28 @@ export default {
   },
   methods: {
     createPost() {
-      const content = document.querySelector(".ql-editor").innerHTML;
-
-      // 게시물 생성 로직
-      console.log("게시물 생성:", this.postTitle, content);
-      // 여기서 게시물 데이터를 API에 전송하거나 상태 관리 라이브러리에 저장할 수 있습니다.
-
-      // 폼 초기화
+      console.log("게시물 생성:", this.postTitle, this.postContent);
       this.postTitle = "";
       this.postContent = "";
+      this.fileNames = []; // 게시물 생성 후 파일 이름 배열 초기화
+    },
+    cancelPostCreation() {
+      this.postTitle = "";
+      this.postContent = "";
+      this.fileNames = []; // 취소 시 파일 이름 배열 초기화
+
+      // 게시물 작성 취소 시 홈 화면으로 이동
+      this.$router.push("/");
+    },
+    handleFileUpload(event) {
+      this.fileNames = []; // 기존 선택된 파일 이름들을 초기화
+      const files = event.target.files;
+      if (files.length > 0) {
+        Array.from(files).forEach((file) => {
+          this.fileNames.push(file.name); // 파일 이름을 배열에 추가
+          // 여기서 파일 업로드 로직을 추가할 수 있습니다.
+        });
+      }
     },
   },
 };
@@ -122,6 +154,34 @@ export default {
 hr {
   margin: 0;
   margin-bottom: 16px;
+}
+
+.file-upload__label {
+  display: inline-block;
+  background-color: #007bff;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.file-upload__label:hover {
+  background-color: #0056b3;
+}
+
+.file-upload__preview {
+  margin-top: 10px;
+}
+
+.file-upload__preview ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.file-upload__preview ul li {
+  margin-bottom: 5px;
+  font-size: 14px;
 }
 
 .button-group {
