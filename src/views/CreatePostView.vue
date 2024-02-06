@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <h1 class="board__title">게시판</h1>
+  <h1 class="board__title">게시판</h1>
+  <div class="board">
     <form class="create-post__form" @submit.prevent="createPost">
       <div class="form__group">
         <input
@@ -84,6 +84,11 @@ export default {
 </script>
 
 <style scoped>
+.board {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 .board__title {
   margin: 0;
   padding: 14px 24px;
