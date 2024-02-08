@@ -891,6 +891,7 @@ export default {
 }
 
 .assignments-table-container {
+  min-width: 950px;
   min-height: 676px;
 }
 

@@ -63,10 +63,12 @@ body {
 }
 
 #app {
+  width: fit-content;
   color: var(--black);
   margin: 0;
   padding: 0;
   outline: 0;
+  min-width: 100%;
 }
 
 a {
