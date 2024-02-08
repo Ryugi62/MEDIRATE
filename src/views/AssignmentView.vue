@@ -859,7 +859,7 @@ export default {
   methods: {
     // 다른 페이지로 리다이렉트
     redirect(id) {
-      this.$router.push({ name: "AssignmentDetail", params: { id } });
+      this.$router.push({ name: "assignmentDetail", params: { id } });
     },
     // 페이지 변경
     changePage(pageNumber) {

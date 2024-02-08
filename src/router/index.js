@@ -1,13 +1,13 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import store from "../store/index";
-import CreatePostView from "../views/CreatePostView.vue";
 import LoginView from "../views/LoginView.vue";
-import DashboardView from "../views/DashboardView.vue";
 import BoardView from "../views/BoardView.vue";
+import CreatePostView from "../views/CreatePostView.vue";
 import PostDetailView from "../views/PostDetailView.vue";
-import TaskView from "../views/TaskView.vue";
-import TaskDetailView from "../views/TaskDetailView.vue";
+import AssignmentView from "../views/AssignmentView.vue";
+import AssignmentDetail from "../views/AssignmentDetailView.vue";
 import EvaluationView from "../views/EvaluationView.vue";
+import DashboardView from "../views/DashboardView.vue";
 
 const routes = [
   {
@@ -16,18 +16,10 @@ const routes = [
     component: BoardView,
     meta: { requiresAuth: true },
   },
-
   {
     path: "/login",
     name: "login",
     component: LoginView,
-  },
-  {
-    path: "/dashboard",
-    name: "dashboard",
-    component: DashboardView,
-    // 메타 필드를 사용하여 이 라우트가 인증이 필요함을 나타냄
-    meta: { requiresAuth: true },
   },
   {
     path: "/board",
@@ -47,23 +39,28 @@ const routes = [
     component: PostDetailView, // 상세 페이지 컴포넌트
     meta: { requiresAuth: true },
   },
-
   {
-    path: "/tasks",
-    name: "tasks",
-    component: TaskView,
+    path: "/assignment",
+    name: "assignment",
+    component: AssignmentView,
     meta: { requiresAuth: true },
   },
   {
-    path: "/task/:id",
-    name: "taskDetail",
-    component: TaskDetailView, // 세부사항 페이지 컴포넌트
+    path: "/assignment/:id",
+    name: "assignmentDetail",
+    component: AssignmentDetail,
     meta: { requiresAuth: true },
   },
   {
     path: "/evaluation",
     name: "evaluation",
     component: EvaluationView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/dashboard",
+    name: "dashboard",
+    component: DashboardView,
     meta: { requiresAuth: true },
   },
   // 추가적인 라우트는 여기에 정의합니다.
