@@ -19,8 +19,11 @@ export default {
   data() {
     return {
       links: [
-        { name: "게시판", paths: ["/", "/board", "/post/:id"] },
-        { name: "과제 평가", paths: ["/assignment", "/assignment/:id"] },
+        { name: "게시판", paths: ["/", "/board", "/post/:id", "/create-post"] },
+        {
+          name: "과제 평가",
+          paths: ["/assignment", "/assignment/:id"],
+        },
         { name: "과제 관리", paths: ["/evaluation"] },
         { name: "대시보드", paths: ["/dashboard"] },
         // 추가 링크는 여기에 정의
