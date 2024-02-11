@@ -89,7 +89,7 @@ header {
 
 .user-icon {
   margin-right: 8px;
-  font-size: 24px;
+  font-size: 16px;
 }
 
 .user-info span {
