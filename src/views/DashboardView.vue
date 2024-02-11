@@ -51,6 +51,15 @@
   <!-- 페이지네이션 -->
   <nav class="pagination-nav" aria-label="Pagination">
     <ul class="pagination">
+      <li>
+        <!-- fa-solid fa-angles-left pagination__button -->
+        <i
+          class="fa-solid fa-angle-left pagination__button"
+          @click="changePage(current - 1)"
+          :disabled="current === 1"
+        ></i>
+      </li>
+
       <!-- 이전 페이지 버튼 -->
       <li>
         <i
@@ -71,6 +80,14 @@
         }}</a>
       </li>
       <!-- 다음 페이지 버튼 -->
+      <li>
+        <i
+          class="fa-solid fa-angle-right pagination__button"
+          @click="changePage(current + 1)"
+          :disabled="current === total"
+        ></i>
+      </li>
+
       <li>
         <i
           class="fa-solid fa-angle-right pagination__button"
