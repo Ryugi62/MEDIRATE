@@ -966,6 +966,7 @@ tbody > tr:hover {
   display: flex;
   list-style: none;
   padding: 0;
+  align-items: center;
 }
 
 .pagination__item {
