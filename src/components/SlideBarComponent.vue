@@ -25,7 +25,7 @@ export default {
           paths: ["/assignment", "/assignment/:id"],
         },
         { name: "과제 관리", paths: ["/evaluation"] },
-        { name: "대시보드", paths: ["/dashboard"] },
+        { name: "대시보드", paths: ["/dashboard", "/dashboard/:id"] },
         // 추가 링크는 여기에 정의
       ],
     };
