@@ -26,7 +26,8 @@
               {{ post.author }}
             </td>
             <td class="body-row__cell body-row__cell--date">
-              {{ post.lastUpdated.split(" ")[0] }}
+              <!-- 2024-05-21T15:00:00.000Z to 2024-05-21 -->
+              {{ post.lastUpdated.split("T")[0] }}
             </td>
           </tr>
         </tbody>
@@ -72,13 +73,11 @@
 </template>
 
 <script>
-import mockPosts from "@/data/mock-posts.js";
-
 export default {
   name: "BoardView",
   data() {
     return {
-      posts: mockPosts,
+      posts: [],
       currentPage: 1,
       postsPerPage: 14,
       maxVisiblePages: 6,
@@ -102,6 +101,24 @@ export default {
       return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     },
   },
+
+  mounted() {
+    this.$axios
+      .get("/api/posts")
+      .then((res) => {
+        console.log(res.data);
+        this.posts = res.data.map((post) => ({
+          id: post.id,
+          title: post.title,
+          author: post.writer,
+          lastUpdated: post.wdate,
+        }));
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  },
+
   methods: {
     navigateToPost(id) {
       this.$router.push({ name: "post", params: { id } });

@@ -1,12 +1,14 @@
 <template>
   <div class="board-container">
     <h1 class="board-title">게시판</h1>
-    <div class="post-container">
+    <div class="post-container" v-if="postData">
       <div class="post-header">
         <h1 class="post-title">{{ postData.title }}</h1>
         <div class="post-meta">
           <span class="author-name">{{ postData.author }}</span>
-          <span class="post-date">{{ postData.lastUpdated }}(수정됨)</span>
+          <span class="post-date">{{
+            postData.lastUpdated.split("T")[0]
+          }}</span>
         </div>
       </div>
 
@@ -33,7 +35,7 @@
         </div>
 
         <div
-          v-for="(comment, commentIndex) in postData.commentsData"
+          v-for="(comment, commentIndex) in postData?.commentsData"
           :key="comment.id"
           class="comment-container"
         >
@@ -52,7 +54,9 @@
               </div>
               <div class="comment-meta">
                 <span class="comment-author">{{ comment.author }}</span>
-                <span class="comment-date">{{ comment.date }}</span>
+                <span class="comment-date">{{
+                  comment.date.split("T")[0]
+                }}</span>
                 <i
                   class="fa-solid fa-reply reply-icon"
                   @click="
@@ -96,6 +100,7 @@
           </div>
 
           <!-- 대댓글 루프 -->
+          <!-- Reply loop -->
           <div
             v-for="(reply, replyIndex) in comment.replies"
             :key="reply.id"
@@ -104,6 +109,7 @@
             <i class="fa-solid fa-circle-user user-icon"></i>
             <div class="comment-body">
               <div class="comment-text">
+                <!-- Check if this reply is being edited -->
                 <textarea
                   v-if="
                     editingReply.commentIndex === commentIndex &&
@@ -118,21 +124,11 @@
               </div>
               <div class="comment-meta">
                 <span class="comment-author">{{ reply.author }}</span>
-                <span class="comment-date">{{ reply.date }}</span>
-                <!-- i 클릭시 대댓글 
-                작성창이 나타나도록 합니다
-                 -->
-                <i
-                  class="fa-solid fa-reply reply-icon"
-                  @click="
-                    editingReply.commentIndex === commentIndex
-                      ? resetEditingReply()
-                      : startEditingReply(commentIndex, -1, '')
-                  "
-                ></i>
+                <span class="comment-date">{{ reply.date.split("T")[0] }}</span>
               </div>
             </div>
             <div class="comment-actions">
+              <!-- Check if editing mode is on for this reply -->
               <span
                 v-if="
                   editingReply.commentIndex === commentIndex &&
@@ -189,8 +185,6 @@
 </template>
 
 <script>
-import mockPosts from "@/data/mock-posts.js";
-
 export default {
   name: "PostDetailView",
 
@@ -221,10 +215,23 @@ export default {
 
   created() {
     this.currentPostId = this.$route.params.id;
-    this.postData = mockPosts.find(
-      (post) => post.id === Number(this.currentPostId)
-    );
-    this.replyInputs = Array(this.postData.commentsData.length).fill("");
+  },
+
+  mounted() {
+    this.$axios
+      .get("/api/posts/" + this.currentPostId)
+      .then((res) => {
+        console.log("Fetched post data:", res.data);
+        this.postData = res.data;
+        // Safely initialize replyInputs only if commentsData is available
+        if (this.postData && this.postData.commentsData) {
+          this.replyInputs = Array(this.postData.commentsData.length).fill("");
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch post data:", error);
+        // Handle error appropriately
+      });
   },
 
   methods: {
@@ -252,12 +259,26 @@ export default {
 
     addComment() {
       if (this.commentInput.trim() !== "") {
-        this.postData.commentsData.push({
-          author: this.loggedInUser.username,
-          text: this.commentInput,
-          replies: [],
-        });
-        this.commentInput = "";
+        // Construct the payload for the API request
+        const payload = {
+          postId: this.currentPostId,
+          username: this.loggedInUser.username, // Ensure you have this info
+          content: this.commentInput,
+        };
+
+        // Make an HTTP POST request to add a comment
+        this.$axios
+          .post("/api/posts/comment", payload)
+          .then((response) => {
+            // Handle success
+            console.log("Comment added successfully", response);
+            // Optionally, refresh comments or the whole post data from the server
+            this.fetchPostData();
+          })
+          .catch((error) => {
+            // Handle error
+            console.error("Error adding comment", error);
+          });
       }
     },
 
@@ -266,9 +287,28 @@ export default {
       this.editedCommentText = text;
     },
 
+    // The editComment method remains the same as shown previously.
+    editComment(commentId, newContent) {
+      const payload = {
+        content: newContent,
+      };
+
+      this.$axios
+        .put(`/api/posts/comments/${commentId}`, payload)
+        .then((response) => {
+          console.log(response.data.message);
+          this.fetchPostData(); // Refresh the comments to reflect the changes
+        })
+        .catch((error) => {
+          console.error("Error editing comment", error);
+        });
+    },
+
     saveEditedComment(index) {
       if (this.editedCommentText.trim() !== "") {
-        this.postData.commentsData[index].text = this.editedCommentText;
+        // Assuming `id` is stored in your comment data
+        const commentId = this.postData.commentsData[index].id;
+        this.editComment(commentId, this.editedCommentText);
         this.resetEditingComment();
       }
     },
@@ -285,13 +325,28 @@ export default {
     addReplyToComment(commentIndex) {
       const replyText = this.replyInputs[commentIndex];
       if (replyText.trim() !== "") {
-        const repliesArray = this.postData.commentsData[commentIndex].replies;
-        repliesArray.push({
-          author: this.loggedInUser.username,
-          text: replyText,
-        });
-        this.replyInputs[commentIndex] = "";
+        const parentCommentId = this.postData.commentsData[commentIndex].id;
+
+        const payload = {
+          parentCommentId: parentCommentId,
+          username: this.loggedInUser.username, // Adjust based on how you track user identity
+          content: replyText,
+        };
+
+        this.$axios
+          .post("/api/posts/reply", payload)
+          .then((response) => {
+            console.log("Reply added successfully", response);
+            this.fetchPostData(); // Refresh post data to include the new reply.
+          })
+          .catch((error) => {
+            console.error("Error adding reply", error);
+          });
       }
+
+      this.replyInputs[commentIndex] = "";
+
+      this.editingReply.commentIndex = -1;
     },
 
     startEditingReply(commentIndex, replyIndex, text) {
@@ -303,8 +358,9 @@ export default {
     saveEditedReply() {
       const { commentIndex, replyIndex } = this.editingReply;
       if (this.editedReplyText.trim() !== "") {
-        this.postData.commentsData[commentIndex].replies[replyIndex].text =
-          this.editedReplyText;
+        const replyId =
+          this.postData.commentsData[commentIndex].replies[replyIndex].id;
+        this.editComment(replyId, this.editedReplyText);
         this.resetEditingReply();
       }
     },
@@ -317,6 +373,18 @@ export default {
 
     removeReply(commentIndex, replyIndex) {
       this.postData.commentsData[commentIndex].replies.splice(replyIndex, 1);
+    },
+
+    fetchPostData() {
+      this.$axios
+        .get(`/api/posts/${this.currentPostId}`)
+        .then((response) => {
+          // Update postData with the latest data from the server
+          this.postData = response.data;
+        })
+        .catch((error) => {
+          console.error("Failed to fetch post data", error);
+        });
     },
   },
 };
