@@ -6,7 +6,16 @@
         :key="link.name"
         :to="getDefaultPath(link.paths)"
       >
-        <li :class="{ active: isLinkActive(link.paths) }">{{ link.name }}</li>
+        <li
+          :class="{ active: isLinkActive(link.paths) }"
+          v-if="
+            !link.isAdmin ||
+            // (link.isAdmin && this.$store.getters.getUser.isAdministrator)
+            (link.isAdmin && this.$store.getters.getUser.isAdministrator)
+          "
+        >
+          {{ link.name }}
+        </li>
       </router-link>
     </ul>
   </div>
@@ -19,14 +28,22 @@ export default {
   data() {
     return {
       links: [
-        { name: "게시판", paths: ["/", "/board", "/post/:id", "/create-post"] },
+        {
+          name: "게시판",
+          paths: ["/", "/board", "/post/:id", "/create-post"],
+          isAdmin: false,
+        },
         {
           name: "과제 평가",
           paths: ["/assignment", "/assignment/:id"],
+          isAdmin: false,
         },
-        { name: "과제 관리", paths: ["/evaluation"] },
-        { name: "대시보드", paths: ["/dashboard", "/dashboard/:id"] },
-        // 추가 링크는 여기에 정의
+        { name: "과제 관리", paths: ["/evaluation"], isAdmin: true },
+        {
+          name: "대시보드",
+          paths: ["/dashboard", "/dashboard/:id"],
+          isAdmin: true,
+        },
       ],
     };
   },

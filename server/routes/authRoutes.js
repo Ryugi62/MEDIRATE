@@ -6,7 +6,9 @@ const path = require("path"); // Used for serving the login page
 // Function to compare password with stored hash
 // Replace this with your actual password verification logic
 function verifyPassword(inputPassword, storedHash) {
-  return inputPassword == storedHash;
+  console.log("inputPassword: ", inputPassword);
+  console.log("storedHash: ", storedHash);
+  return inputPassword === storedHash;
 }
 
 // Handle login attempts
@@ -25,23 +27,22 @@ router.post("/login", async (req, res) => {
         // Authentication successful
         req.session.user = { id: user.id, username: user.username };
 
-        // Manually create a new user object without the encrypted_password
+        // trim the user input
         const userWithoutPassword = {
-          id: user.id,
-          username: user.username,
+          username: trimmedUsername,
           realname: user.realname,
-          // Include any other user fields you want to return, except encrypted_password
           organization: user.organization,
+          role: user.role,
         };
 
-        res.send(userWithoutPassword);
+        res.status(200).send(userWithoutPassword);
       } else {
         // Password does not match
-        res.send("Invalid username or password.");
+        res.status(500).send("Invalid username or password.");
       }
     } else {
-      // No user found with the provided username
-      res.send("Invalid username or password.");
+      // No user found
+      res.status(500).send("Invalid username or password.");
     }
   } catch (error) {
     console.error("Server error during login:", error);

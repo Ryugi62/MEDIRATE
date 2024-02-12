@@ -86,9 +86,11 @@ export default {
           password,
         })
         .then((result) => {
-          console.log(result.data);
+          const isAdministrator =
+            result.data.username === "admin" ||
+            result.data.username === "superadmin ";
 
-          const isAdministrator = result.data.organization === true;
+          console.log(result.data.username, isAdministrator);
 
           this.$store.dispatch("loginUser", {
             username,
