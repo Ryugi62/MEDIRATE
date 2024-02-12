@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db"); // 데이터베이스 연결 설정을 가정
+const path = require("path");
 
 // 모든 게시글 조회
 router.get("/", async (req, res) => {
   try {
-    const query = "SELECT * FROM board ORDER BY wdate DESC";
+    // 오름차순으로 게시글 조회
+    const query = "SELECT * FROM board ORDER BY wdate ASC";
     const [posts] = await db.query(query);
     res.json(posts);
   } catch (error) {
@@ -24,6 +26,7 @@ router.get("/:id", async (req, res) => {
         b.content AS post_content,
         b.writer AS post_author,
         b.wdate AS post_created_at,
+        pf.file_path AS file_path,
         c.id AS comment_id,
         c.username AS comment_author,
         c.content AS comment_content,
@@ -33,6 +36,8 @@ router.get("/:id", async (req, res) => {
         board AS b
       LEFT JOIN 
         comments AS c ON b.id = c.post_id
+      LEFT JOIN 
+        post_files AS pf ON b.id = pf.post_id
       WHERE
         b.id = ?
       ORDER BY 
@@ -77,9 +82,16 @@ router.get("/:id", async (req, res) => {
             author: results[0].post_author,
             content: results[0].post_content,
             lastUpdated: results[0].post_created_at,
+            files: results.map((row) => ({
+              // filename: row.file_path.split("/").pop(), // Extract filename from file path
+              // path: row.file_path,
+              // { "filename": "uploads\\stestset.txt", "path": "uploads\\stestset.txt" }
+              filename: row.file_path.split("\\").pop(), // Extract filename from file path
+              path: row.file_path.split("\\").slice(0, -1).join("\\"),
+            })),
             commentsData: commentsData.filter(
               (comment) => !comment.parentCommentId
-            ), // Filter out replies at the top level
+            ),
           }
         : null;
 
@@ -90,16 +102,44 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// 게시글 추가
-router.post("/", async (req, res) => {
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./uploads"); // Make sure this directory exists
+  },
+  filename: function (req, file, cb) {
+    // Use the original file name
+    cb(null, file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+// Route to handle post creation, including file uploads
+router.post("/", upload.array("files"), async (req, res) => {
   const { title, content, userId } = req.body;
+  const files = req.files;
+
   try {
-    const query =
-      "INSERT INTO posts (title, content, user_id, created_at) VALUES (?, ?, ?, NOW())";
-    await db.query(query, [title, content, userId]);
-    res.status(201).send("게시글이 성공적으로 추가되었습니다.");
+    // Insert the post into the board table
+    const postQuery =
+      "INSERT INTO board (writer, title, content, wdate, modified) VALUES (?, ?, ?, NOW(), 0)";
+    const [postResult] = await db.query(postQuery, [userId, title, content]);
+    const postId = postResult.insertId;
+
+    // Insert each file path into the post_files table
+    files.forEach(async (file) => {
+      const filePath = path.join("uploads", file.filename);
+      const fileQuery =
+        "INSERT INTO post_files (post_id, file_path) VALUES (?, ?)";
+      await db.query(fileQuery, [postId, filePath]);
+    });
+
+    res.status(201).json({ message: "Post and files added successfully" });
   } catch (error) {
-    res.status(500).send("게시글 추가 중 오류가 발생했습니다.");
+    console.error("Error creating post and uploading files:", error);
+    res.status(500).json({ error: "Failed to create post and upload files" });
   }
 });
 

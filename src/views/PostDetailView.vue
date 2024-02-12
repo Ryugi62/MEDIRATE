@@ -10,11 +10,31 @@
             postData.lastUpdated.split("T")[0]
           }}</span>
         </div>
+
+        <div
+          class="post-files"
+          v-if="postData.files && postData.files.length > 0"
+        >
+          <ul>
+            <li v-for="(file, index) in postData.files" :key="index">
+              <i
+                :class="getFileIconClass(file.filename.split('.').pop())"
+                class="file-icon"
+              ></i>
+              <span class="file-size">{{ file.size }}</span>
+              <a
+                :href="`http://localhost:3000/${file.path}/:filename=${file.filename}`"
+                class="file-name"
+                >{{ file.filename }}</a
+              >
+            </li>
+          </ul>
+        </div>
       </div>
 
-      <div class="post-content">
-        {{ postData.content }}
-      </div>
+      <div class="post-content" v-html="postData.content"></div>
+
+      <!-- Add this section for attached files -->
 
       <div class="post-actions">
         <button class="edit-post-button" @click="startEditingPost">수정</button>
@@ -386,6 +406,35 @@ export default {
           console.error("Failed to fetch post data", error);
         });
     },
+
+    getFileIconClass(filename) {
+      const extension = filename.split(".").pop();
+      if (extension === "pdf") {
+        return "fa-solid fa-file-pdf";
+      } else if (extension === "docx" || extension === "doc") {
+        return "fa-solid fa-file-word";
+      } else if (extension === "xlsx" || extension === "xls") {
+        return "fa-solid fa-file-excel";
+      } else if (extension === "pptx" || extension === "ppt") {
+        return "fa-solid fa-file-powerpoint";
+      } else if (
+        extension === "jpg" ||
+        extension === "jpeg" ||
+        extension === "png"
+      ) {
+        return "fa-solid fa-file-image";
+      } else if (extension === "mp3" || extension === "wav") {
+        return "fa-solid fa-file-audio";
+      } else if (
+        extension === "mp4" ||
+        extension === "avi" ||
+        extension === "mov"
+      ) {
+        return "fa-solid fa-file-video";
+      } else {
+        return "fa-solid fa-file";
+      }
+    },
   },
 };
 </script>
@@ -640,5 +689,48 @@ h1 {
 .comment-reply .user-icon {
   font-size: 30px;
   margin-top: 10px;
+}
+
+.post-files {
+  ul {
+    padding: 0;
+  }
+
+  li {
+    list-style: none;
+    margin-bottom: 8px;
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: underline;
+  }
+
+  a:hover {
+    color: var(--blue-hover);
+  }
+
+  a:active {
+    color: var(--blue-active);
+  }
+}
+
+.file-icon {
+  margin-right: 8px;
+}
+
+/* Add file name styles */
+.file-name {
+  margin-right: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--black);
+  text-decoration: none;
+}
+
+/* Add file size styles */
+.file-size {
+  font-size: 14px;
+  color: var(--gray);
 }
 </style>

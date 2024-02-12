@@ -22,6 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("dist"));
 app.use(cors());
+app.use("../uploads", express.static("uploads"));
 
 // 세션 설정
 app.use(
@@ -43,6 +44,25 @@ app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/comments", commentRoutes);
+
+app.get("/uploads/:filename", (req, res) => {
+  const { filename } = req.params;
+
+  // 파일이 저장된 절대 경로 설정
+  const absolutePath = path.join(
+    __dirname,
+    "../uploads",
+    filename.split("=")[1]
+  );
+
+  // 파일 다운로드
+  res.download(absolutePath, (err) => {
+    if (err) {
+      console.error("Error downloading file:", err);
+      res.status(500).send("Failed to download file");
+    }
+  });
+});
 
 // 홈페이지 라우트 - Vue로 build된 앱을 위한 경로
 app.get("*", (req, res) => {

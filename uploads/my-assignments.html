@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Assignments</title>
+  </head>
+  <body>
+    <div id="assignments"></div>
+
+    <script>
+      fetch("/my-assignments")
+        .then((response) => response.json())
+        .then((assignments) => {
+          const container = document.getElementById("assignments");
+          assignments.forEach((assignment) => {
+            const section = document.createElement("section");
+            section.innerHTML = `<h2>${assignment["FileName"]}</h2>`; // 데이터베이스 필드 이름에 맞게 조정
+            assignment.imageFiles.forEach((imgSrc) => {
+              const img = document.createElement("img");
+              img.src = imgSrc;
+              img.style.width = "100px"; // 예시로 이미지 크기 설정
+              section.appendChild(img);
+            });
+            container.appendChild(section);
+          });
+        })
+        .catch((error) => console.error("Error:", error));
+    </script>
+  </body>
+</html>

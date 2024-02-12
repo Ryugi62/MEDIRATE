@@ -30,7 +30,9 @@
 
       <div class="form__group">
         <quill-editor
-          v-model="postContent"
+          v-model:content="postContent"
+          contentType="html"
+          theme="snow"
           :options="editorOptions"
           placeholder="내용을 입력하세요."
         ></quill-editor>
@@ -94,18 +96,53 @@ export default {
       },
     };
   },
+
   computed: {
     isAdministrator() {
       return this.$store.getters.getUser.isAdministrator;
     },
   },
+
   methods: {
     createPost() {
-      console.log("게시물 생성:", this.postTitle, this.postContent);
+      let formData = new FormData();
+      formData.append("title", this.postTitle);
+      formData.append("content", this.postContent); // Ensure this contains the expected data
+      formData.append("userId", this.$store.getters.getUser.username);
+
+      const files = document.querySelector("#file-upload").files;
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]); // Appends each file under 'files' key
+      }
+
+      // Iterate over formData and log key-value pairs
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+
+      this.$axios
+        .post("/api/posts", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
+        .then((response) => {
+          console.log("Post created successfully:", response.data);
+          this.resetForm();
+          this.$router.push("/"); // Redirect to the home or post listing page
+        })
+        .catch((error) => {
+          console.error("Error creating post:", error);
+        });
+    },
+
+    resetForm() {
       this.postTitle = "";
       this.postContent = "";
-      this.fileNames = []; // 게시물 생성 후 파일 이름 배열 초기화
+      this.fileNames = [];
+      // Reset any other state related to post creation
     },
+
     cancelPostCreation() {
       this.postTitle = "";
       this.postContent = "";
@@ -114,6 +151,7 @@ export default {
       // 게시물 작성 취소 시 홈 화면으로 이동
       this.$router.push("/");
     },
+
     handleFileUpload(event) {
       this.fileNames = []; // 기존 선택된 파일 이름들을 초기화
       const files = event.target.files;

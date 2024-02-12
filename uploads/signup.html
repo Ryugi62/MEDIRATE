@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sign Up</title>
+  </head>
+  <body>
+    <form method="POST" action="/signup" id="signupForm">
+      <label for="username">닉네임: </label
+      ><input type="text" name="username" id="username" required />
+      <br />
+      <label for="name">이름: </label
+      ><input type="text" name="name" id="name" required />
+      <br />
+      <label for="address">주소: </label
+      ><input type="text" name="address" id="address" required />
+      <br />
+      <label for="age">나이: </label
+      ><input type="text" name="age" id="age" required />
+      <br />
+      <label for="password">비밀번호: </label
+      ><input type="password" name="password" id="password" required />
+      <br />
+      <label for="confirmPassword">비밀번호 확인: </label
+      ><input
+        type="password"
+        name="confirmPassword"
+        id="confirmPassword"
+        required
+      />
+      <br />
+      <label>성별: </label>
+      <input type="radio" name="gender" id="male" value="1" required />
+      <!-- 남자는 1 -->
+      <label for="male">남성</label>
+      <input type="radio" name="gender" id="female" value="0" required />
+      <!-- 여자는 0 -->
+      <label for="female">여성</label>
+      <br />
+      <label for="privacy">개인정보 수집 동의:</label>
+      <input type="checkbox" name="privacy" id="privacy" value="1" required />
+
+      <br />
+      <button type="submit">회원가입</button>
+    </form>
+
+    <script>
+      document
+        .getElementById("signupForm")
+        .addEventListener("submit", function (event) {
+          var requiredFields = [
+            "username",
+            "name",
+            "address",
+            "age",
+            "password",
+            "confirmPassword", // 추가된 비밀번호 확인 필드
+            "gender",
+            "privacy",
+          ];
+          var missingFields = [];
+
+          for (var i = 0; i < requiredFields.length; i++) {
+            var field = requiredFields[i];
+            if (!document.getElementById(field).value) {
+              missingFields.push(field);
+            }
+          }
+
+          // 비밀번호와 비밀번호 확인 필드의 값이 일치하는지 확인
+          var password = document.getElementById("password").value;
+          var confirmPassword =
+            document.getElementById("confirmPassword").value;
+          if (password !== confirmPassword) {
+            missingFields.push("비밀번호와 비밀번호 확인");
+          }
+
+          if (missingFields.length > 0) {
+            event.preventDefault(); // 폼 제출을 막습니다.
+
+            var missingFieldsText = missingFields.join(", ");
+            alert("다음 필드를 입력하세요: " + missingFieldsText);
+          }
+        });
+    </script>
+  </body>
+</html>
