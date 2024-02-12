@@ -2,17 +2,20 @@ const mysql = require("mysql2/promise");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
-// 데이터베이스 연결 설정
-const dbConfig = {
+// 데이터베이스 연결 풀 설정
+const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
-};
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
-// 테이블 생성 쿼리
-const tables = {
+// 초기 테이블 생성
+const createTablesSQL = {
   board: `
     CREATE TABLE IF NOT EXISTS board (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -21,8 +24,8 @@ const tables = {
       content TEXT NOT NULL,
       filepath VARCHAR(255),
       wdate DATE NOT NULL,
-      modified TINYINT(1) NOT NULL,
-      isNotice TINYINT(1)
+      modified TINYINT(1) NOT NULL DEFAULT 0,
+      isNotice TINYINT(1) DEFAULT 0
     )`,
   comments: `
     CREATE TABLE IF NOT EXISTS comments (
@@ -30,8 +33,8 @@ const tables = {
       username VARCHAR(255) NOT NULL,
       content TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      parent_comment_id INT,
-      post_id INT,
+      parent_comment_id INT DEFAULT NULL,
+      post_id INT DEFAULT NULL,
       modified TINYINT(1) DEFAULT 0
     )`,
   filename: `
@@ -42,7 +45,7 @@ const tables = {
     )`,
   user_credentials: `
     CREATE TABLE IF NOT EXISTS user_credentials (
-      username VARCHAR(255),
+      username VARCHAR(255) PRIMARY KEY,
       realname VARCHAR(255),
       encrypted_password VARCHAR(255),
       organization VARCHAR(255)
@@ -74,23 +77,19 @@ const tables = {
     )`,
 };
 
-// 데이터베이스 연결 및 테이블 생성
+// 데이터베이스 초기화 및 테이블 생성 함수
 async function initializeDb() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-    console.log("Connected to the database.");
-
-    // 각 테이블에 대해 생성 쿼리 실행
-    for (const table in tables) {
-      await connection.execute(tables[table]);
+    for (const table in createTablesSQL) {
+      await pool.execute(createTablesSQL[table]);
       console.log(`Table ${table} is ready.`);
     }
-
-    await connection.end();
   } catch (error) {
-    console.error("Error connecting to the database:", error);
+    console.error("Error initializing database:", error);
   }
 }
 
-// 데이터베이스 초기화
+// 애플리케이션 시작 시 데이터베이스 초기화
 initializeDb();
+
+module.exports = pool;

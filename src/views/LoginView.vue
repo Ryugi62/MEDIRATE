@@ -69,11 +69,7 @@ export default {
       if (this.rememberMe) this.rememberUsername(credentials.username);
       else this.forgetUsername();
 
-      if (this.isLoginValid(credentials.username, credentials.password)) {
-        this.login(credentials);
-      } else {
-        this.loginError = "Invalid username or password. Please try again.";
-      }
+      this.login(credentials);
     },
 
     extractCredentials() {
@@ -83,23 +79,29 @@ export default {
       );
     },
 
-    isLoginValid(username, password) {
-      return (
-        (username === "user" && password === "password") ||
-        (username === "admin" && password === "password")
-      );
-    },
-
     login({ username, password }) {
-      const isAdministrator = username === "admin" && password === "password";
-      this.$store.dispatch("loginUser", {
-        username,
-        password,
-        isAdministrator,
-      });
-      // mutateion
-      this.$store.commit("openSlideBar", true);
-      this.$router.push({ name: "home" });
+      this.$axios
+        .post("/api/auth/login", {
+          username,
+          password,
+        })
+        .then((result) => {
+          console.log(result.data);
+
+          const isAdministrator = result.data.organization === true;
+
+          this.$store.dispatch("loginUser", {
+            username,
+            password,
+            isAdministrator,
+          });
+          // mutateion
+          this.$store.commit("openSlideBar", true);
+          this.$router.push({ name: "home" });
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     },
 
     togglePasswordVisibility() {
