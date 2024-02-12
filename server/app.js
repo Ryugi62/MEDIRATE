@@ -12,7 +12,7 @@ const commentRoutes = require("./routes/commentRoutes");
 const postRoutes = require("./routes/postRoutes");
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.SERVER_PORT || 3000;
 
 // 세션 저장소 설정
 const sessionStore = new MySQLStore({}, db);
@@ -33,11 +33,15 @@ app.use(
   })
 );
 
+app.get("/api/test", async (req, res) => {
+  console.log("Test");
+});
+
 // 라우트 사용
-app.use("/auth", authRoutes);
-app.use("/posts", postRoutes);
-app.use("/assignments", assignmentRoutes);
-app.use("/comments", commentRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/comments", commentRoutes);
 
 // 홈페이지 라우트 Vue로 build 됨
 

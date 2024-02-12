@@ -1,6 +1,6 @@
 const mysql = require("mysql2/promise");
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // 데이터베이스 연결 설정
 const dbConfig = {

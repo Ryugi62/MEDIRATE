@@ -23,6 +23,19 @@ export default {
     HeaderComponent,
     SlideBarComponent,
   },
+
+  mounted() {
+    if (this.$axios) console.log("good");
+
+    this.$axios
+      .get("/api/test")
+      .then((response) => {
+        console.log(response.data);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  },
 };
 </script>
 
