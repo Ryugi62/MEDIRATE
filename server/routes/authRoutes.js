@@ -6,8 +6,6 @@ const path = require("path"); // Used for serving the login page
 // Function to compare password with stored hash
 // Replace this with your actual password verification logic
 function verifyPassword(inputPassword, storedHash) {
-  console.log("inputPassword: ", inputPassword);
-  console.log("storedHash: ", storedHash);
   return inputPassword === storedHash;
 }
 

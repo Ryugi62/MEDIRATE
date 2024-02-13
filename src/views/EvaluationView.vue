@@ -27,8 +27,8 @@
               :class="['user-item-add', { active: isUserAdded(user) }]"
             >
               <div class="user-item-content">
-                <span class="user-name">{{ user.name }}</span>
-                <span class="user-affiliation">{{ user.affiliation }}</span>
+                <span class="user-name">{{ user.realname.trim() }}</span>
+                <span class="user-affiliation">{{ user.username }}</span>
               </div>
               <i class="fa-solid fa-user-plus"></i>
             </div>
@@ -44,8 +44,8 @@
               class="user-item-added"
             >
               <div class="user-item-content">
-                <span class="user-name">{{ user.name }}</span>
-                <span class="user-affiliation">{{ user.affiliation }}</span>
+                <span class="user-name">{{ user.realname.trim() }}</span>
+                <span class="user-affiliation">{{ user.username }}</span>
               </div>
               <i class="fa-solid fa-user-minus" @click="removeUser(index)"></i>
             </div>
@@ -174,11 +174,7 @@ export default {
   name: "AssignmentManagementView",
   data() {
     return {
-      userList: Array.from({ length: 100 }, (_, i) => ({
-        id: i + 1,
-        name: `유저 이름 ${i + 1}`,
-        affiliation: `유저 소속 ${i + 1}`,
-      })),
+      userList: [], // 기존의 userList 초기화
       addedUsers: [],
       maxUserCount: 5,
       searchInput: "",
@@ -222,14 +218,25 @@ export default {
       },
     };
   },
+  mounted() {
+    this.fetchUserList();
+  },
   computed: {
     filteredUserList() {
+      console.log(this.userList);
+
+      if (!this.searchInput) return this.userList;
       const searchKeyword = this.searchInput.toLowerCase();
-      return this.userList.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchKeyword) ||
-          user.affiliation.toLowerCase().includes(searchKeyword)
-      );
+      return this.userList.filter((user) => {
+        const userName = user.realname ? user.realname.toLowerCase() : "";
+        const userOrganization = user.organization
+          ? user.organization.toLowerCase()
+          : "";
+        return (
+          userName.includes(searchKeyword) ||
+          userOrganization.includes(searchKeyword)
+        );
+      });
     },
     studentName() {
       return "학생 이름";
@@ -237,7 +244,9 @@ export default {
   },
   methods: {
     isUserAdded(user) {
-      return this.addedUsers.some((addedUser) => addedUser.id === user.id);
+      return this.addedUsers.some(
+        (addedUser) => addedUser.username === user.username
+      );
     },
     addUser(user) {
       if (
@@ -279,17 +288,28 @@ export default {
         return;
       }
 
+      console.log(JSON.stringify(this.assignmentDetails, null, 2));
+
       // 새로운 과제를 생성 또는 수정합니다. 알림
       if (this.assignmentDetails.id) {
         alert("과제 변경사항을 저장합니다");
       } else {
-        // 선택된 유저 리스트, 과제 정보 등 새 과제의 정보 표출
-        console.log(this.addedUsers, this.assignmentDetails);
-
         alert("새로운 과제를 생성합니다");
 
-        // router push /
-        this.$router.push({ name: "assignment" });
+        this.$axios
+          .post("/api/assignments/", this.assignmentDetails)
+          .then((response) => {
+            console.log("새로운 과제가 생성되었습니다:", response.data);
+
+            // 과제 평가 페이지로 이동
+            this.$router.push({
+              name: "assignmentDetail",
+              params: { id: response.data.id },
+            });
+          })
+          .catch((error) => {
+            console.error("새로운 과제 생성 중 오류 발생:", error);
+          });
       }
     },
     generateQuestions(count) {
@@ -302,6 +322,22 @@ export default {
         })
       );
     },
+    fetchUserList() {
+      this.$axios
+        .post("/api/assignments/user-list")
+        .then((response) => {
+          response.data.forEach((user) => {
+            console.log(user.username, user.realname, user.organization);
+          });
+          this.userList = response.data;
+
+          console.log("유저 정보를 가져왔습니다:", this.userList);
+        })
+        .catch((error) => {
+          console.error("유저 정보를 가져오는 중 오류 발생:", error);
+        });
+    },
+    // 기타 메서드들
   },
   watch: {
     "assignmentDetails.selectedAssignmentId"(newVal) {

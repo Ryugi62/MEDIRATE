@@ -3,6 +3,7 @@ const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const path = require("path");
 const cors = require("cors");
+const bodyParser = require("body-parser");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const db = require("./db"); // 데이터베이스 설정
@@ -23,6 +24,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("dist"));
 app.use(cors());
 app.use("../uploads", express.static("uploads"));
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 // 세션 설정
 app.use(
@@ -35,8 +38,10 @@ app.use(
   })
 );
 
-app.get("/api/test", async (req, res) => {
-  res.send("API Test Route is working!");
+// 접속할때마다 어디에 접속했는지 확인
+app.use((req, res, next) => {
+  console.log("Request URL:", req.url);
+  next();
 });
 
 // 라우트 사용

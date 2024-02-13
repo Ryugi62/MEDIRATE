@@ -1,12 +1,18 @@
 <template>
-  <div class="assignment-detail-view">
+  <div v-if="currentAssignmentDetails" class="assignment-detail-view">
     <h1 class="header-title">과제 평가</h1>
 
     <div class="assignment-overview">
       <div class="assignment-metadata">
-        <h2 class="metadata-assignment-title">과제 제목</h2>
-        <span class="metadata-student-name">남궁민수</span>
-        <span class="metadata-due-date">2024-02-02</span>
+        <h2 class="metadata-assignment-title">
+          {{ currentAssignmentDetails.FileName }}
+        </h2>
+        <span class="metadata-student-name">
+          {{ currentAssignmentDetails.studentName }}
+        </span>
+        <span class="metadata-due-date">
+          마감일: {{ currentAssignmentDetails.Deadline }}
+        </span>
       </div>
 
       <div class="evaluation-actions">
@@ -36,27 +42,28 @@
             <tr
               v-for="(question, idx) in currentAssignmentDetails.questions"
               :key="question.id"
-              :class="{ active: activeQuestionId === question.id }"
-              @click="onRowClick(question)"
             >
               <td>
                 <img
-                  :src="`https://via.placeholder.com/1025x1025.png?text=Q${idx}`"
+                  :src="`https://via.placeholder.com/1025x1025.png?text=Q${
+                    idx + 1
+                  }`"
                   alt="Question"
                 />
               </td>
-              <td v-for="grade in gradingScale[gradingType]" :key="grade">
+              <td
+                v-for="(grade, index) in gradingScale[gradingType]"
+                :key="index"
+              >
                 <input
                   type="radio"
-                  :id="`grade-${question.id}-${grade}`"
-                  :name="`grade-${question.id}`"
-                  :value="grade"
-                  :checked="question.selectValue === grade"
-                  @change="updateSelectedValue(question.id, grade)"
+                  :id="`grade-${idx}-${index}`"
+                  :name="`grade-${idx}`"
+                  :value="index"
+                  :checked="question.selectedValue == index"
+                  @change="updateSelectedValue(idx, $event.target.value)"
                 />
-                <label :for="`grade-${question.id}-${grade}`">{{
-                  grade
-                }}</label>
+                <label :for="`grade-${idx}-${index}`">{{ grade }}</label>
               </td>
             </tr>
           </tbody>
@@ -75,6 +82,7 @@
       </div>
     </div>
   </div>
+  <div v-else>과제를 불러오는 중입니다...</div>
 </template>
 
 <script>
@@ -96,43 +104,70 @@ export default {
     };
   },
 
-  created() {
-    this.loadAssignmentDetails(this.$route.params.id);
+  async created() {
+    await this.loadAssignmentDetails(this.$route.params.id);
   },
-
   mounted() {
-    this.updateActiveImage();
-    this.makeTdClickable();
+    this.$nextTick(() => {
+      this.makeTdClickable();
+    });
   },
 
   methods: {
-    loadAssignmentDetails(assignmentId) {
-      this.currentAssignmentDetails = {
-        id: assignmentId,
-        questions: Array.from({ length: 30 }, (_, i) => ({
-          id: i + 1,
-          title: `문제 ${i + 1}`,
-          image: `https://via.placeholder.com/1080x1080.png?text=Q${i + 1}`,
-          selectValue: -1,
-        })),
-      };
-      this.draftAssignmentDetails = JSON.parse(
-        JSON.stringify(this.currentAssignmentDetails)
-      );
+    async loadAssignmentDetails(assignmentId) {
+      try {
+        const response = await this.$axios.get(
+          `/api/assignments/${assignmentId}`
+        );
+        this.currentAssignmentDetails = response.data;
+
+        console.log("과제 세부 정보:", this.currentAssignmentDetails);
+
+        // Ensure the DOM is updated before making TDs clickable
+        this.$nextTick(() => {
+          this.makeTdClickable();
+        });
+      } catch (error) {
+        console.error("Error loading assignment details:", error);
+      }
     },
 
-    commitAssignmentChanges() {
-      console.log("과제 변경사항을 저장합니다", this.draftAssignmentDetails);
-      this.isEditEnabled = false;
+    async commitAssignmentChanges() {
+      // radio 버튼 비활성화
+      const radioButtons = this.$el.querySelectorAll(
+        ".grades-table table tbody input[type='radio']"
+      );
+      radioButtons.forEach((radio) => (radio.disabled = true));
 
-      this.draftAssignmentDetails.questions.forEach((question) => {
-        const originalQuestion = this.currentAssignmentDetails.questions.find(
-          (q) => q.id === question.id
+      const dataToSubmit = {
+        id: this.currentAssignmentDetails.id,
+        questions: this.currentAssignmentDetails.questions.map((question) => ({
+          assignmentID: question.assignmentID,
+          sequence: question.sequence,
+          selectedValue: question.selectedValue, // 이미 인덱스로 변환된 값 사용
+        })),
+      };
+
+      console.log("제출할 데이터:", dataToSubmit);
+
+      try {
+        const response = await this.$axios.post(
+          "/api/assignments/update",
+          dataToSubmit
         );
-        if (originalQuestion) {
-          question.selectValue = originalQuestion.selectValue;
-        }
-      });
+
+        response.data;
+
+        alert("과제 평가가 성공적으로 저장되었습니다!");
+
+        this.$router.push("/assignment");
+      } catch (error) {
+        console.error("과제 저장 중 오류 발생:", error);
+        // 오류 처리 로직
+      }
+
+      // radio 버튼 활성화
+      radioButtons.forEach((radio) => (radio.disabled = false));
     },
 
     toggleEditState() {
@@ -143,30 +178,48 @@ export default {
         );
       }
     },
-
     makeTdClickable() {
       const table = this.$el.querySelector(".grades-table table");
-      table.addEventListener("click", (event) => {
-        const target = event.target;
-        if (target.tagName === "TD") {
-          const radio = target.querySelector('input[type="radio"]');
-          if (radio) {
-            radio.click();
+      if (table) {
+        table.addEventListener("click", (event) => {
+          let target = event.target;
+
+          // TD 내부의 라디오 버튼 또는 레이블을 클릭했을 경우를 처리
+          if (target.tagName === "TD" || target.tagName === "LABEL") {
+            if (target.tagName === "LABEL") {
+              // LABEL 클릭 시, 관련 라디오 버튼으로 타겟 변경
+              target = document.getElementById(target.getAttribute("for"));
+            } else {
+              // TD 클릭 시, 해당 TD 내부의 첫 번째 라디오 버튼을 타겟으로 설정
+              target = target.querySelector('input[type="radio"]');
+            }
+            if (target) {
+              const questionId = parseInt(target.name.split("-")[1], 10);
+              const selectedValue = target.value;
+              this.updateSelectedValue(questionId, selectedValue);
+            }
           }
-        }
-      });
+        });
+      } else {
+        console.warn("Table not found!");
+      }
     },
 
     updateActiveImage() {
-      const studentResponseImage = this.$el.querySelector(
-        ".student-response-image img"
-      );
-      const firstQuestion = this.currentAssignmentDetails.questions[0];
-      if (firstQuestion) {
-        studentResponseImage.src = firstQuestion.image;
-        const firstTr = this.$el.querySelector(".grades-table table tbody tr");
-        if (firstTr) {
-          firstTr.classList.add("active");
+      if (
+        this.currentAssignmentDetails &&
+        this.currentAssignmentDetails.questions
+      ) {
+        const studentResponseImage = this.$refs.studentResponseImage;
+        const firstQuestion = this.currentAssignmentDetails.questions[0];
+        if (firstQuestion && studentResponseImage) {
+          studentResponseImage.src = firstQuestion.image;
+          const firstTr = this.$refs.gradesTable.querySelector(
+            ".grades-table table tbody tr"
+          );
+          if (firstTr) {
+            firstTr.classList.add("active");
+          }
         }
       }
     },
@@ -188,17 +241,10 @@ export default {
       });
     },
 
-    updateSelectedValue(questionId, selectedValue) {
-      const questionIndex = this.currentAssignmentDetails.questions.findIndex(
-        (question) => question.id === questionId
-      );
-      if (questionIndex !== -1) {
-        const gradeIndex =
-          this.gradingScale[this.gradingType].indexOf(selectedValue);
-        this.currentAssignmentDetails.questions[questionIndex].selectValue =
-          gradeIndex !== -1 ? gradeIndex + 1 : -1;
-      }
-      this.$forceUpdate();
+    updateSelectedValue(questionIdx, value) {
+      const selectedValue = parseInt(value);
+      this.currentAssignmentDetails.questions[questionIdx].selectedValue =
+        selectedValue;
     },
 
     toggleFullScreenImage() {
