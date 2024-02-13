@@ -237,6 +237,7 @@ export default {
     this.currentPostId = this.$route.params.id;
   },
 
+  // Modify this part in the mounted() method
   mounted() {
     this.$axios
       .get("/api/posts/" + this.currentPostId)
@@ -246,6 +247,14 @@ export default {
         // Safely initialize replyInputs only if commentsData is available
         if (this.postData && this.postData.commentsData) {
           this.replyInputs = Array(this.postData.commentsData.length).fill("");
+        }
+        // Parse file paths to handle empty paths
+        if (this.postData && this.postData.files) {
+          this.postData.files.forEach((file) => {
+            if (file.path === "") {
+              file.path = "uploads"; // Assuming uploads is the default path when empty
+            }
+          });
         }
       })
       .catch((error) => {
@@ -274,7 +283,21 @@ export default {
     },
 
     removePost() {
-      console.log("게시물 삭제됨");
+      if (confirm("게시물을 삭제하시겠습니까?")) {
+        // 사용자에게 확인 메시지를 표시합니다.
+        // 게시물 삭제 API 요청
+        // params is the post ID
+        this.$axios
+          .delete("/api/posts/" + this.currentPostId)
+          .then((res) => {
+            console.log("Post deleted successfully", res);
+            // Redirect to the board page after successful deletion
+            this.$router.push("/board");
+          })
+          .catch((error) => {
+            console.error("Error deleting post", error);
+          });
+      }
     },
 
     addComment() {
@@ -292,6 +315,10 @@ export default {
           .then((response) => {
             // Handle success
             console.log("Comment added successfully", response);
+
+            // clear
+            this.commentInput = "";
+
             // Optionally, refresh comments or the whole post data from the server
             this.fetchPostData();
           })
@@ -338,8 +365,21 @@ export default {
       this.editedCommentText = "";
     },
 
-    removeComment(index) {
-      this.postData.commentsData.splice(index, 1);
+    removeComment(commentIndex) {
+      if (confirm("댓글을 삭제하시겠습니까?")) {
+        this.$axios
+          .delete(
+            `/api/posts/comments/${this.postData.commentsData[commentIndex].id}`
+          )
+          .then((res) => {
+            console.log("댓글 삭제 성공:", res.data);
+            // 댓글 삭제 후 화면 갱신 등 필요한 작업 수행
+            this.fetchPostData();
+          })
+          .catch((error) => {
+            console.error("댓글 삭제 실패:", error);
+          });
+      }
     },
 
     addReplyToComment(commentIndex) {
@@ -392,7 +432,19 @@ export default {
     },
 
     removeReply(commentIndex, replyIndex) {
-      this.postData.commentsData[commentIndex].replies.splice(replyIndex, 1);
+      if (confirm("대댓글을 삭제하시겠습니까?")) {
+        this.$axios
+          .delete(
+            `/api/posts/replies/${this.postData.commentsData[commentIndex].replies[replyIndex].id}`
+          )
+          .then((res) => {
+            console.log("대댓글 삭제 성공:", res.data);
+            this.fetchPostData();
+          })
+          .catch((error) => {
+            console.error("대댓글 삭제 실패:", error);
+          });
+      }
     },
 
     fetchPostData() {

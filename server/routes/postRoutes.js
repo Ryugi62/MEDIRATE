@@ -82,13 +82,14 @@ router.get("/:id", async (req, res) => {
             author: results[0].post_author,
             content: results[0].post_content,
             lastUpdated: results[0].post_created_at,
-            files: results.map((row) => ({
-              // filename: row.file_path.split("/").pop(), // Extract filename from file path
-              // path: row.file_path,
-              // { "filename": "uploads\\stestset.txt", "path": "uploads\\stestset.txt" }
-              filename: row.file_path.split("\\").pop(), // Extract filename from file path
-              path: row.file_path.split("\\").slice(0, -1).join("\\"),
-            })),
+            files: results
+              .filter((row) => row.file_path)
+              .map((row) => {
+                return {
+                  path: row.file_path,
+                  filename: path.basename(row.file_path),
+                };
+              }),
             commentsData: commentsData.filter(
               (comment) => !comment.parentCommentId
             ),
@@ -160,7 +161,7 @@ router.put("/:postId", async (req, res) => {
 router.delete("/:postId", async (req, res) => {
   const { postId } = req.params;
   try {
-    const query = "DELETE FROM posts WHERE id = ?";
+    const query = "DELETE FROM board WHERE id = ?"; // 'board' 테이블로 수정
     await db.query(query, [postId]);
     res.send("게시글이 성공적으로 삭제되었습니다.");
   } catch (error) {
@@ -212,6 +213,37 @@ router.put("/comments/:id", async (req, res) => {
   }
 });
 
+// 댓글 삭제
+router.delete("/comments/:commentId", async (req, res) => {
+  const { commentId } = req.params;
+
+  console.log("댓글 삭제 요청: ", commentId);
+
+  // 'commentId' 값 검증
+  if (!commentId || commentId === "undefined") {
+    return res.status(400).send({ error: "Invalid comment ID." });
+  }
+
+  try {
+    console.log(`댓글 삭제 요청: ${commentId}`);
+
+    // 댓글 삭제
+    const deleteCommentQuery = "DELETE FROM comments WHERE id = ?";
+    await db.query(deleteCommentQuery, [commentId]);
+
+    // 대댓글 삭제
+    const deleteReplyQuery = "DELETE FROM comments WHERE parent_comment_id = ?";
+    await db.query(deleteReplyQuery, [commentId]);
+
+    res.send("댓글과 대댓글이 성공적으로 삭제되었습니다.");
+  } catch (error) {
+    console.error("댓글 및 대댓글 삭제 중 오류:", error);
+    res
+      .status(500)
+      .send({ error: "댓글 및 대댓글 삭제 중 오류가 발생했습니다." });
+  }
+});
+
 router.post("/reply", async (req, res) => {
   // Destructure request body to get necessary fields
   const { parentCommentId, username, content } = req.body;
@@ -238,6 +270,21 @@ router.post("/reply", async (req, res) => {
   } catch (error) {
     console.error("Error adding reply:", error);
     res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// 대댓글 삭제
+router.delete("/replies/:replyId", async (req, res) => {
+  const { replyId } = req.params;
+  try {
+    // 대댓글 삭제
+    const deleteReplyQuery = "DELETE FROM comments WHERE id = ?";
+    await db.query(deleteReplyQuery, [replyId]);
+
+    res.send("대댓글이 성공적으로 삭제되었습니다.");
+  } catch (error) {
+    console.error("대댓글 삭제 중 오류:", error);
+    res.status(500).send("대댓글 삭제 중 오류가 발생했습니다.");
   }
 });
 

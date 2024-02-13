@@ -4,7 +4,7 @@
     <form class="create-post__form" @submit.prevent="createPost">
       <!-- select box 공지사항 or 게시물 -->
       <div class="form__group" v-if="isAdministrator">
-        <select class="form__input select-box">
+        <select class="form__input select-box" v-model="postType">
           <option value="notice">공지사항</option>
           <option value="post">게시물</option>
         </select>
@@ -94,6 +94,7 @@ export default {
           ],
         },
       },
+      postType: "post", // 기본값으로 '게시물'을 선택합니다.
     };
   },
 
@@ -109,15 +110,11 @@ export default {
       formData.append("title", this.postTitle);
       formData.append("content", this.postContent); // Ensure this contains the expected data
       formData.append("userId", this.$store.getters.getUser.username);
+      formData.append("postType", this.postType); // 공지사항인지 일반 게시물인지를 서버로 전송합니다.
 
       const files = document.querySelector("#file-upload").files;
       for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]); // Appends each file under 'files' key
-      }
-
-      // Iterate over formData and log key-value pairs
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
+        formData.append("files", files[i]);
       }
 
       this.$axios
