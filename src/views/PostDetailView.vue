@@ -6,9 +6,7 @@
         <h1 class="post-title">{{ postData.title }}</h1>
         <div class="post-meta">
           <span class="author-name">{{ postData.author }}</span>
-          <span class="post-date">{{
-            postData.lastUpdated.split("T")[0]
-          }}</span>
+          <span class="post-date">{{ postData.creation_date }}</span>
         </div>
 
         <div
@@ -23,8 +21,10 @@
               ></i>
               <span class="file-size">{{ file.size }}</span>
               <a
-                :href="`http://localhost:3000/${file.path}/:filename=${file.filename}`"
+                :href="`http://localhost:3000/uploads/${file.filename}`"
                 class="file-name"
+                target="_blank"
+                download
                 >{{ file.filename }}</a
               >
             </li>

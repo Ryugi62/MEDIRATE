@@ -147,8 +147,6 @@ export default {
         },
       })
       .then((response) => {
-        console.log("과제 목록을 불러왔습니다", response.data.length, "개");
-        console.log(response.data);
         this.assignments = response.data;
       })
       .catch((error) => {

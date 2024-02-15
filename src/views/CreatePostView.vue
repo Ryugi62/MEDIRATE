@@ -108,19 +108,22 @@ export default {
     createPost() {
       let formData = new FormData();
       formData.append("title", this.postTitle);
-      formData.append("content", this.postContent); // Ensure this contains the expected data
+      formData.append("content", this.postContent);
       formData.append("userId", this.$store.getters.getUser.username);
-      formData.append("postType", this.postType); // 공지사항인지 일반 게시물인지를 서버로 전송합니다.
+      formData.append("postType", this.postType);
 
       const files = document.querySelector("#file-upload").files;
       for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
+        const encodedFilename = encodeURIComponent(files[i].name);
+        formData.append("files", files[i], encodedFilename);
       }
 
+      // jwttoken을 헤더에 추가합니다.
       this.$axios
-        .post("/api/posts", formData, {
+        .post("/api/posts/", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
         .then((response) => {

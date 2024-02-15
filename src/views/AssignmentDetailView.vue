@@ -122,8 +122,6 @@ export default {
         );
         this.currentAssignmentDetails = response.data;
 
-        console.log("과제 세부 정보:", this.currentAssignmentDetails);
-
         // Ensure the DOM is updated before making TDs clickable
         this.$nextTick(() => {
           this.makeTdClickable();
@@ -148,8 +146,6 @@ export default {
           selectedValue: question.selectedValue, // 이미 인덱스로 변환된 값 사용
         })),
       };
-
-      console.log("제출할 데이터:", dataToSubmit);
 
       try {
         const response = await this.$axios.post(

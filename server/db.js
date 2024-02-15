@@ -64,6 +64,7 @@ const createTablesSQL = {
         user_id INT,
         title VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
+        creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
   comments: `

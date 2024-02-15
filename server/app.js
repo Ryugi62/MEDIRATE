@@ -38,6 +38,8 @@ app.use(
 // Middleware to log the request URL
 app.use((req, res, next) => {
   console.log("Request URL:", req.url);
+  // is get or post or delete or put
+  console.log("Request Type:", req.method);
   next();
 });
 

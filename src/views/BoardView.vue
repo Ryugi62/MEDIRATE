@@ -26,7 +26,6 @@
               {{ post.author }}
             </td>
             <td class="body-row__cell body-row__cell--date">
-              <!-- 2024-05-21T15:00:00.000Z to 2024-05-21 -->
               {{ post.lastUpdated.split("T")[0] }}
             </td>
           </tr>
@@ -103,15 +102,17 @@ export default {
   },
 
   mounted() {
+    // jwt
     this.$axios
-      .get("/api/posts")
+      .get("/api/posts", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
+      })
       .then((res) => {
-        console.log(res.data);
-        this.posts = res.data.map((post) => ({
+        this.posts = res.data.posts.map((post) => ({
           id: post.id,
           title: post.title,
-          author: post.writer,
-          lastUpdated: post.wdate,
+          author: post.author,
+          lastUpdated: post.lastUpdated,
         }));
       })
       .catch((err) => {
