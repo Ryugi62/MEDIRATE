@@ -301,11 +301,8 @@ export default {
           .then((response) => {
             console.log("새로운 과제가 생성되었습니다:", response.data);
 
-            // 과제 평가 페이지로 이동
-            this.$router.push({
-              name: "assignmentDetail",
-              params: { id: response.data.id },
-            });
+            // 과제 평가 리스트 페이지로 이동
+            this.$router.push({ name: "assignment" });
           })
           .catch((error) => {
             console.error("새로운 과제 생성 중 오류 발생:", error);
