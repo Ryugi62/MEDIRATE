@@ -90,13 +90,13 @@ export default {
             result.data.username === "admin" ||
             result.data.username === "superadmin ";
 
-          console.log(result.data.username, isAdministrator);
-
           this.$store.dispatch("loginUser", {
-            username,
-            password,
+            username: result.data.username,
+            realname: result.data.realname,
+            token: result.data.token,
             isAdministrator,
           });
+
           // mutateion
           this.$store.commit("openSlideBar", true);
           this.$router.push({ name: "home" });

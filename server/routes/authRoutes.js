@@ -1,24 +1,20 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db"); // Ensure db is configured for database queries
+const db = require("../db"); // 데이터베이스 설정 확인
+const jwt = require("jsonwebtoken");
+require("dotenv").config(); // 환경 변수 로드
 
 /**
- * Compares the provided password with the stored hash.
- * Replace this with your actual password verification logic for production use.
- * @param {string} inputPassword User's input password
- * @param {string} storedHash Hash stored in the database
- * @returns {boolean} Result of the password verification
+ * 제공된 비밀번호와 저장된 해시를 비교합니다.
+ * 실제 프로덕션 사용을 위해 이 부분을 실제 비밀번호 검증 로직으로 교체해야 합니다.
  */
 function verifyPassword(inputPassword, storedHash) {
-  console.log("inputPassword = " + inputPassword);
-  console.log("storedHash = " + storedHash);
-
-  // Placeholder for actual password verification logic
+  // 실제 비밀번호 검증 로직을 여기에 구현
   return inputPassword === storedHash;
 }
 
 /**
- * Handles login attempts.
+ * 로그인 시도를 처리합니다.
  */
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -28,52 +24,53 @@ router.post("/login", async (req, res) => {
     const [rows] = await db.query(query, [username.trim()]);
 
     if (rows.length === 0) {
-      // No user found or password does not match
-      return res.status(401).send("Invalid username or password."); // Use 401 for authentication errors
-    }
-
-    console.log("1");
-
-    const user = rows[0];
-    if (!verifyPassword(password, user.encrypted_password)) {
-      // Password does not match
       return res.status(401).send("Invalid username or password.");
     }
 
-    console.log("2");
+    const user = rows[0];
+    if (!verifyPassword(password, user.encrypted_password)) {
+      return res.status(401).send("Invalid username or password.");
+    }
 
-    // Authentication successful
-    req.session.user = { id: user.id, username: user.username.trim() };
+    // JWT 생성
+    const token = jwt.sign(
+      { id: user.id, username: user.username.trim() },
+      // process.env.JWT_SECRET,
+      "test",
+      { expiresIn: "1h" }
+    );
 
-    // Exclude password from user details
+    // 사용자 정보와 JWT 함께 반환
     const userWithoutPassword = {
       username: user.username.trim(),
       realname: user.realname,
       organization: user.organization,
       role: user.role,
+      token: token, // JWT 추가
     };
 
-    res.status(200).send(userWithoutPassword);
+    res.status(200).json(userWithoutPassword);
   } catch (error) {
     console.error("Server error during login:", error);
-    res.status(500).send("Server error during login."); // Use generic message for server errors
+    res.status(500).send("Server error during login.");
   }
 });
 
 /**
- * Handles logout by destroying the session and redirecting to the login page.
+ * 로그아웃을 처리하고 로그인 페이지로 리다이렉트합니다.
  */
 router.get("/logout", (req, res) => {
+  // 세션 사용자가 있는 경우 세션을 파괴하고 로그인 페이지로 리다이렉트
   if (req.session.user) {
     req.session.destroy((err) => {
       if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).send("Error logging out.");
+        console.error("로그아웃 오류:", err);
+        return res.status(500).send("로그아웃 오류.");
       }
       res.redirect("/login");
     });
   } else {
-    res.redirect("/login"); // Redirect if not logged in
+    res.redirect("/login");
   }
 });
 
