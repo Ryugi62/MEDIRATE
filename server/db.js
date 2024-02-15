@@ -9,71 +9,81 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
 });
 
 // 초기 테이블 생성
 const createTablesSQL = {
-  board: `
-    CREATE TABLE IF NOT EXISTS board (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      writer VARCHAR(255) NOT NULL,
-      title VARCHAR(255) NOT NULL,
-      content TEXT NOT NULL,
-      filepath VARCHAR(255),
-      wdate DATE NOT NULL,
-      modified TINYINT(1) NOT NULL DEFAULT 0,
-      isNotice TINYINT(1) DEFAULT 0
+  users: `
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        realname VARCHAR(255) NOT NULL,
+        organization VARCHAR(255),
+        password VARCHAR(255) NOT NULL,
+        role ENUM('user', 'admin') NOT NULL,
+        CONSTRAINT users_role_check CHECK (role IN ('user', 'admin'))
+    )`,
+  assignments: `
+    CREATE TABLE IF NOT EXISTS assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        deadline DATE NOT NULL,
+        assignment_type ENUM('BRST', 'KSIN') NOT NULL,
+        selection_type ENUM('BIN', 'GROUP') NOT NULL,
+        CONSTRAINT assignments_type_check CHECK (assignment_type IN ('BRST', 'KSIN')),
+        CONSTRAINT assignments_selection_check CHECK (selection_type IN ('BIN', 'GROUP'))
+    )`,
+  assignment_user: `
+    CREATE TABLE IF NOT EXISTS assignment_user (
+        assignment_id INT,
+        user_id INT,
+        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (assignment_id, user_id)
+    )`,
+  questions: `
+    CREATE TABLE IF NOT EXISTS questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id INT,
+        image VARCHAR(255) NOT NULL,
+        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+    )`,
+  user_answers: `
+    CREATE TABLE IF NOT EXISTS user_answers (
+        question_id INT,
+        user_id INT,
+        selected_index INT,
+        FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (question_id, user_id)
+    )`,
+  posts: `
+    CREATE TABLE IF NOT EXISTS posts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
   comments: `
     CREATE TABLE IF NOT EXISTS comments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(255) NOT NULL,
-      content TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      parent_comment_id INT DEFAULT NULL,
-      post_id INT DEFAULT NULL,
-      modified TINYINT(1) DEFAULT 0
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        post_id INT,
+        user_id INT,
+        content TEXT NOT NULL,
+        parent_comment_id INT,
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE SET NULL
     )`,
-  filename: `
-    CREATE TABLE IF NOT EXISTS filename (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      board_detail_id INT,
-      filename VARCHAR(255) NOT NULL
-    )`,
-  user_credentials: `
-    CREATE TABLE IF NOT EXISTS user_credentials (
-      username VARCHAR(255) PRIMARY KEY,
-      realname VARCHAR(255),
-      encrypted_password VARCHAR(255),
-      organization VARCHAR(255)
-    )`,
-  t_assignment: `
-    CREATE TABLE IF NOT EXISTS t_assignment (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      FileName VARCHAR(255),
-      CreationDate DATE,
-      Deadline DATE,
-      FileType VARCHAR(50),
-      SelectionStatus VARCHAR(50),
-      User VARCHAR(255),
-      isCompleted TINYINT(1) DEFAULT 0
-    )`,
-  t_assignmentitem: `
-    CREATE TABLE IF NOT EXISTS t_assignmentitem (
-      assignmentID VARCHAR(255) NOT NULL,
-      sequence INT NOT NULL,
-      imageFile VARCHAR(255),
-      PRIMARY KEY (assignmentID, sequence)
-    )`,
-  assignmentuserrelation: `
-    CREATE TABLE IF NOT EXISTS assignmentuserrelation (
-      RelationID INT AUTO_INCREMENT PRIMARY KEY,
-      AssignmentID INT,
-      Username VARCHAR(255),
-      Screening INT DEFAULT -1
+  attachments: `
+    CREATE TABLE IF NOT EXISTS attachments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        post_id INT,
+        path VARCHAR(255) NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
     )`,
 };
 
