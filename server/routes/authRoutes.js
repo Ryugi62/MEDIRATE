@@ -20,7 +20,7 @@ router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const query = "SELECT * FROM user_credentials WHERE username = TRIM(?)";
+    const query = "SELECT * FROM users WHERE username = TRIM(?)";
     const [rows] = await db.query(query, [username.trim()]);
 
     if (rows.length === 0) {
@@ -28,7 +28,7 @@ router.post("/login", async (req, res) => {
     }
 
     const user = rows[0];
-    if (!verifyPassword(password, user.encrypted_password)) {
+    if (!verifyPassword(password, user.password)) {
       return res.status(401).send("Invalid username or password.");
     }
 
