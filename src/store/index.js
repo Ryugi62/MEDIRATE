@@ -2,9 +2,10 @@ import { createStore } from "vuex";
 
 export default createStore({
   state: {
-    user: null, // 초기에는 로그인하지 않은 상태이므로 null로 초기화
-    isAuthenticated: false, // 초기에는 로그인하지 않은 상태이므로 false로 초기화
-    isSlideBarOpen: false, // 초기에는 사이드바가 닫힌 상태이
+    // 로커스토리지에 저장된 사용자 정보를 가져옴
+    user: JSON.parse(localStorage.getItem("user")) || null,
+    isAuthenticated: !!localStorage.getItem("user"), // 사용자가 인증되었는지 여부
+    isSlideBarOpen: localStorage.getItem("isSlideBarOpen") === "true" || false,
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -23,6 +24,7 @@ export default createStore({
     },
     toggleSlideBar(state) {
       state.isSlideBarOpen = !state.isSlideBarOpen;
+      localStorage.setItem("isSlideBarOpen", state.isSlideBarOpen);
     },
     closeSlideBar(state) {
       state.isSlideBarOpen = false;
@@ -33,10 +35,11 @@ export default createStore({
   },
   actions: {
     loginUser({ commit }, user) {
-      console.log(user);
-
       // 사용자 정보를 저장하고 로그인
       commit("setUser", user);
+
+      // 유저 정보 저장
+      localStorage.setItem("user", JSON.stringify(user));
 
       // 인증 상태를 true로 변경
       commit("setAuthenticated", true);
