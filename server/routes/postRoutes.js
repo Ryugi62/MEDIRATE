@@ -74,11 +74,24 @@ router.get("/:id", async (req, res) => {
     const attachmentsQuery = "SELECT * FROM attachments WHERE post_id = ?";
     const [attachments] = await db.query(attachmentsQuery, [postId]);
 
-    // 클라이언트에 반환할 데이터 형식으로 변환
+    // user_id (ex 59)로 username을 가져오기
+    const usernameQuery = "SELECT username FROM users WHERE id = ?";
+    const [username] = await db.query(usernameQuery, [post[0].user_id]);
+
+    // comment.user_id (ex 59)로 username을 가져오기
+    const commentUsernameQuery = "SELECT username FROM users WHERE id = ?";
+    for (let i = 0; i < comments.length; i++) {
+      const [commentUsername] = await db.query(commentUsernameQuery, [
+        comments[i].user_id,
+      ]);
+      comments[i].user_id = commentUsername[0].username;
+    }
+
+    // 서버 코드 수정
     const formattedPost = {
       id: post[0].id,
       title: post[0].title,
-      author: post[0].user_id, // 작성자 정보를 가져오려면 추가적인 쿼리가 필요할 수 있음
+      author: username[0].username,
       lastUpdated: post[0].creation_date,
       content: post[0].content,
       files: attachments.map((attachment) => ({
@@ -86,14 +99,38 @@ router.get("/:id", async (req, res) => {
         size: attachment.size,
         path: attachment.path,
       })),
-      commentsData: comments.map((comment) => ({
-        id: comment.id,
-        author: comment.user_id, // 댓글 작성자 정보를 가져오려면 추가적인 쿼리가 필요할 수 있음
-        date: comment.date,
-        text: comment.content,
-        replies: [], // 여기서 대댓글은 비어있는 상태로 반환, 필요시 추가 쿼리가 필요함
-      })),
+      commentsData: [],
     };
+
+    // 댓글과 대댓글을 포스트 데이터로 포맷
+    comments.forEach((comment) => {
+      if (!comment.parent_comment_id) {
+        formattedPost.commentsData.push({
+          id: comment.id,
+          author: comment.user_id,
+          date: comment.created_at,
+          text: comment.content,
+          replies: [],
+        });
+      }
+    });
+
+    // 대댓글을 부모 댓글의 replies 배열에 추가
+    comments.forEach((comment) => {
+      if (comment.parent_comment_id) {
+        const parentComment = formattedPost.commentsData.find(
+          (c) => c.id === comment.parent_comment_id
+        );
+        if (parentComment) {
+          parentComment.replies.push({
+            id: comment.id,
+            author: comment.user_id,
+            date: comment.created_at,
+            text: comment.content,
+          });
+        }
+      }
+    });
 
     res.status(200).json(formattedPost);
   } catch (error) {

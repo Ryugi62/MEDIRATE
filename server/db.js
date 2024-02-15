@@ -74,6 +74,7 @@ const createTablesSQL = {
         user_id INT,
         content TEXT NOT NULL,
         parent_comment_id INT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE SET NULL

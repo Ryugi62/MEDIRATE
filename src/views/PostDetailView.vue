@@ -284,9 +284,6 @@ export default {
 
     removePost() {
       if (confirm("게시물을 삭제하시겠습니까?")) {
-        // 사용자에게 확인 메시지를 표시합니다.
-        // 게시물 삭제 API 요청
-        // params is the post ID
         this.$axios
           .delete("/api/posts/" + this.currentPostId)
           .then((res) => {
@@ -309,9 +306,14 @@ export default {
           content: this.commentInput,
         };
 
+        // jwt 토큰을 헤더에 추가
         // Make an HTTP POST request to add a comment
         this.$axios
-          .post("/api/posts/comment", payload)
+          .post("/api/comments", payload, {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          })
           .then((response) => {
             // Handle success
             console.log("Comment added successfully", response);
@@ -341,7 +343,7 @@ export default {
       };
 
       this.$axios
-        .put(`/api/posts/comments/${commentId}`, payload)
+        .put(`/api/comments/${commentId}`, payload)
         .then((response) => {
           console.log(response.data.message);
           this.fetchPostData(); // Refresh the comments to reflect the changes
@@ -388,13 +390,16 @@ export default {
         const parentCommentId = this.postData.commentsData[commentIndex].id;
 
         const payload = {
-          parentCommentId: parentCommentId,
-          username: this.loggedInUser.username, // Adjust based on how you track user identity
+          parentId: parentCommentId,
           content: replyText,
         };
 
         this.$axios
-          .post("/api/posts/reply", payload)
+          .post(`/api/comments/${this.currentPostId}`, payload, {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          })
           .then((response) => {
             console.log("Reply added successfully", response);
             this.fetchPostData(); // Refresh post data to include the new reply.
