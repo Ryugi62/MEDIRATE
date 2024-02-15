@@ -29,8 +29,8 @@ const createTablesSQL = {
         title VARCHAR(255) NOT NULL,
         creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         deadline DATE NOT NULL,
-        assignment_type ENUM('BRST', 'KSIN') NOT NULL,
-        selection_type ENUM('BIN', 'GROUP') NOT NULL,
+        assignment_type VARCHAR(255),
+        selection_type VARCHAR(255),
         CONSTRAINT assignments_type_check CHECK (assignment_type IN ('BRST', 'KSIN')),
         CONSTRAINT assignments_selection_check CHECK (selection_type IN ('BIN', 'GROUP'))
     )`,
@@ -49,6 +49,17 @@ const createTablesSQL = {
         image VARCHAR(255) NOT NULL,
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
     )`,
+  question_responses: `
+    CREATE TABLE IF NOT EXISTS question_responses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        question_id INT NOT NULL,
+        user_id INT NOT NULL,
+        selected_option INT NOT NULL,
+        FOREIGN KEY (question_id) REFERENCES questions(id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE KEY question_user_unique (question_id, user_id)
+    );
+  `,
   user_answers: `
     CREATE TABLE IF NOT EXISTS user_answers (
         question_id INT,

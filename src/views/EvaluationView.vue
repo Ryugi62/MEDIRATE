@@ -294,13 +294,22 @@ export default {
       } else {
         alert("새로운 과제를 생성합니다");
 
-        // 서버 요청동안 input을 비활성화
-        this.$el.querySelectorAll("input, select, button").forEach((el) => {
-          el.disabled = true;
-        });
+        // { title, deadline, assignment_type, selection_type, questions, users }
+        const newAssignment = {
+          title: this.assignmentDetails.title,
+          deadline: this.assignmentDetails.deadline,
+          assignment_type: this.assignmentDetails.selectedAssignmentId,
+          selection_type: this.assignmentDetails.selectedAssignmentType,
+          questions: this.assignmentDetails.questions,
+          users: this.addedUsers.map((user) => user.id),
+        };
 
         this.$axios
-          .post("/api/assignments/", this.assignmentDetails)
+          .post("/api/assignments/", newAssignment, {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          })
           .then((response) => {
             console.log("새로운 과제가 생성되었습니다:", response.data);
 
@@ -323,6 +332,7 @@ export default {
       );
     },
     fetchUserList() {
+      // jwt 토큰을 헤더에 추가하여 유저 정보를 가져옵니다.
       this.$axios
         .post("/api/assignments/user-list")
         .then((response) => {
@@ -330,8 +340,6 @@ export default {
             console.log(user.username, user.realname, user.organization);
           });
           this.userList = response.data;
-
-          console.log("유저 정보를 가져왔습니다:", this.userList);
         })
         .catch((error) => {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
