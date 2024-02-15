@@ -139,8 +139,13 @@ export default {
   },
 
   mounted() {
+    // 헤더에 jwt 토큰을 담아서 요청
     this.$axios
-      .get("/api/assignments")
+      .get("/api/assignments", {
+        headers: {
+          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+        },
+      })
       .then((response) => {
         console.log("과제 목록을 불러왔습니다", response.data.length, "개");
         console.log(response.data);
