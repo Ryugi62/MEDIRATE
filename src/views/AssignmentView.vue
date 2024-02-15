@@ -36,9 +36,11 @@
           <td class="assignment-id">{{ assignment.id }}</td>
           <td class="assignment-title">{{ assignment.title }}</td>
           <td class="assignment-creation-date">
-            {{ assignment.creationDate }}
+            {{ assignment.CreationDate.split("T")[0] }}
           </td>
-          <td class="assignment-due-date">{{ assignment.dueDate }}</td>
+          <td class="assignment-due-date">
+            {{ assignment.dueDate.split("T")[0] }}
+          </td>
           <td class="assignment-status">{{ assignment.status }}</td>
           <td class="assignment-progress">
             <strong>{{ assignment.completed }}</strong> / {{ assignment.total }}

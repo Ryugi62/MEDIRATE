@@ -11,7 +11,7 @@
           {{ currentAssignmentDetails.studentName }}
         </span>
         <span class="metadata-due-date">
-          마감일: {{ currentAssignmentDetails.Deadline }}
+          마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}
         </span>
       </div>
 
@@ -40,6 +40,7 @@
           </thead>
           <tbody>
             <tr
+              @click="onRowClick(question)"
               v-for="(question, idx) in currentAssignmentDetails.questions"
               :key="question.id"
             >
@@ -226,10 +227,12 @@ export default {
 
     onRowClick(question) {
       this.activeQuestionId = question.id;
+
+      // 이미지 업데이트 부분 수정
       const studentResponseImage = this.$el.querySelector(
         ".student-response-image img"
       );
-      studentResponseImage.src = question.image;
+      studentResponseImage.src = `https://via.placeholder.com/1025x1025.png?text=Q${question.sequence}`;
 
       this.$nextTick(() => {
         const rows = this.$el.querySelectorAll(".grades-table table tbody tr");
