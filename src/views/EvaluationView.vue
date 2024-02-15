@@ -288,13 +288,16 @@ export default {
         return;
       }
 
-      console.log(JSON.stringify(this.assignmentDetails, null, 2));
-
       // 새로운 과제를 생성 또는 수정합니다. 알림
       if (this.assignmentDetails.id) {
         alert("과제 변경사항을 저장합니다");
       } else {
         alert("새로운 과제를 생성합니다");
+
+        // 서버 요청동안 input을 비활성화
+        this.$el.querySelectorAll("input, select, button").forEach((el) => {
+          el.disabled = true;
+        });
 
         this.$axios
           .post("/api/assignments/", this.assignmentDetails)
