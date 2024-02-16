@@ -94,6 +94,8 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
+
+    // 과제의 상세 정보를 가져옵니다.
     const assignmentQuery = `
       SELECT 
         a.id, 
@@ -106,11 +108,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       WHERE a.id = ?`;
     const [assignment] = await db.query(assignmentQuery, [assignmentId]);
 
-    // Fetch related questions for the assignment
+    // 과제에 관련된 질문들을 가져옵니다.
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
-    // Fetch responses for the questions
+    // 질문에 대한 응답들을 가져옵니다.
     const questionResponsesQuery = `
       SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
       FROM question_responses qr
@@ -118,11 +120,18 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       WHERE q.assignment_id = ?`;
     const [responses] = await db.query(questionResponsesQuery, [assignmentId]);
 
-    // Map responses to questions
+    // 응답을 질문에 매핑합니다.
+    let score = 0; // 현재 푼 개수를 초기화합니다.
     const questionsWithResponses = questions.map((question) => {
       const response = responses.find(
         (response) => response.question_id === question.id
       );
+      if (
+        response &&
+        response.selectedValue != null &&
+        response.selectedValue > -1
+      )
+        score++; // 선택한 응답이 있으면 score를 증가시킵니다.
       return {
         id: question.id,
         image: question.image,
@@ -130,7 +139,15 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       };
     });
 
-    res.json({ ...assignment[0], questions: questionsWithResponses });
+    const totalScore = questions.length; // 총 풀어야 하는 개수는 질문의 총 수입니다.
+
+    // 최종적으로 과제 상세 정보와 함께 score와 totalScore를 응답으로 반환합니다.
+    res.json({
+      ...assignment[0],
+      questions: questionsWithResponses,
+      score,
+      totalScore,
+    });
   } catch (error) {
     handleError(res, "Error fetching assignment details", error);
   }

@@ -59,15 +59,6 @@ const createTablesSQL = {
         UNIQUE KEY question_user_unique (question_id, user_id)
     );
   `,
-  user_answers: `
-    CREATE TABLE IF NOT EXISTS user_answers (
-        question_id INT,
-        user_id INT,
-        selected_index INT,
-        FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        PRIMARY KEY (question_id, user_id)
-    )`,
   posts: `
     CREATE TABLE IF NOT EXISTS posts (
         id INT AUTO_INCREMENT PRIMARY KEY,

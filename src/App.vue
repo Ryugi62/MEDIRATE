@@ -101,4 +101,13 @@ button:active {
 .content {
   flex: 1;
 }
+
+.loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 5vh;
+  color: var(--gray);
+}
 </style>

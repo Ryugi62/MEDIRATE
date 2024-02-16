@@ -16,7 +16,11 @@
       </div>
 
       <div class="evaluation-actions">
-        <span class="evaluation-score"><strong>20</strong> / 300</span>
+        <!-- <span class="evaluation-score"><strong>20</strong> / 300</span> -->
+        <span class="evaluation-score"
+          ><strong>{{ currentAssignmentDetails.score }}</strong> /
+          {{ currentAssignmentDetails.totalScore }}</span
+        >
         <button
           type="button"
           class="save-button"
@@ -83,7 +87,7 @@
       </div>
     </div>
   </div>
-  <div v-else>과제를 불러오는 중입니다...</div>
+  <div v-else class="loading-message">과제를 불러오는 중입니다...</div>
 </template>
 
 <script>
@@ -117,7 +121,6 @@ export default {
   methods: {
     async loadAssignmentDetails(assignmentId) {
       try {
-        // jwt 토큰을 헤더에 추가
         const response = await this.$axios.get(
           `/api/assignments/${assignmentId}`,
           {
@@ -128,6 +131,11 @@ export default {
         );
         this.currentAssignmentDetails = response.data;
 
+        // this.currentAssignmentDetails.score 이 null이 아니고 0 이상일 때만 score를 업데이트합니다.
+        const score = this.currentAssignmentDetails.score || 0;
+
+        this.currentAssignmentDetails.score = score;
+
         // Ensure the DOM is updated before making TDs clickable
         this.$nextTick(() => {
           this.makeTdClickable();
@@ -136,7 +144,6 @@ export default {
         console.error("Error loading assignment details:", error);
       }
     },
-
     async commitAssignmentChanges() {
       // radio 버튼 비활성화
       const radioButtons = this.$el.querySelectorAll(
@@ -255,8 +262,30 @@ export default {
 
     updateSelectedValue(questionIdx, value) {
       const selectedValue = parseInt(value);
+      // 지정된 질문의 selectedValue를 업데이트합니다.
       this.currentAssignmentDetails.questions[questionIdx].selectedValue =
         selectedValue;
+
+      // 전체 선택된 라디오 버튼의 개수를 재계산합니다.
+      this.recalculateScore();
+    },
+
+    recalculateScore() {
+      // 선택된 라디오 버튼의 개수를 계산합니다.
+      const score = this.currentAssignmentDetails.questions.reduce(
+        (acc, question) => {
+          return (
+            acc +
+            (question.selectedValue !== null && question.selectedValue >= 0
+              ? 1
+              : 0)
+          );
+        },
+        0
+      );
+
+      // 계산된 score를 currentAssignmentDetails 객체에 반영합니다.
+      this.currentAssignmentDetails.score = score;
     },
 
     toggleFullScreenImage() {
