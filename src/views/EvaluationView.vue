@@ -207,7 +207,10 @@ export default {
           label: "과제 ID :",
           component: "select",
           model: "selectedAssignmentId",
-          options: { values: ["brst", "test"], names: ["BRST", "TEST"] },
+          options: {
+            values: ["first_eval", "second_eval", "third_dataset"],
+            names: ["first_eval", "second_eval", "third_dataset"],
+          },
         },
         "assignment-type": {
           label: "선택 유형 :",
@@ -324,12 +327,35 @@ export default {
           });
       }
     },
+    formatNumber(number, length) {
+      number += 1;
+      return number.toString().padStart(length, "0");
+    },
     generateQuestions(count) {
+      let img_name;
+      if (this.assignmentDetails.selectedAssignmentId === "first_eval") {
+        img_name = "449311-SS14-63993-HE-(2)-";
+      } else if (
+        this.assignmentDetails.selectedAssignmentId === "second_eval"
+      ) {
+        img_name = "449650-SS12-33769-HE-";
+      } else if (
+        this.assignmentDetails.selectedAssignmentId === "third_dataset"
+      ) {
+        img_name = "831367-UB_02_0004-";
+      }
+
+      console.log(this.assignmentDetails.selectedAssignmentId);
+      console.log(img_name);
+
       this.assignmentDetails.questions = Array.from(
         { length: count },
         (_, i) => ({
           id: i + 1,
-          img: `https://via.placeholder.com/1080x1080.png?text=Q${i + 1}`,
+          // @src/assets/first_eval/0001.png
+          img: `http://tgsi.duckdns.org:3000/${
+            this.assignmentDetails.selectedAssignmentId
+          }/${img_name}${this.formatNumber(i + 1, 4)}.jpg`,
           select: null,
         })
       );
@@ -348,10 +374,8 @@ export default {
     // 기타 메서드들
   },
   watch: {
-    "assignmentDetails.selectedAssignmentId"(newVal) {
-      this.generateQuestions(
-        newVal === "test" ? 100 : newVal === "brst" ? 100 : 0
-      );
+    "assignmentDetails.selectedAssignmentId"() {
+      this.generateQuestions(50);
     },
   },
 };

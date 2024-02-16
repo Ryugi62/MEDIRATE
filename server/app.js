@@ -63,6 +63,42 @@ app.get("/uploads/:filename", (req, res) => {
   });
 });
 
+// 이미지 리턴
+app.get("/first_eval/:filename", (req, res) => {
+  const { filename } = req.params;
+  const absolutePath = path.join(__dirname, "../first_eval", filename);
+  res.download(absolutePath, (err) => {
+    if (err) {
+      console.error("Error downloading file:", err);
+      return res.status(500).send("Failed to download file");
+    }
+  });
+});
+
+// 이미지 리턴
+app.get("/second_eval/:filename", (req, res) => {
+  const { filename } = req.params;
+  const absolutePath = path.join(__dirname, "../second_eval", filename);
+  res.download(absolutePath, (err) => {
+    if (err) {
+      console.error("Error downloading file:", err);
+      return res.status(500).send("Failed to download file");
+    }
+  });
+});
+
+// 이미지 리턴
+app.get("/third_dataset/:filename", (req, res) => {
+  const { filename } = req.params;
+  const absolutePath = path.join(__dirname, "../third_dataset", filename);
+  res.download(absolutePath, (err) => {
+    if (err) {
+      console.error("Error downloading file:", err);
+      return res.status(500).send("Failed to download file");
+    }
+  });
+});
+
 // Fallback route for SPA
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
