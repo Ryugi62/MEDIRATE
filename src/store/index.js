@@ -12,7 +12,7 @@ export default createStore({
     getUser: (state) => state.user,
     isSlideBarOpen: (state) => state.isSlideBarOpen,
     getJwtToken: (state) => state.user?.token,
-    isTokenExpired: (state) => state.user?.exp,
+    tokenExpires: (state) => state.user?.expires,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {

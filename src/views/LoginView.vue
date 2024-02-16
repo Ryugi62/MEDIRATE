@@ -94,13 +94,13 @@ export default {
           const base64Url = token.split(".")[1];
           const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
           const payload = JSON.parse(atob(base64));
-          const exp = payload.exp;
+          const expires = payload.exp;
 
           this.$store.dispatch("loginUser", {
             username: result.data.username,
             realname: result.data.realname,
             token: result.data.token,
-            exp: exp,
+            expires,
             isAdministrator,
           });
 

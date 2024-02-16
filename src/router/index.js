@@ -88,19 +88,27 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   if (to.matched.some((record) => record.meta.requiresAuth)) {
-    const test = new Date() / 1000;
+    // 현재 시간과 토큰의 만료 시간을 비교합니다.
+    const currentTime = Math.floor(Date.now() / 1000); // 현재 시간을 초 단위로 변환
+    const tokenExpires = store.getters.tokenExpires; // 'tokenExpires'는 토큰의 만료 시간을 초 단위로 반환하는 getter입니다.
 
-    if (store.getters.isTokenExpired < test) {
-      alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+    // 토큰의 남은 기간을 확인합니다.
+    const tokenRemainingTime = tokenExpires - currentTime;
 
-      store.dispatch("logoutUser");
+    console.log(`현재 시간: ${currentTime}`);
+    console.log(`토큰 만료 시간: ${tokenExpires}`);
+    console.log(`토큰 만료까지 남은 시간: ${tokenRemainingTime}초`);
 
+    // 토큰이 만료되었거나, 만료 시간이 매우 임박했을 경우 로그인 페이지로 리다이렉트합니다.
+    if (tokenRemainingTime <= 0 || tokenExpires === undefined) {
+      alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+      store.dispatch("logoutUser"); // 사용자 로그아웃 처리
       next({ name: "login" });
     } else {
-      next();
+      next(); // 토큰이 유효하면 요청한 페이지로 진행
     }
   } else {
-    next();
+    next(); // 인증이 필요하지 않은 페이지에 대한 접근 허용
   }
 });
 
