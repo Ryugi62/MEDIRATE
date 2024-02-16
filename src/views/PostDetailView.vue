@@ -36,7 +36,10 @@
 
       <!-- Add this section for attached files -->
 
-      <div class="post-actions">
+      <div
+        class="post-actions"
+        v-if="loggedInUser.username === postData.author"
+      >
         <button class="edit-post-button" @click="startEditingPost">수정</button>
         <button class="delete-post-button" @click="removePost">삭제</button>
       </div>
