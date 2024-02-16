@@ -350,7 +350,7 @@ export default {
   watch: {
     "assignmentDetails.selectedAssignmentId"(newVal) {
       this.generateQuestions(
-        newVal === "test" ? 1000 : newVal === "brst" ? 1000 : 0
+        newVal === "test" ? 100 : newVal === "brst" ? 100 : 0
       );
     },
   },
