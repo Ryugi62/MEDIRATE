@@ -288,6 +288,11 @@ export default {
         return;
       }
 
+      // 모든 input 비활성화
+      this.$el.querySelectorAll("input, select").forEach((input) => {
+        input.disabled = true;
+      });
+
       // 새로운 과제를 생성 또는 수정합니다. 알림
       if (this.assignmentDetails.id) {
         alert("과제 변경사항을 저장합니다");
@@ -311,7 +316,7 @@ export default {
             },
           })
           .then((response) => {
-            console.log("새로운 과제가 생성되었습니다:", response.data);
+            response.data;
 
             // 과제 평가 리스트 페이지로 이동
             this.$router.push({ name: "assignment" });
