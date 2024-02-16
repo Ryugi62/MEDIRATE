@@ -183,7 +183,10 @@
 
           <div
             class="reply-input-container"
-            v-if="editingReply.commentIndex === commentIndex"
+            v-if="
+              editingReply.commentIndex === commentIndex &&
+              editingReply.replyIndex === -1
+            "
           >
             <i class="fa-solid fa-circle-user user-icon"></i>
             <textarea
