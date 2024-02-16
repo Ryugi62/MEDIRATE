@@ -102,10 +102,6 @@ router.beforeEach((to, from, next) => {
     // 토큰의 남은 기간을 확인합니다.
     const tokenRemainingTime = tokenExpires - currentTime;
 
-    console.log(`현재 시간: ${currentTime}`);
-    console.log(`토큰 만료 시간: ${tokenExpires}`);
-    console.log(`토큰 만료까지 남은 시간: ${tokenRemainingTime}초`);
-
     // 토큰이 만료되었거나, 만료 시간이 매우 임박했을 경우 로그인 페이지로 리다이렉트합니다.
     if (tokenRemainingTime <= 0 || tokenExpires === undefined) {
       alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");

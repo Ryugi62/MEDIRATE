@@ -132,8 +132,6 @@ export default {
         formData.append("files", files[i], encodedFilename);
       }
 
-      console.log("formData:", formData);
-
       // jwttoken을 헤더에 추가합니다.
       this.$axios
         .post("/api/posts/", formData, {

@@ -44,9 +44,10 @@
           </thead>
           <tbody>
             <tr
-              @click="onRowClick(question)"
               v-for="(question, idx) in currentAssignmentDetails.questions"
               :key="question.id"
+              @click="onRowClick(question, idx)"
+              :class="{ active: question.id === activeQuestionId }"
             >
               <td>
                 <img
@@ -79,10 +80,7 @@
         class="student-response-image"
         :class="{ 'full-screen': isFullScreenImage }"
       >
-        <img
-          src="https://via.placeholder.com/1025x1025.png?text=Q1"
-          alt="Student Response"
-        />
+        <img :src="activeQuestionImageUrl" alt="Student Response" />
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
       </div>
     </div>
@@ -112,6 +110,7 @@ export default {
   async created() {
     await this.loadAssignmentDetails(this.$route.params.id);
   },
+
   mounted() {
     this.$nextTick(() => {
       this.makeTdClickable();
@@ -239,19 +238,21 @@ export default {
       }
     },
 
-    onRowClick(question) {
+    onRowClick(question, idx) {
       this.activeQuestionId = question.id;
 
-      // 이미지 업데이트 부분 수정
+      // 오른쪽 이미지 업데이트
       const studentResponseImage = this.$el.querySelector(
         ".student-response-image img"
       );
-      studentResponseImage.src = `https://via.placeholder.com/1025x1025.png?text=Q${question.sequence}`;
+      studentResponseImage.src = question.image;
 
+      // 모든 행의 'active' 클래스 제거 후 현재 클릭된 행에만 'active' 클래스 추가
       this.$nextTick(() => {
         const rows = this.$el.querySelectorAll(".grades-table table tbody tr");
         rows.forEach((row) => row.classList.remove("active"));
-        const activeRow = rows[this.activeQuestionId - 1];
+        const activeRow = rows[idx];
+
         if (activeRow) {
           activeRow.classList.add("active");
         }
@@ -383,10 +384,9 @@ td {
   border-bottom: 1px solid var(--light-gray);
 }
 
-tbody tr.active {
+.grades-table table tbody tr.active {
   background-color: var(--blue);
 }
-
 .student-response-image {
   flex: 1;
   display: flex;

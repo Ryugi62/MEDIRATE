@@ -45,8 +45,6 @@ export default createStore({
 
       // 인증 상태를 true로 변경
       commit("setAuthenticated", true);
-
-      console.log("user", user);
     },
     logoutUser({ commit }) {
       // 사용자 정보를 지우고 로그아웃

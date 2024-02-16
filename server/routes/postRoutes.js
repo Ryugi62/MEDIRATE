@@ -155,8 +155,6 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
   const userId = users[0].id;
   const files = req.files;
 
-  console.log(`postType: ${postType}`);
-
   try {
     const postQuery =
       "INSERT INTO posts (user_id, title, content, type) VALUES (?, ?, ?, ?)";
