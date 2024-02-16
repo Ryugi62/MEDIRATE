@@ -21,13 +21,6 @@
       </div>
 
       <div class="form__group">
-        <!-- <quill-editor
-          :value="postContent"
-          @input="updateContent"
-          class="quill-editor"
-          :options="editorOptions"
-          placeholder="내용을 입력하세요."
-        ></quill-editor> -->
         <quill-editor
           :value="postContent"
           @input="updateContent"
@@ -50,6 +43,20 @@
           <ul v-if="fileNames.length > 0">
             <li v-for="(fileName, index) in fileNames" :key="index">
               {{ fileName }}
+              <button
+                @click.prevent="removeFile(index)"
+                style="
+                  background-color: var(--pink);
+                  color: white;
+                  padding: 4px 8px;
+                  border: none;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  transition: background-color 0.3s ease;
+                "
+              >
+                X
+              </button>
             </li>
           </ul>
         </div>
@@ -84,6 +91,8 @@ export default {
       postContent: "",
       postType: "post",
       fileNames: [],
+      selectedFiles: [], // 파일 객체들을 저장하기 위한 배열
+      deletedFileIndexes: [], // 삭제된 파일 인덱스를 기록하기 위한 배열 추가
       editorOptions: {
         modules: {
           toolbar: [
@@ -112,10 +121,11 @@ export default {
           const postData = response.data;
           this.postTitle = postData.title;
           this.postContent = postData.content;
-          // this.postType = postData.type;
-          // 파일 목록 등 추가 데이터 처리는 여기서 수행합니다.
-
-          console.log("post data:", postData);
+          this.postType = postData.type;
+          // 기존에 첨부된 파일 목록을 가져와서 표시
+          if (postData.files && postData.files.length > 0) {
+            this.fileNames = postData.files.map((file) => file.filename);
+          }
 
           document.querySelector(".ql-editor").innerHTML = this.postContent;
         })
@@ -123,36 +133,51 @@ export default {
           console.error("Error loading post data:", error);
         });
     },
+
     updatePost() {
       let formData = new FormData();
       formData.append("title", this.postTitle);
       formData.append("content", this.postContent);
-      formData.append("type", this.postType); // Make sure the backend expects "type" not "postType"
+      formData.append("type", this.postType);
 
-      // Append files if any
-      this.fileNames.forEach((file) => {
-        formData.append("files", file); // Make sure files are correctly handled in the backend
+      // 서버로 삭제된 파일 인덱스 전송
+      formData.append("deletedFiles", JSON.stringify(this.deletedFileIndexes));
+
+      // selectedFiles 배열에서 파일 객체들을 FormData에 추가
+      this.selectedFiles.forEach((file) => {
+        formData.append("files", file, file.name);
       });
 
+      // jwt 토큰을 헤더에 추가합니다.
       this.$axios
         .put(`/api/posts/${this.postId}`, formData, {
           headers: {
             "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
         .then(() => {
-          this.$router.push("/"); // Navigate on success
+          this.$router.push("/");
         })
         .catch((error) => {
           console.error("Error updating post:", error);
         });
     },
-
     cancelPostCreation() {
       this.$router.push("/"); // 취소 시 게시판 목록으로 이동
     },
+    removeFile(index) {
+      // 파일 삭제 시 해당 인덱스를 기억
+      this.deletedFileIndexes.push(index);
+      // 파일 이름 배열에서 해당 인덱스의 파일 이름 제거
+      this.fileNames.splice(index, 1);
+    },
     handleFileUpload(event) {
-      this.fileNames = Array.from(event.target.files).map((file) => file.name);
+      const files = event.target.files;
+      for (let i = 0; i < files.length; i++) {
+        this.fileNames.push(files[i].name);
+        this.selectedFiles.push(files[i]); // 선택된 파일을 selectedFiles 배열에 추가
+      }
     },
     updateContent() {
       this.postContent = document.querySelector(".ql-editor").innerHTML;

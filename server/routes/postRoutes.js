@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db"); // 가정: 데이터베이스 연결 설정이 포함된 모듈
 const multer = require("multer");
 const authenticateToken = require("../jwt");
+const fs = require("fs"); // fs 모듈 추가
 
 require("dotenv").config();
 
@@ -141,23 +142,38 @@ router.get("/:id", async (req, res) => {
 
 // 게시물 생성
 router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
-  const { title, content } = req.body;
-  const userId = req.user.id;
+  const { title, content, postType } = req.body;
+  const username = req.body.userId; // 클라이언트에서 보낸 사용자 이름
+  // 사용자 ID를 데이터베이스에서 조회
+  const userQuery = "SELECT id FROM users WHERE username = ?";
+  const [users] = await db.query(userQuery, [username]);
+
+  if (users.length === 0) {
+    return res.status(404).json({ error: "사용자를 찾을 수 없습니다." });
+  }
+
+  const userId = users[0].id;
   const files = req.files;
+
+  console.log(`postType: ${postType}`);
 
   try {
     const postQuery =
-      "INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)";
-    const [postResult] = await db.query(postQuery, [userId, title, content]);
+      "INSERT INTO posts (user_id, title, content, type) VALUES (?, ?, ?, ?)";
+    const [postResult] = await db.query(postQuery, [
+      userId,
+      title,
+      content,
+      postType,
+    ]);
     const postId = postResult.insertId;
 
     if (files) {
       files.forEach(async (file) => {
-        const filePath = file.path;
-        const decodedFilename = decodeURIComponent(file.originalname); // 파일 이름 디코딩
+        const filePath = file.path; // 파일 경로
         const fileQuery =
           "INSERT INTO attachments (post_id, path, filename) VALUES (?, ?, ?)";
-        await db.query(fileQuery, [postId, filePath, decodedFilename]);
+        await db.query(fileQuery, [postId, filePath, file.originalname]);
       });
     }
 
@@ -170,20 +186,64 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
   }
 });
 
-// Assuming `upload` is configured as shown in your setup
-router.put("/:id", upload.array("files"), async (req, res) => {
-  const postId = req.params.id;
-  const { title, content } = req.body; // Ensure these names match what's sent
+// 게시물 수정 - 파일 포함
+router.put(
+  "/:id",
+  authenticateToken,
+  upload.array("files"),
+  async (req, res) => {
+    const postId = req.params.id;
+    const { title, content, type } = req.body;
 
-  try {
-    const query = "UPDATE posts SET title = ?, content = ? WHERE id = ?";
-    await db.query(query, [title, content, postId]);
-    res.status(200).json({ message: "Post updated successfully." });
-  } catch (error) {
-    console.error("Error updating post:", error);
-    res.status(500).json({ error: "Failed to update post." });
+    try {
+      // 게시물 업데이트
+      const updatePostQuery =
+        "UPDATE posts SET title = ?, content = ?, type = ? WHERE id = ?";
+      await db.query(updatePostQuery, [title, content, type, postId]);
+
+      // 삭제된 파일 목록 받기
+      const deletedFiles = JSON.parse(req.body.deletedFiles || "[]");
+
+      // 기존 첨부파일 정보를 가져옴
+      const existingFilesQuery = "SELECT * FROM attachments WHERE post_id = ?";
+      const [existingFiles] = await db.query(existingFilesQuery, [postId]);
+
+      // 삭제된 파일 처리
+      for (const index of deletedFiles) {
+        const deletedFile = existingFiles[index];
+        if (deletedFile) {
+          const filePath = deletedFile.path;
+          // 데이터베이스에서 파일 레코드 삭제
+          const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
+          await db.query(deleteFileQuery, [deletedFile.id]);
+          // 파일 시스템에서 파일 삭제
+          fs.unlink(filePath, (err) => {
+            if (err) {
+              console.error("삭제된 파일 삭제 중 오류:", err);
+            }
+          });
+        }
+      }
+
+      // 새 파일 업로드
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(async (file) => {
+          const filePath = file.path;
+          const fileQuery =
+            "INSERT INTO attachments (post_id, path, filename) VALUES (?, ?, ?)";
+          await db.query(fileQuery, [postId, filePath, file.originalname]);
+        });
+      }
+
+      res
+        .status(200)
+        .json({ message: "게시물이 성공적으로 업데이트되었습니다." });
+    } catch (error) {
+      console.error("게시물 업데이트 중 오류:", error);
+      res.status(500).json({ error: "게시물 업데이트 실패" });
+    }
   }
-});
+);
 
 // 게시글 삭제
 router.delete("/:id", async (req, res) => {
@@ -214,20 +274,57 @@ router.post("/:postId/comments", async (req, res) => {
   }
 });
 
-// 댓글 수정
-router.put("/comments/:commentId", async (req, res) => {
-  const { commentId } = req.params;
-  const { content } = req.body;
+router.put(
+  "/:id",
+  authenticateToken,
+  upload.array("files"),
+  async (req, res) => {
+    const postId = req.params.id;
+    const { title, content, type } = req.body;
 
-  try {
-    const query = "UPDATE comments SET content = ? WHERE id = ?";
-    await db.query(query, [content, commentId]);
-    res.status(200).json({ message: "댓글이 성공적으로 수정되었습니다." });
-  } catch (error) {
-    console.error("댓글 수정 중 오류:", error);
-    res.status(500).json({ error: "댓글 수정 실패" });
+    try {
+      // 게시물 업데이트
+      const updatePostQuery =
+        "UPDATE posts SET title = ?, content = ?, type = ? WHERE id = ?";
+      await db.query(updatePostQuery, [title, content, type, postId]);
+
+      // 기존 첨부파일 정보를 가져옴
+      const existingFilesQuery = "SELECT * FROM attachments WHERE post_id = ?";
+      const [existingFiles] = await db.query(existingFilesQuery, [postId]);
+
+      // 기존 파일 삭제
+      for (const file of existingFiles) {
+        const filePath = file.path;
+        // 데이터베이스에서 파일 레코드 삭제
+        const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
+        await db.query(deleteFileQuery, [file.id]);
+        // 파일 시스템에서 파일 삭제
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            console.error("기존 파일 삭제 중 오류:", err);
+          }
+        });
+      }
+
+      // 새 파일 업로드
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(async (file) => {
+          const filePath = file.path;
+          const fileQuery =
+            "INSERT INTO attachments (post_id, path, filename) VALUES (?, ?, ?)";
+          await db.query(fileQuery, [postId, filePath, file.originalname]);
+        });
+      }
+
+      res
+        .status(200)
+        .json({ message: "게시물이 성공적으로 업데이트되었습니다." });
+    } catch (error) {
+      console.error("게시물 업데이트 중 오류:", error);
+      res.status(500).json({ error: "게시물 업데이트 실패" });
+    }
   }
-});
+);
 
 // 댓글 삭제
 router.delete("/comments/:commentId", async (req, res) => {
