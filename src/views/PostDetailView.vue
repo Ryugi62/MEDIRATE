@@ -267,9 +267,7 @@ export default {
 
   methods: {
     startEditingPost() {
-      this.isEditingPost = true;
-      this.editedPostTitle = this.postData.title;
-      this.editedPostContent = this.postData.content;
+      this.$router.push(`/edit-post/${this.currentPostId}`);
     },
 
     saveEditedPost() {

@@ -170,17 +170,18 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
   }
 });
 
-// 게시글 수정
-router.put("/:id", async (req, res) => {
+// Assuming `upload` is configured as shown in your setup
+router.put("/:id", upload.array("files"), async (req, res) => {
   const postId = req.params.id;
-  const { title, content } = req.body;
+  const { title, content } = req.body; // Ensure these names match what's sent
 
   try {
     const query = "UPDATE posts SET title = ?, content = ? WHERE id = ?";
     await db.query(query, [title, content, postId]);
-    res.status(200).send("게시글이 성공적으로 수정되었습니다.");
+    res.status(200).json({ message: "Post updated successfully." });
   } catch (error) {
-    res.status(500).send("게시글 수정 중 오류가 발생했습니다.");
+    console.error("Error updating post:", error);
+    res.status(500).json({ error: "Failed to update post." });
   }
 });
 

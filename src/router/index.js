@@ -3,6 +3,7 @@ import store from "../store/index";
 import LoginView from "../views/LoginView.vue";
 import BoardView from "../views/BoardView.vue";
 import CreatePostView from "../views/CreatePostView.vue";
+import EditPostView from "../views/EditPostView.vue";
 import PostDetailView from "../views/PostDetailView.vue";
 import AssignmentView from "../views/AssignmentView.vue";
 import AssignmentDetail from "../views/AssignmentDetailView.vue";
@@ -32,6 +33,12 @@ const routes = [
     path: "/create-post", // 게시물 생성 페이지 경로
     name: "create-post", // 게시물 생성 페이지 이름
     component: CreatePostView, // 게시물 생성 컴포넌트
+    meta: { requiresAuth: true }, // 인증이 필요한지 여부
+  },
+  {
+    path: "/edit-post/:id", // 게시물 수정 페이지 경로
+    name: "edit-post", // 게시물 수정 페이지 이름
+    component: EditPostView, // 게시물 수정 컴포넌트
     meta: { requiresAuth: true }, // 인증이 필요한지 여부
   },
   {
