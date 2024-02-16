@@ -92,8 +92,6 @@ export default {
         );
 
         this.data = response.data; // Assuming the response has the data in { data: { data: [...] } } format
-
-        console.log("Data loaded:", this.data);
       } catch (error) {
         console.error("Failed to load data:", error);
         // Handle error, perhaps show a user-friendly message

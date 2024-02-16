@@ -11,7 +11,7 @@
           v-if="
             !link.isAdmin ||
             // (link.isAdmin && this.$store.getters.getUser.isAdministrator)
-            (link.isAdmin && this.$store.getters.getUser.isAdministrator)
+            (link.isAdmin && this.$store.getters.getUser?.isAdministrator)
           "
         >
           {{ link.name }}

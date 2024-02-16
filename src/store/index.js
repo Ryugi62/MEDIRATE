@@ -12,6 +12,7 @@ export default createStore({
     getUser: (state) => state.user,
     isSlideBarOpen: (state) => state.isSlideBarOpen,
     getJwtToken: (state) => state.user?.token,
+    isTokenExpired: (state) => state.user?.exp,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -44,6 +45,8 @@ export default createStore({
 
       // 인증 상태를 true로 변경
       commit("setAuthenticated", true);
+
+      console.log("user", user);
     },
     logoutUser({ commit }) {
       // 사용자 정보를 지우고 로그아웃
@@ -51,6 +54,9 @@ export default createStore({
 
       // 인증 상태를 false로 변경
       commit("setAuthenticated", false);
+
+      // 로컬 스토리지에서 사용자 정보 삭제
+      localStorage.removeItem("user");
     },
   },
   modules: {},

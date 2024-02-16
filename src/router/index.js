@@ -88,16 +88,18 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   if (to.matched.some((record) => record.meta.requiresAuth)) {
-    // 여기에서 Vuex Store의 상태를 확인하여 인증 상태를 확인합니다.
-    if (!store.getters.isAuthenticated) {
-      // 인증되지 않았으면 로그인 페이지로 리디렉션
+    const test = new Date() / 1000;
+
+    if (store.getters.isTokenExpired < test) {
+      alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+
+      store.dispatch("logoutUser");
+
       next({ name: "login" });
     } else {
-      // 인증된 상태라면 다음으로 이동
       next();
     }
   } else {
-    // 인증이 필요하지 않은 페이지라면 바로 이동
     next();
   }
 });

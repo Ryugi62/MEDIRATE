@@ -163,7 +163,7 @@ export default {
       };
 
       try {
-        const response = await this.$axios.put(
+        await this.$axios.put(
           "/api/assignments/" + this.currentAssignmentDetails.id,
           dataToSubmit,
           {
@@ -172,8 +172,6 @@ export default {
             },
           }
         );
-
-        console.log("Assignment evaluation saved successfully!", response.data);
 
         alert("과제 평가가 성공적으로 저장되었습니다!");
 

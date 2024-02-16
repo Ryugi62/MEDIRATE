@@ -57,8 +57,6 @@ router.post("/", authenticateToken, async (req, res) => {
 
 // List assignments for a user
 router.get("/", authenticateToken, async (req, res) => {
-  console.log("req.user", req.user);
-
   try {
     const userId = req.user.id; // Assuming the JWT contains the user ID
     const assignmentsQuery = `

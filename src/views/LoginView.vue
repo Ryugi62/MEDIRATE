@@ -90,10 +90,17 @@ export default {
             result.data.username === "admin" ||
             result.data.username === "superadmin ";
 
+          const token = result.data.token;
+          const base64Url = token.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const payload = JSON.parse(atob(base64));
+          const exp = payload.exp;
+
           this.$store.dispatch("loginUser", {
             username: result.data.username,
             realname: result.data.realname,
             token: result.data.token,
+            exp: exp,
             isAdministrator,
           });
 
@@ -102,7 +109,7 @@ export default {
           this.$router.push({ name: "home" });
         })
         .catch((err) => {
-          console.log(err);
+          console.error(err);
         });
     },
 

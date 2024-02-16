@@ -22,14 +22,10 @@ router.post("/", authenticateToken, async (req, res) => {
   const { postId, content } = req.body;
   const userId = req.user.id; // 사용자 토큰으로부터 사용자 ID 가져오기
 
-  console.log("댓글 추가 요청:", postId, userId, content);
-
   try {
     const query =
       "INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())";
     await db.query(query, [postId, userId, content]);
-
-    console.log("댓글 추가 완료");
 
     res.status(201).send("댓글이 성공적으로 추가되었습니다.");
   } catch (error) {
@@ -47,8 +43,6 @@ router.post("/:postId", authenticateToken, async (req, res) => {
     const query =
       "INSERT INTO comments (post_id, user_id, content, parent_comment_id, created_at) VALUES (?, ?, ?, ?, NOW())";
     await db.query(query, [postId, userId, content, parentId]);
-
-    console.log("대댓글 추가 완료");
 
     res.status(201).send("대댓글이 성공적으로 추가되었습니다.");
   } catch (error) {

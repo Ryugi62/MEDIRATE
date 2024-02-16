@@ -242,7 +242,6 @@ export default {
     this.$axios
       .get("/api/posts/" + this.currentPostId)
       .then((res) => {
-        console.log("Fetched post data:", res.data);
         this.postData = res.data;
         // Safely initialize replyInputs only if commentsData is available
         if (this.postData && this.postData.commentsData) {
@@ -286,8 +285,7 @@ export default {
       if (confirm("게시물을 삭제하시겠습니까?")) {
         this.$axios
           .delete("/api/posts/" + this.currentPostId)
-          .then((res) => {
-            console.log("Post deleted successfully", res);
+          .then(() => {
             // Redirect to the board page after successful deletion
             this.$router.push("/board");
           })
@@ -314,10 +312,7 @@ export default {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
             },
           })
-          .then((response) => {
-            // Handle success
-            console.log("Comment added successfully", response);
-
+          .then(() => {
             // clear
             this.commentInput = "";
 
@@ -344,8 +339,7 @@ export default {
 
       this.$axios
         .put(`/api/comments/${commentId}`, payload)
-        .then((response) => {
-          console.log(response.data.message);
+        .then(() => {
           this.fetchPostData(); // Refresh the comments to reflect the changes
         })
         .catch((error) => {
@@ -373,8 +367,7 @@ export default {
           .delete(
             `/api/posts/comments/${this.postData.commentsData[commentIndex].id}`
           )
-          .then((res) => {
-            console.log("댓글 삭제 성공:", res.data);
+          .then(() => {
             // 댓글 삭제 후 화면 갱신 등 필요한 작업 수행
             this.fetchPostData();
           })
@@ -400,8 +393,7 @@ export default {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
             },
           })
-          .then((response) => {
-            console.log("Reply added successfully", response);
+          .then(() => {
             this.fetchPostData(); // Refresh post data to include the new reply.
           })
           .catch((error) => {
@@ -442,8 +434,7 @@ export default {
           .delete(
             `/api/posts/replies/${this.postData.commentsData[commentIndex].replies[replyIndex].id}`
           )
-          .then((res) => {
-            console.log("대댓글 삭제 성공:", res.data);
+          .then(() => {
             this.fetchPostData();
           })
           .catch((error) => {

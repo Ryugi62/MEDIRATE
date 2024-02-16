@@ -126,8 +126,7 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
-        .then((response) => {
-          console.log("Post created successfully:", response.data);
+        .then(() => {
           this.resetForm();
           this.$router.push("/"); // Redirect to the home or post listing page
         })

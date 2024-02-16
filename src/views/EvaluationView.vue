@@ -223,8 +223,6 @@ export default {
   },
   computed: {
     filteredUserList() {
-      console.log(this.userList);
-
       if (!this.searchInput) return this.userList;
       const searchKeyword = this.searchInput.toLowerCase();
       return this.userList.filter((user) => {
@@ -341,9 +339,6 @@ export default {
       this.$axios
         .post("/api/assignments/user-list")
         .then((response) => {
-          response.data.forEach((user) => {
-            console.log(user.username, user.realname, user.organization);
-          });
           this.userList = response.data;
         })
         .catch((error) => {

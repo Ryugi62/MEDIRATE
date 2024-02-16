@@ -120,9 +120,6 @@ export default {
   computed: {
     // 현재 페이지의 데이터
     paginatedData() {
-      const startIndex = (this.current - 1) * this.itemsPerPage;
-      console.log(startIndex);
-
       return this.data;
     },
     // 보여줄 페이지 수
@@ -241,7 +238,6 @@ export default {
 
     // 상세 페이지로 이동
     goToDetail(id) {
-      console.log(id);
       this.$router.push({ name: "dashboardDetail", params: { id } });
     },
   },

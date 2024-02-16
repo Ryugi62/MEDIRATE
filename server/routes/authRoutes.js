@@ -36,7 +36,9 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, username: user.username.trim() },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      // 만료 5초로 설정
+      // { expiresIn: "1h" }
+      { expiresIn: "2h" }
     );
 
     // 사용자 정보와 JWT 함께 반환
