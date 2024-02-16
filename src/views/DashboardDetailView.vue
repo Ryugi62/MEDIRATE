@@ -24,18 +24,20 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in data[0].questions" :key="index">
+                <tr
+                  v-for="(item, index) in data[0].questions"
+                  :key="index"
+                  @click="setActiveImage(item.questionImage, index)"
+                >
                   <td>
-                    <img
-                      src="https://via.placeholder.com/1050"
-                      alt="과제 이야기 이미지"
-                    />
+                    <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
                   <td v-for="person in data" :key="person.name">
                     {{ person.questions[index].questionSelection }}
                   </td>
                 </tr>
               </tbody>
+
               <tfoot class="table-footer">
                 <tr>
                   <th>답변</th>
@@ -53,10 +55,7 @@
             </table>
           </div>
           <div class="image-box">
-            <img
-              src="https://via.placeholder.com/1050"
-              alt="과제 이야기 이미지"
-            />
+            <img :src="activeImageUrl" alt="과제 이야기 이미지" />
           </div>
         </div>
       </div>
@@ -73,6 +72,7 @@ export default {
   data() {
     return {
       data: [], // This will hold your users and their question data
+      activeImageUrl: "https://via.placeholder.com/1050", // 기본 이미지 URL 설정
       assignmentId: this.$route.params.id,
     };
   },
@@ -101,6 +101,18 @@ export default {
     moveToAssignmentManagement() {
       console.log("Move to assignment management");
       // Implement navigation or other logic for managing assignments
+    },
+
+    setActiveImage(imageUrl, index) {
+      this.activeImageUrl = imageUrl;
+
+      // 해당 index의 tr에 active 클래스 추가
+      // 이미지 클릭 시 해당 이미지가 활성화되도록 구현
+      this.$el.querySelectorAll("tbody > tr").forEach((tr) => {
+        tr.classList.remove("active");
+      });
+
+      this.$el.querySelectorAll("tbody > tr")[index].classList.add("active");
     },
   },
 
@@ -190,7 +202,11 @@ td {
   text-align: center;
 }
 
-td {
+tr.active {
+  color: var(--white);
+  background-color: var(--blue);
+}
+w td {
   text-align: center;
   padding: 4px 8px;
   width: 70px;
