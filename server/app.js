@@ -10,6 +10,7 @@ const assignmentRoutes = require("./routes/assignmentRoutes");
 const authRoutes = require("./routes/authRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const postRoutes = require("./routes/postRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
@@ -47,6 +48,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/assignments", assignmentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
 
 // Route for serving uploaded files

@@ -117,8 +117,14 @@ export default {
   methods: {
     async loadAssignmentDetails(assignmentId) {
       try {
+        // jwt 토큰을 헤더에 추가
         const response = await this.$axios.get(
-          `/api/assignments/${assignmentId}`
+          `/api/assignments/${assignmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
         );
         this.currentAssignmentDetails = response.data;
 
@@ -141,19 +147,26 @@ export default {
       const dataToSubmit = {
         id: this.currentAssignmentDetails.id,
         questions: this.currentAssignmentDetails.questions.map((question) => ({
-          assignmentID: question.assignmentID,
-          sequence: question.sequence,
-          selectedValue: question.selectedValue, // 이미 인덱스로 변환된 값 사용
+          id: question.id,
+          selectedValue:
+            question.selectedValue !== undefined
+              ? question.selectedValue
+              : null,
         })),
       };
 
       try {
-        const response = await this.$axios.post(
-          "/api/assignments/update",
-          dataToSubmit
+        const response = await this.$axios.put(
+          "/api/assignments/" + this.currentAssignmentDetails.id,
+          dataToSubmit,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
         );
 
-        response.data;
+        console.log("Assignment evaluation saved successfully!", response.data);
 
         alert("과제 평가가 성공적으로 저장되었습니다!");
 

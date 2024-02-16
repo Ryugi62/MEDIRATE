@@ -31,8 +31,7 @@ const createTablesSQL = {
         deadline DATE NOT NULL,
         assignment_type VARCHAR(255),
         selection_type VARCHAR(255),
-        CONSTRAINT assignments_type_check CHECK (assignment_type IN ('BRST', 'KSIN')),
-        CONSTRAINT assignments_selection_check CHECK (selection_type IN ('BIN', 'GROUP'))
+        UNIQUE KEY title_deadline_unique (title, deadline)
     )`,
   assignment_user: `
     CREATE TABLE IF NOT EXISTS assignment_user (

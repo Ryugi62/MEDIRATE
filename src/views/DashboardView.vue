@@ -104,27 +104,15 @@ export default {
   name: "DashboardView",
 
   data() {
-    // 더미 데이터 생성
-    const dummyData = Array.from({ length: 100 }, (_, index) => ({
-      id: index + 1,
-      assignmentId: this.generateRandomString(),
-      title: "과제 제목 " + (index + 1),
-      evaluator: Math.floor(Math.random() * 10) + 1,
-      createdAt: this.generateRandomDate(new Date(2021, 0, 1), new Date()),
-      endAt: this.generateRandomDate(new Date(), new Date(2022, 0, 1)),
-      answerRate: Math.floor(Math.random() * 101) + "%",
-      unansweredRate: Math.floor(Math.random() * 101) + "%",
-    }));
-
     return {
       // 정렬 열 및 방향
       sortColumn: "id",
       sortDirection: "up",
       // 테이블 데이터
-      data: dummyData,
+      data: null,
       // 페이지 관련 데이터
       current: 1,
-      total: dummyData.length,
+      total: null,
       itemsPerPage: 14,
     };
   },
@@ -133,7 +121,9 @@ export default {
     // 현재 페이지의 데이터
     paginatedData() {
       const startIndex = (this.current - 1) * this.itemsPerPage;
-      return this.data.slice(startIndex, startIndex + this.itemsPerPage);
+      console.log(startIndex);
+
+      return this.data;
     },
     // 보여줄 페이지 수
     visiblePages() {
@@ -146,16 +136,9 @@ export default {
       }
       return pages;
     },
-    // 테이블 열 목록
     columns() {
       return [
         { name: "ID", key: "id", sortable: true, class: "id" },
-        {
-          name: "과제 ID",
-          key: "assignmentId",
-          sortable: true,
-          class: "assignment-id",
-        },
         {
           name: "제목",
           key: "title",
@@ -163,13 +146,18 @@ export default {
           class: "assignment-title",
         },
         {
-          name: "평가자",
-          key: "evaluator",
+          name: "생성",
+          key: "createdAt",
+          sortable: true,
+          class: "created-at",
+        },
+        { name: "종료", key: "endAt", sortable: true, class: "end-at" },
+        {
+          name: "평가자 수",
+          key: "evaluatorCount",
           sortable: true,
           class: "evaluator",
         },
-        { name: "생성", key: "createdAt", sortable: true, class: "created-at" },
-        { name: "종료", key: "endAt", sortable: true, class: "end-at" },
         {
           name: "답변완료율",
           key: "answerRate",
@@ -186,22 +174,28 @@ export default {
     },
   },
 
+  mounted() {
+    // 데이터 가져오기
+    this.getData();
+  },
+
   methods: {
-    // 무작위 문자열 생성
-    generateRandomString() {
-      return (
-        Math.random().toString(36).substring(2, 5) +
-        Math.random().toString(36).substring(2, 5)
-      );
+    async getData() {
+      this.$axios
+        .get("/api/dashboard", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((res) => {
+          this.data = res.data; // 서버 응답 데이터를 직접 할당
+          this.total = res.data.length; // 데이터 총 개수 설정
+        })
+        .catch((err) => {
+          console.error(err);
+        });
     },
-    // 무작위 날짜 생성
-    generateRandomDate(start, end) {
-      return new Date(
-        start.getTime() + Math.random() * (end.getTime() - start.getTime())
-      )
-        .toISOString()
-        .split("T")[0];
-    },
+
     // 페이지 변경
     changePage(page) {
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
@@ -244,6 +238,7 @@ export default {
         return this.sortDirection === "up" ? comparison : -comparison;
       });
     },
+
     // 상세 페이지로 이동
     goToDetail(id) {
       console.log(id);
