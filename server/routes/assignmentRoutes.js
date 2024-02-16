@@ -151,72 +151,135 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
-// Update or insert assignment response
-router.put("/:id", authenticateToken, async (req, res) => {
+router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
   try {
-    const { questions } = req.body;
-    const userId = req.user.id; // 사용자 ID는 JWT에서 가져옵니다.
+    const { assignmentId } = req.params;
 
-    // MySQL 연결 풀에서 연결을 가져옵니다.
-    const connection = await db.getConnection();
+    // 과제의 상세 정보를 가져옵니다.
+    const assignmentQuery = `
+      SELECT 
+        a.id, 
+        a.title, 
+        a.deadline,
+        a.assignment_type AS selectedAssignmentType,
+        a.selection_type AS selectedAssignmentId
+      FROM assignments a
+      WHERE a.id = ?`;
+    const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
 
-    try {
-      // 트랜잭션 시작
-      await connection.beginTransaction();
-
-      // 모든 답변을 순회하며 업데이트 또는 삽입
-      for (const question of questions) {
-        const selectedValue = question.selectedValue || -1;
-
-        // 이미 답변이 있는지 확인합니다.
-        const checkResponseQuery = `
-          SELECT COUNT(*) AS count
-          FROM question_responses
-          WHERE question_id = ? AND user_id = ?`;
-        const [rows] = await connection.execute(checkResponseQuery, [
-          question.id,
-          userId,
-        ]);
-        const responseCount = rows[0].count;
-
-        if (responseCount === 0) {
-          // 답변이 없으면 삽입합니다.
-          const insertResponseQuery = `
-            INSERT INTO question_responses (question_id, user_id, selected_option)
-            VALUES (?, ?, ?)`;
-          await connection.execute(insertResponseQuery, [
-            question.id,
-            userId,
-            selectedValue,
-          ]);
-        } else {
-          // 답변이 있으면 업데이트합니다.
-          const updateResponseQuery = `
-            UPDATE question_responses
-            SET selected_option = ?
-            WHERE question_id = ? AND user_id = ?`;
-          await connection.execute(updateResponseQuery, [
-            selectedValue,
-            question.id,
-            userId,
-          ]);
-        }
-      }
-
-      // 트랜잭션 커밋
-      await connection.commit();
-
-      res.send("Answers successfully updated or inserted.");
-    } catch (error) {
-      // 트랜잭션 롤백
-      await connection.rollback();
-      throw error; // 에러를 상위 핸들러로 다시 던집니다.
-    } finally {
-      // 연결 반환
-      connection.release();
+    if (!assignmentDetails.length) {
+      return res.status(404).send({ message: "Assignment not found." });
     }
+
+    const assignment = assignmentDetails[0];
+
+    console.log(assignment);
+
+    // 과제에 할당된 유저들을 가져옵니다.
+    const assignedUsersQuery = `
+      SELECT 
+        u.id, 
+        u.username, 
+        u.realname, 
+        u.organization
+      FROM assignment_user au
+      JOIN users u ON au.user_id = u.id
+      WHERE au.assignment_id = ?`;
+    const [assignedUsers] = await db.query(assignedUsersQuery, [assignmentId]);
+
+    // 과제에 관련된 질문들을 가져옵니다.
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+    const [questions] = await db.query(questionsQuery, [assignmentId]);
+
+    // 과제 상세 정보에 필요한 형태로 변환합니다.
+    const transformedAssignmentDetails = {
+      id: assignment.id,
+      title: assignment.title,
+      deadline: assignment.deadline,
+      selectedAssignmentId: assignment.selectedAssignmentId,
+      selectedAssignmentType: assignment.selectedAssignmentType,
+      questions: questions.map((q) => ({ id: q.id, img: q.image })),
+      gradingScale: {
+        bin: ["Unknown", "Negative", "Positive"],
+        grade: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
+      },
+      assignedUsers: assignedUsers.map((user) => ({
+        id: user.id,
+        username: user.username,
+        realname: user.realname,
+        organization: user.organization,
+      })),
+    };
+
+    // 최종적으로 변환된 과제 상세 정보와 유저 리스트를 응답으로 반환합니다.
+    res.json(transformedAssignmentDetails);
   } catch (error) {
-    handleError(res, "Error updating or inserting answers", error);
+    handleError(res, "Error fetching assignment details", error);
+  }
+});
+
+router.put("/:assignmentId", authenticateToken, async (req, res) => {
+  const assignmentId = req.params.assignmentId; // Extracting the assignmentId from the request parameters
+  const { title, deadline, assignment_type, selection_type, questions, users } =
+    req.body;
+
+  try {
+    // Start by updating the main assignment details
+    const updateQuery = `
+      UPDATE assignments
+      SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?
+      WHERE id = ?`;
+    await db.query(updateQuery, [
+      title,
+      deadline,
+      assignment_type,
+      selection_type,
+      assignmentId,
+    ]);
+
+    // Before deleting the questions, delete any responses to those questions to avoid foreign key constraint errors
+    const deleteResponsesQuery = `
+      DELETE qr FROM question_responses qr
+      JOIN questions q ON qr.question_id = q.id
+      WHERE q.assignment_id = ?`;
+    await db.query(deleteResponsesQuery, [assignmentId]);
+
+    // Now it's safe to delete the questions for the assignment
+    await db.query(`DELETE FROM questions WHERE assignment_id = ?`, [
+      assignmentId,
+    ]);
+
+    // Clear existing users associated with this assignment
+    await db.query(`DELETE FROM assignment_user WHERE assignment_id = ?`, [
+      assignmentId,
+    ]);
+
+    // Re-assign users to the assignment
+    await Promise.all(
+      users.map((userId) =>
+        db.query(
+          `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+          [assignmentId, userId]
+        )
+      )
+    );
+
+    // Re-add questions to the assignment
+    await Promise.all(
+      questions.map((question) =>
+        db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
+          assignmentId,
+          question.img,
+        ])
+      )
+    );
+
+    res.json({ message: "Assignment successfully updated." });
+  } catch (error) {
+    console.error("Error updating assignment:", error);
+    res
+      .status(500)
+      .send({ message: "Failed to update assignment", error: error.message });
   }
 });
 

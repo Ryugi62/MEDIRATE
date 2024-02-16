@@ -99,8 +99,7 @@ export default {
     },
 
     moveToAssignmentManagement() {
-      console.log("Move to assignment management");
-      // Implement navigation or other logic for managing assignments
+      this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
 
     setActiveImage(imageUrl, index) {

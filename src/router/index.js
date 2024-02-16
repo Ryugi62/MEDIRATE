@@ -8,6 +8,7 @@ import PostDetailView from "../views/PostDetailView.vue";
 import AssignmentView from "../views/AssignmentView.vue";
 import AssignmentDetail from "../views/AssignmentDetailView.vue";
 import EvaluationView from "../views/EvaluationView.vue";
+import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
 
@@ -57,6 +58,12 @@ const routes = [
     path: "/assignment/:id",
     name: "assignmentDetail",
     component: AssignmentDetail,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/edit-assignment/:id",
+    name: "edit-assignment",
+    component: EditAssignmentView,
     meta: { requiresAuth: true },
   },
   {
