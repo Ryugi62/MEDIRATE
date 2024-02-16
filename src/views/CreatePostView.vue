@@ -126,6 +126,8 @@ export default {
       formData.append("userId", this.$store.getters.getUser.username);
       formData.append("postType", this.postType);
 
+      console.log("postType", this.postType);
+
       const files = document.querySelector("#file-upload").files;
       for (let i = 0; i < files.length; i++) {
         const encodedFilename = encodeURIComponent(files[i].name);

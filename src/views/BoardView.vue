@@ -12,7 +12,13 @@
           </tr>
         </thead>
         <tbody>
+          <!-- 만약 공지사항이면 class -->
           <tr
+            :class="
+              post.type === 'notice'
+                ? 'table__body-row table__body-row--notice'
+                : 'table__body-row'
+            "
             v-for="post in paginatedPosts"
             :key="post.id"
             @click="navigateToPost(post.id)"
@@ -108,11 +114,12 @@ export default {
         headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
       })
       .then((res) => {
-        this.posts = res.data.posts.map((post) => ({
+        this.posts = res.data.map((post) => ({
           id: post.id,
           title: post.title,
           author: post.author,
           lastUpdated: post.lastUpdated,
+          type: post.type,
         }));
       })
       .catch((err) => {
@@ -238,5 +245,15 @@ export default {
   right: 46px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.table__body-row--notice {
+  background-color: #f5f5f5;
+  font-weight: bold;
+  color: var(--blue);
+  border-bottom: 1px solid var(--light-gray);
+}
+.table__body-row--notice:hover {
+  background-color: #e8e8e8;
 }
 </style>

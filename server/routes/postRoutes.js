@@ -19,35 +19,60 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// 모든 게시글 조회
 router.get("/", async (req, res) => {
   try {
     const query = `
-      SELECT 
-        posts.id, 
-        posts.title, 
-        users.username AS author, 
-        posts.creation_date AS lastUpdated 
-      FROM 
-        posts 
-      JOIN 
-        users 
-      ON 
-        posts.user_id = users.id 
-      ORDER BY 
+      SELECT
+        posts.id,
+        posts.title,
+        users.username AS author,
+        posts.creation_date AS lastUpdated,
+        posts.type
+      FROM
+        posts
+      JOIN
+        users ON posts.user_id = users.id
+      ORDER BY
         posts.id DESC
     `;
     const [posts] = await db.query(query);
 
     // 클라이언트에 반환할 데이터 형식으로 변환
-    const formattedPosts = posts.map((post) => ({
+    let formattedPosts = posts.map((post) => ({
       id: post.id,
       title: post.title,
       author: post.author,
       lastUpdated: post.lastUpdated,
+      type: post.type,
     }));
 
-    res.status(200).json({ posts: formattedPosts });
+    // 공지사항과 일반 게시글 분리
+    let noticePosts = formattedPosts.filter((post) => post.type === "notice");
+    let normalPosts = formattedPosts.filter((post) => post.type !== "notice");
+
+    // 공지사항 게시물에는 [공지] 태그 추가
+    noticePosts = noticePosts.map((post) => ({
+      ...post,
+      title: `[ 공지사항 ] ${post.title}`,
+    }));
+
+    // 공지사항이 5개 초과인 경우, 초과하는 공지사항들의 type을 post로 변경
+    if (noticePosts.length > 5) {
+      const extraNotices = noticePosts
+        .slice(5)
+        .map((post) => ({ ...post, type: "post" }));
+      normalPosts = [...normalPosts, ...extraNotices];
+      noticePosts = noticePosts.slice(0, 5);
+    }
+
+    // 공지사항을 제외한 나머지 게시물(ID 순)과 초과된 공지사항(이미 type이 post로 변경됨)을 일반 게시물과 합치고 ID 순서대로 정렬
+    // 일반 게시물 ID 역순 정렬
+    normalPosts.sort((a, b) => b.id - a.id);
+
+    // 최종 배열: 공지사항 맨 앞(최대 5개), 이후 일반 게시물 ID 순
+    const result = [...noticePosts, ...normalPosts];
+
+    res.status(200).json(result);
   } catch (error) {
     console.error("게시글 조회 중 오류:", error);
     res.status(500).send("게시글 조회 중 오류가 발생했습니다.");
@@ -164,7 +189,6 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
       content,
       postType,
     ]);
-    const postId = postResult.insertId;
 
     if (files) {
       files.forEach(async (file) => {
