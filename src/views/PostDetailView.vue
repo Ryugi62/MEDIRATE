@@ -68,7 +68,7 @@
                   v-model="editedCommentText"
                   class="edit-comment-textarea"
                 ></textarea>
-                <div v-else class="loading-message">
+                <div v-else>
                   {{ comment.text }}
                 </div>
               </div>
@@ -138,7 +138,7 @@
                   v-model="editedReplyText"
                   class="edit-comment-textarea"
                 ></textarea>
-                <div v-else class="loading-message">
+                <div v-else>
                   {{ reply.text }}
                 </div>
               </div>
