@@ -31,6 +31,7 @@
       </div>
 
       <div class="form__group file-upload">
+        <!-- 파일 선택 인풋 -->
         <input
           type="file"
           @change="handleFileUpload"
@@ -39,10 +40,12 @@
           style="display: none"
         />
         <label for="file-upload" class="file-upload__label">파일 선택</label>
+        <!-- 파일 미리보기 목록 -->
         <div class="file-upload__preview">
           <ul v-if="fileNames.length > 0">
             <li v-for="(fileName, index) in fileNames" :key="index">
               {{ fileName }}
+              <!-- 파일 삭제 버튼 -->
               <button
                 @click.prevent="removeFile(index)"
                 style="
@@ -167,15 +170,19 @@ export default {
       this.$router.push("/"); // 취소 시 게시판 목록으로 이동
     },
     removeFile(index) {
-      // 파일 삭제 시 해당 인덱스를 기억
+      // 파일 삭제 시 해당 인덱스를 기록
       this.deletedFileIndexes.push(index);
       // 파일 이름 배열에서 해당 인덱스의 파일 이름 제거
       this.fileNames.splice(index, 1);
+      // 선택된 파일 목록에서도 삭제된 파일 제거
+      this.selectedFiles.splice(index, 1);
     },
     handleFileUpload(event) {
       const files = event.target.files;
       for (let i = 0; i < files.length; i++) {
-        this.fileNames.push(files[i].name);
+        // 파일 이름에서 유니코드 문자 제거
+        const fileName = files[i].name.replace(/[\u{0080}-\u{FFFF}]/gu, "");
+        this.fileNames.push(fileName);
         this.selectedFiles.push(files[i]); // 선택된 파일을 selectedFiles 배열에 추가
       }
     },

@@ -51,6 +51,20 @@
           <ul v-if="fileNames.length > 0">
             <li v-for="(fileName, index) in fileNames" :key="index">
               {{ fileName }}
+              <button
+                @click.prevent="removeFile(index)"
+                style="
+                  background-color: var(--pink);
+                  color: white;
+                  padding: 4px 8px;
+                  border: none;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  transition: background-color 0.3s ease;
+                "
+              >
+                삭제
+              </button>
             </li>
           </ul>
         </div>
@@ -162,6 +176,11 @@ export default {
           // 여기서 파일 업로드 로직을 추가할 수 있습니다.
         });
       }
+    },
+
+    removeFile(index) {
+      // 배열에서 특정 인덱스의 파일 이름을 제거
+      this.fileNames.splice(index, 1);
     },
   },
 };

@@ -186,7 +186,6 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
   }
 });
 
-// 게시물 수정 - 파일 포함
 router.put(
   "/:id",
   authenticateToken,
@@ -213,15 +212,20 @@ router.put(
         const deletedFile = existingFiles[index];
         if (deletedFile) {
           const filePath = deletedFile.path;
-          // 데이터베이스에서 파일 레코드 삭제
-          const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
-          await db.query(deleteFileQuery, [deletedFile.id]);
-          // 파일 시스템에서 파일 삭제
-          fs.unlink(filePath, (err) => {
-            if (err) {
-              console.error("삭제된 파일 삭제 중 오류:", err);
-            }
-          });
+          // 파일이 존재하는지 확인
+          if (fs.existsSync(filePath)) {
+            // 데이터베이스에서 파일 레코드 삭제
+            const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
+            await db.query(deleteFileQuery, [deletedFile.id]);
+            // 파일 시스템에서 파일 삭제
+            fs.unlink(filePath, (err) => {
+              if (err) {
+                console.error("삭제된 파일 삭제 중 오류:", err);
+              }
+            });
+          } else {
+            console.error("삭제하려는 파일이 이미 삭제되었습니다:", filePath);
+          }
         }
       }
 
