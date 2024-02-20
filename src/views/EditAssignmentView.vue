@@ -313,7 +313,7 @@ export default {
       console.log("새로운 과제 정보", newAssignment);
 
       this.$axios
-        .put(`/api/assignments/${newAssignment.id}`, newAssignment, {
+        .put(`/api/assignments/edit/${newAssignment.id}`, newAssignment, {
           headers: {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },

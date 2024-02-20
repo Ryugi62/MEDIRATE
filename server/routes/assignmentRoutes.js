@@ -219,6 +219,42 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
 });
 
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
+  const assignmentId = req.params.assignmentId;
+  const { questions } = req.body;
+
+  try {
+    // 이전에 모든 응답을 삭제하는 로직은 제거됩니다.
+    // 각 질문에 대한 사용자 응답을 데이터베이스에 업데이트합니다.
+    for (const question of questions) {
+      // 사용자가 선택한 응답이 유효한 경우에만 데이터베이스에 삽입/업데이트합니다.
+      if (
+        question.selectedValue !== undefined &&
+        question.selectedValue !== null
+      ) {
+        const insertResponseQuery = `
+          INSERT INTO question_responses (question_id, user_id, selected_option)
+          VALUES (?, ?, ?)
+          ON DUPLICATE KEY UPDATE selected_option = ?`;
+        await db.query(insertResponseQuery, [
+          question.id,
+          req.user.id,
+          question.selectedValue,
+          question.selectedValue,
+        ]);
+      }
+    }
+
+    res.json({ message: "Assignment responses successfully updated." });
+  } catch (error) {
+    console.error("Error updating assignment responses:", error);
+    res.status(500).send({
+      message: "Failed to update assignment responses",
+      error: error.message,
+    });
+  }
+});
+
+router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId; // Extracting the assignmentId from the request parameters
   const { title, deadline, assignment_type, selection_type, questions, users } =
     req.body;
