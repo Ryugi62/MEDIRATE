@@ -7,8 +7,17 @@ const fs = require("fs"); // fs 모듈 추가
 
 require("dotenv").config();
 
+// uploads 폴더가 없으면 생성하는 함수
+const ensureUploadsDirectoryExists = () => {
+  const dir = "./uploads";
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+};
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    ensureUploadsDirectoryExists(); // uploads 폴더 확인 및 생성
     cb(null, "./uploads");
   },
   filename: function (req, file, cb) {
@@ -190,12 +199,16 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
       postType,
     ]);
 
+    // 새로운 게시물의 ID를 가져옵니다.
+    const postId = postResult.insertId; // 여기에서 postId를 정의합니다.
+
+    // 파일 정보를 데이터베이스에 삽입합니다.
     if (files) {
       files.forEach(async (file) => {
         const filePath = file.path; // 파일 경로
         const fileQuery =
           "INSERT INTO attachments (post_id, path, filename) VALUES (?, ?, ?)";
-        await db.query(fileQuery, [postId, filePath, file.originalname]);
+        await db.query(fileQuery, [postId, filePath, file.originalname]); // 여기에서 postId를 사용합니다.
       });
     }
 
