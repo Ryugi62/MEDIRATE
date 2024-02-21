@@ -120,6 +120,8 @@
                 </thead>
                 <tbody>
                   <tr
+                    @click="activeQuestionId = question.id"
+                    :class="[{ active: question.id === activeQuestionId }]"
                     v-for="question in assignmentDetails.questions"
                     :key="question.id"
                   >
@@ -143,6 +145,7 @@
                           :name="`bin-${question.id}`"
                           :value="item"
                           v-model="question.selectValue"
+                          disabled
                         />
                         <label :for="`bin-${question.id}-${item}`">{{
                           item
@@ -155,7 +158,7 @@
             </div>
             <div class="student-response-image">
               <img
-                :src="`https://via.placeholder.com/1025x1025.png?text=${assignmentDetails.selectedAssignmentId}`"
+                :src="assignmentDetails.questions[activeQuestionId]?.img"
                 alt="Student Response"
               />
             </div>
