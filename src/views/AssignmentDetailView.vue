@@ -53,12 +53,7 @@
               :class="{ active: question.id === activeQuestionId }"
             >
               <td>
-                <img
-                  :src="`https://via.placeholder.com/1025x1025.png?text=Q${
-                    idx + 1
-                  }`"
-                  alt="Question"
-                />
+                <img :src="question.image" alt="Question" />
               </td>
               <td
                 v-for="(grade, index) in currentAssignmentDetails.selectionType"

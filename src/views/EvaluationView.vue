@@ -65,7 +65,19 @@
               :id="`field-${fieldName}`"
               :type="field.options?.type"
               v-model="assignmentDetails[field.model]"
+              :list="
+                fieldName === 'assignment-id' ? 'assignment-id-list' : null
+              "
             />
+            <datalist id="assignment-id-list">
+              <option
+                v-for="folder in folderList"
+                :key="folder.id"
+                :value="folder.id"
+              >
+                {{ folder }}
+              </option>
+            </datalist>
             <button
               v-if="field.method"
               @click="field.method ? this[field.method]() : null"
@@ -117,6 +129,7 @@
                         :name="`question-${question.id}`"
                         :value="option"
                         v-model="question.select"
+                        disabled
                       />
                     </td>
                   </tr>
@@ -149,6 +162,7 @@ export default {
       addedUsers: [],
       maxUserCount: 5,
       searchInput: "",
+      folderList: [],
       assignmentDetails: {
         title: "",
         deadline: "",
@@ -191,6 +205,7 @@ export default {
 
   mounted() {
     this.fetchUserList();
+    this.fetchFolderList();
   },
   computed: {
     filteredUserList() {
@@ -209,7 +224,24 @@ export default {
     },
   },
   methods: {
+    fetchFolderList() {
+      this.$axios
+        .get("/api/assets")
+        .then((response) => {
+          this.folderList = response.data;
+          console.log(this.folderList);
+        })
+        .catch((error) => {
+          console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
+        });
+    },
+
     updateTableHeader() {
+      if (this.assignmentDetails.selectedAssignmentType.trim() === "") {
+        alert("선택 유형을 먼저 선택하세요.");
+        return;
+      }
+
       const headerText = this.assignmentDetails.selectedAssignmentType;
       const headerArray = headerText.split(",").map((item) => item.trim());
 
@@ -243,13 +275,15 @@ export default {
       this.addedUsers.splice(index, 1);
     },
     saveAssignment() {
+      console.log(this.assignmentDetails);
+
       // 평가자 검색, 과제 제목, 마감일, 과제 ID, 선택 유형이 모두 입력되었는지 확인
       if (
         this.addedUsers.length === 0 ||
         !this.assignmentDetails.title ||
         !this.assignmentDetails.deadline ||
         !this.assignmentDetails.selectedAssignmentId ||
-        !this.assignmentDetails.selectedAssignmentType
+        !this.assignmentDetails.questions.length > 0
       ) {
         alert(
           "평가자, 과제 제목, 마감일, 과제 ID, 선택 유형을 모두 입력해주세요."
@@ -317,29 +351,31 @@ export default {
         alert("과제 ID를 먼저 선택하세요.");
         return;
       }
-      let img_name;
-      if (this.assignmentDetails.selectedAssignmentId === "first_eval") {
-        img_name = "449311-SS14-63993-HE-(2)-";
-      } else if (
-        this.assignmentDetails.selectedAssignmentId === "second_eval"
-      ) {
-        img_name = "449650-SS12-33769-HE-";
-      } else if (
-        this.assignmentDetails.selectedAssignmentId === "third_dataset"
-      ) {
-        img_name = "831367-UB_02_0004-";
-      }
 
-      console.log(this.assignmentDetails.selectedAssignmentId);
-      console.log(img_name);
+      this.$axios
+        .get(`/api/assets/${this.assignmentDetails.selectedAssignmentId}`)
+        .then((response) => {
+          const imageList = response.data;
+          const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
 
-      this.assignmentDetails.questions = Array.from({ length: 50 }, (_, i) => ({
-        id: i + 1,
-        img: `http://tgsi.duckdns.org:3000/${
-          this.assignmentDetails.selectedAssignmentId
-        }/${img_name}${this.formatNumber(i + 1, 4)}.jpg`,
-        select: null,
-      }));
+          // 이미지 리스트를 문제로 변환
+          const questions = imageList.map((image, index) => {
+            return {
+              id: index,
+              img: `http://localhost:3000${rout}/${image}`,
+              select: null,
+            };
+          });
+
+          // 문제 리스트를 저장
+          this.assignmentDetails.questions = questions;
+        })
+        .catch((error) => {
+          console.error(
+            "해당 폴더의 이미지 리스트를 가져오는 중 오류 발생:",
+            error
+          );
+        });
     },
 
     fetchUserList() {

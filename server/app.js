@@ -11,6 +11,7 @@ const authRoutes = require("./routes/authRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const postRoutes = require("./routes/postRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const fs = require("fs");
 
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
@@ -63,40 +64,47 @@ app.get("/uploads/:filename", (req, res) => {
   });
 });
 
-// 이미지 리턴
-app.get("/first_eval/:filename", (req, res) => {
-  const { filename } = req.params;
-  const absolutePath = path.join(__dirname, "../first_eval", filename);
-  res.download(absolutePath, (err) => {
-    if (err) {
-      console.error("Error downloading file:", err);
-      return res.status(500).send("Failed to download file");
-    }
-  });
+app.get("/api/assets", (req, res) => {
+  // assets 폴더의 목록을 보여준다.
+  const absolutePath = path.join(__dirname, "../assets");
+  // 폴더만 보여주기, 파일은 보여주지 않기 .~~~로 끝나는 파일은 보여주지 않기
+  const files = fs.readdirSync(absolutePath); // 폴더와 파일을 모두 보여준다.
+  res.json(
+    files.filter((file) =>
+      fs.lstatSync(path.join(absolutePath, file)).isDirectory()
+    )
+  );
 });
 
-// 이미지 리턴
-app.get("/second_eval/:filename", (req, res) => {
-  const { filename } = req.params;
-  const absolutePath = path.join(__dirname, "../second_eval", filename);
-  res.download(absolutePath, (err) => {
-    if (err) {
-      console.error("Error downloading file:", err);
-      return res.status(500).send("Failed to download file");
-    }
-  });
+app.get("/api/assets/:foldername", (req, res) => {
+  // foldername을 확인한 후 폴더가 있으면 파일 목록을 보여주고, 없으면 없다는 것을 알려준다.
+  const { foldername } = req.params;
+  const absolutePath = path.join(__dirname, "../assets", foldername);
+
+  if (fs.existsSync(absolutePath)) {
+    const files = fs.readdirSync(absolutePath);
+    res.json(files.filter((file) => !file.startsWith(".")));
+    res.json(files);
+  } else {
+    res.status(404).send("없음");
+  }
 });
 
-// 이미지 리턴
-app.get("/third_dataset/:filename", (req, res) => {
-  const { filename } = req.params;
-  const absolutePath = path.join(__dirname, "../third_dataset", filename);
-  res.download(absolutePath, (err) => {
-    if (err) {
-      console.error("Error downloading file:", err);
-      return res.status(500).send("Failed to download file");
-    }
-  });
+app.get("/api/assets/:foldername/:filename", (req, res) => {
+  // foldername을 확인한 후 파일이 있으면 다운로드, 없으면 없다는 것을 알려준다.
+  const { foldername, filename } = req.params;
+  const absolutePath = path.join(__dirname, "../assets", foldername, filename);
+
+  if (fs.existsSync(absolutePath)) {
+    res.download(absolutePath, (err) => {
+      if (err) {
+        console.error("Error downloading file:", err);
+        return res.status(500).send("Failed to download file");
+      }
+    });
+  } else {
+    res.status(404).send("없음");
+  }
 });
 
 // Fallback route for SPA

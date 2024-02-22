@@ -2,9 +2,9 @@
 node_modules
 /dist
 /uploads
-/first_eval
-/second_eval
-/third_dataset
+/assets/first_eval
+/assets/second_eval
+/assets/third_dataset
 
 # dotenv environment variable files
 .env
