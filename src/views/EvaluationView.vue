@@ -66,19 +66,12 @@
               :type="field.options?.type"
               v-model="assignmentDetails[field.model]"
             />
-            <select
-              v-else-if="field.component === 'select'"
-              :id="`field-${fieldName}`"
-              v-model="assignmentDetails[field.model]"
+            <button
+              v-if="field.method"
+              @click="field.method ? this[field.method]() : null"
             >
-              <option
-                v-for="(option, index) in field.options.values"
-                :key="index"
-                :value="option"
-              >
-                {{ field.options.names[index] }}
-              </option>
-            </select>
+              조회
+            </button>
           </div>
         </div>
         <hr />
@@ -100,22 +93,12 @@
                 <thead>
                   <tr>
                     <th>문제</th>
-                    <template
-                      v-if="
-                        assignmentDetails.selectedAssignmentType === 'bin' ||
-                        assignmentDetails.selectedAssignmentType === 'grade'
-                      "
+                    <th
+                      v-for="option in assignmentDetails.gradingScale"
+                      :key="option"
                     >
-                      <th
-                        v-for="option in assignmentDetails.selectedAssignmentType ===
-                        'bin'
-                          ? assignmentDetails.gradingScale.bin
-                          : assignmentDetails.gradingScale.grade"
-                        :key="option"
-                      >
-                        {{ option }}
-                      </th>
-                    </template>
+                      {{ option }}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,39 +109,25 @@
                     :key="question.id"
                   >
                     <td><img :src="question.img" /></td>
-                    <template
-                      v-if="
-                        assignmentDetails.selectedAssignmentType === 'bin' ||
-                        assignmentDetails.selectedAssignmentType === 'grade'
-                      "
+                    <td
+                      v-for="option in assignmentDetails.gradingScale"
+                      :key="`question-${question.id}-option-${option}`"
                     >
-                      <td
-                        v-for="item in assignmentDetails.selectedAssignmentType ===
-                        'bin'
-                          ? assignmentDetails.gradingScale.bin
-                          : assignmentDetails.gradingScale.grade"
-                        :key="`bin-${question.id}-${item}`"
-                      >
-                        <input
-                          type="radio"
-                          :id="`bin-${question.id}-${item}`"
-                          :name="`bin-${question.id}`"
-                          :value="item"
-                          v-model="question.selectValue"
-                          disabled
-                        />
-                        <label :for="`bin-${question.id}-${item}`">{{
-                          item
-                        }}</label>
-                      </td>
-                    </template>
+                      <input
+                        type="radio"
+                        :name="`question-${question.id}`"
+                        :value="option"
+                        v-model="question.select"
+                      />
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div class="student-response-image">
               <img
-                :src="assignmentDetails.questions[activeQuestionId]?.img"
+                v-if="activeQuestionId !== null"
+                :src="assignmentDetails.questions[activeQuestionId].img"
                 alt="Student Response"
               />
             </div>
@@ -184,13 +153,10 @@ export default {
       assignmentDetails: {
         title: "",
         deadline: "",
-        selectedAssignmentId: "",
-        selectedAssignmentType: "",
+        selectedAssignmentId: "", // 수정됨
+        selectedAssignmentType: "", // 수정됨
         questions: [],
-        gradingScale: {
-          bin: ["Unknown", "Negative", "Positive"],
-          grade: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
-        },
+        gradingScale: null,
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -207,23 +173,23 @@ export default {
           options: { type: "date" },
         },
         "assignment-id": {
-          label: "과제 ID :",
-          component: "select",
-          model: "selectedAssignmentId",
-          options: {
-            values: ["first_eval", "second_eval", "third_dataset"],
-            names: ["first_eval", "second_eval", "third_dataset"],
-          },
+          label: "과제 ID :", // 수정됨
+          component: "input", // 수정됨
+          model: "selectedAssignmentId", // 수정됨
+          method: "generateQuestions", // 수정됨
+          options: {}, // 수정됨
         },
         "assignment-type": {
-          label: "선택 유형 :",
-          component: "select",
-          model: "selectedAssignmentType",
-          options: { values: ["bin", "grade"], names: ["Bin", "Grade"] },
+          label: "선택 유형 :", // 수정됨
+          component: "input", // 수정됨
+          model: "selectedAssignmentType", // 수정됨
+          method: "updateTableHeader", // 수정됨
+          options: {}, // 수정됨
         },
       },
     };
   },
+
   mounted() {
     this.fetchUserList();
   },
@@ -247,6 +213,18 @@ export default {
     },
   },
   methods: {
+    updateTableHeader() {
+      // input에 텍스트가 입력되면 ,를 기준으로 테이블 헤더를 업데이트합니다.
+      // 예시 : "Unkonw, Negative, Positive" -> ["Unkonw", "Negative", "Positive"]
+      const headerText = this.assignmentDetails.selectedAssignmentType;
+
+      // ,로 나누고 공백 제거
+      const headerArray = headerText.split(",").map((item) => item.trim());
+
+      // 테이블 헤더 업데이트
+      this.assignmentDetails.gradingScale = headerArray;
+    },
+
     isUserAdded(user) {
       return this.addedUsers.some(
         (addedUser) => addedUser.username === user.username
@@ -334,7 +312,12 @@ export default {
       number += 1;
       return number.toString().padStart(length, "0");
     },
-    generateQuestions(count) {
+    generateQuestions() {
+      // 수정됨
+      if (this.assignmentDetails.selectedAssignmentId === "") {
+        alert("과제 ID를 먼저 선택하세요.");
+        return;
+      }
       let img_name;
       if (this.assignmentDetails.selectedAssignmentId === "first_eval") {
         img_name = "449311-SS14-63993-HE-(2)-";
@@ -351,18 +334,15 @@ export default {
       console.log(this.assignmentDetails.selectedAssignmentId);
       console.log(img_name);
 
-      this.assignmentDetails.questions = Array.from(
-        { length: count },
-        (_, i) => ({
-          id: i + 1,
-          // @src/assets/first_eval/0001.png
-          img: `http://tgsi.duckdns.org:3000/${
-            this.assignmentDetails.selectedAssignmentId
-          }/${img_name}${this.formatNumber(i + 1, 4)}.jpg`,
-          select: null,
-        })
-      );
+      this.assignmentDetails.questions = Array.from({ length: 50 }, (_, i) => ({
+        id: i + 1,
+        img: `http://tgsi.duckdns.org:3000/${
+          this.assignmentDetails.selectedAssignmentId
+        }/${img_name}${this.formatNumber(i + 1, 4)}.jpg`,
+        select: null,
+      }));
     },
+
     fetchUserList() {
       // jwt 토큰을 헤더에 추가하여 유저 정보를 가져옵니다.
       this.$axios
@@ -375,11 +355,6 @@ export default {
         });
     },
     // 기타 메서드들
-  },
-  watch: {
-    "assignmentDetails.selectedAssignmentId"() {
-      this.generateQuestions(50);
-    },
   },
 };
 </script>
@@ -592,6 +567,7 @@ hr {
   display: flex;
   flex: 1;
   gap: 8px;
+  text-wrap: nowrap;
   align-items: center;
 }
 
@@ -604,6 +580,11 @@ hr {
   border-radius: 4px;
   box-sizing: border-box;
   height: 42px;
+}
+
+.assignment-field-select {
+  display: flex;
+  text-wrap: nowrap;
 }
 
 /* 과제 미리보기 */
