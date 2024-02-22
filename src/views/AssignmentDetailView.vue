@@ -37,7 +37,10 @@
           <thead>
             <tr>
               <th>문제</th>
-              <th v-for="grade in gradingScale[gradingType]" :key="grade">
+              <th
+                v-for="grade in currentAssignmentDetails.selectionType"
+                :key="grade"
+              >
                 {{ grade }}
               </th>
             </tr>
@@ -58,7 +61,7 @@
                 />
               </td>
               <td
-                v-for="(grade, index) in gradingScale[gradingType]"
+                v-for="(grade, index) in currentAssignmentDetails.selectionType"
                 :key="index"
               >
                 <input

@@ -99,7 +99,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.id, 
         a.title AS FileName, 
         u.realname AS studentName,
-        a.deadline AS Deadline
+        a.deadline AS Deadline,
+        a.selection_type AS selectionType
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
@@ -138,6 +139,12 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     });
 
     const totalScore = questions.length; // 총 풀어야 하는 개수는 질문의 총 수입니다.
+    // assignment[0].selectionType.split(",") 이 이후 모든 공백을 제거하고 배열을 반환합니다.
+    assignment[0].selectionType = assignment[0].selectionType
+      .split(",")
+      .map((s) => s.trim());
+
+    console.log(assignment[0].selectionType);
 
     // 최종적으로 과제 상세 정보와 함께 score와 totalScore를 응답으로 반환합니다.
     res.json({
