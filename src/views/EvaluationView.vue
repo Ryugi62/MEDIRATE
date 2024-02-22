@@ -362,7 +362,7 @@ export default {
           const questions = imageList.map((image, index) => {
             return {
               id: index,
-              img: `http://localhost:3000${rout}/${image}`,
+              img: `${rout}/${image}`,
               select: null,
             };
           });

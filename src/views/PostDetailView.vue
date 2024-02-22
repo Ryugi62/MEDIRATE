@@ -21,7 +21,7 @@
               ></i>
               <span class="file-size">{{ file.size }}</span>
               <a
-                :href="`http://localhost:3000/uploads/${file.filename}`"
+                :href="`/uploads/${file.filename}`"
                 class="file-name"
                 target="_blank"
                 download
