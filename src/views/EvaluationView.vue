@@ -81,7 +81,6 @@
               <h2 class="metadata-assignment-title">
                 {{ assignmentDetails.title }}
               </h2>
-              <span class="metadata-student-name">{{ studentName }}</span>
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
@@ -208,18 +207,18 @@ export default {
         );
       });
     },
-    studentName() {
-      return "학생 이름";
-    },
   },
   methods: {
     updateTableHeader() {
-      // input에 텍스트가 입력되면 ,를 기준으로 테이블 헤더를 업데이트합니다.
-      // 예시 : "Unkonw, Negative, Positive" -> ["Unkonw", "Negative", "Positive"]
       const headerText = this.assignmentDetails.selectedAssignmentType;
-
-      // ,로 나누고 공백 제거
       const headerArray = headerText.split(",").map((item) => item.trim());
+
+      // 중복 검사 로직 추가
+      const hasDuplicates = new Set(headerArray).size !== headerArray.length;
+      if (hasDuplicates) {
+        alert("중복된 선택 유형은 추가할 수 없습니다.");
+        return; // 함수를 여기서 종료시켜서 테이블 헤더 업데이트를 막습니다.
+      }
 
       // 테이블 헤더 업데이트
       this.assignmentDetails.gradingScale = headerArray;
