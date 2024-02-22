@@ -65,20 +65,25 @@
               :id="`field-${fieldName}`"
               :type="field.options?.type"
               v-model="assignmentDetails[field.model]"
+              :list="
+                fieldName === 'assignment-id' ? 'assignment-id-list' : null
+              "
             />
-            <select
-              v-else-if="field.component === 'select'"
-              :id="`field-${fieldName}`"
-              v-model="assignmentDetails[field.model]"
-            >
+            <datalist id="assignment-id-list">
               <option
-                v-for="(option, index) in field.options.values"
-                :key="index"
-                :value="option"
+                v-for="folder in folderList"
+                :key="folder.id"
+                :value="folder.id"
               >
-                {{ field.options.names[index] }}
+                {{ folder }}
               </option>
-            </select>
+            </datalist>
+            <button
+              v-if="field.method"
+              @click="field.method ? this[field.method]() : null"
+            >
+              조회
+            </button>
           </div>
         </div>
         <hr />
@@ -100,63 +105,45 @@
                 <thead>
                   <tr>
                     <th>문제</th>
-                    <template
-                      v-if="
-                        assignmentDetails.selectedAssignmentType === 'bin' ||
-                        assignmentDetails.selectedAssignmentType === 'grade'
-                      "
+                    <th
+                      v-for="option in assignmentDetails.gradingScale"
+                      :key="option"
                     >
-                      <th
-                        v-for="option in assignmentDetails.selectedAssignmentType ===
-                        'bin'
-                          ? assignmentDetails.gradingScale.bin
-                          : assignmentDetails.gradingScale.grade"
-                        :key="option"
-                      >
-                        {{ option }}
-                      </th>
-                    </template>
+                      {{ option }}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr
+                    @click="activeQuestionId = question.id"
+                    :class="[{ active: question.id === activeQuestionId }]"
                     v-for="question in assignmentDetails.questions"
                     :key="question.id"
                   >
                     <td><img :src="question.img" /></td>
-                    <template
-                      v-if="
-                        assignmentDetails.selectedAssignmentType === 'bin' ||
-                        assignmentDetails.selectedAssignmentType === 'grade'
-                      "
+                    <td
+                      v-for="option in assignmentDetails.gradingScale"
+                      :key="`question-${question.id}-option-${option}`"
                     >
-                      <td
-                        v-for="item in assignmentDetails.selectedAssignmentType ===
-                        'bin'
-                          ? assignmentDetails.gradingScale.bin
-                          : assignmentDetails.gradingScale.grade"
-                        :key="`bin-${question.id}-${item}`"
-                      >
-                        <input
-                          disabled
-                          type="radio"
-                          :id="`bin-${question.id}-${item}`"
-                          :name="`bin-${question.id}`"
-                          :value="item"
-                          v-model="question.selectValue"
-                        />
-                        <label :for="`bin-${question.id}-${item}`">{{
-                          item
-                        }}</label>
-                      </td>
-                    </template>
+                      <input
+                        type="radio"
+                        :name="`question-${question.id}`"
+                        :value="option"
+                        v-model="question.select"
+                        disabled
+                      />
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div class="student-response-image">
               <img
-                :src="`https://via.placeholder.com/1025x1025.png?text=${assignmentDetails.selectedAssignmentId}`"
+                :src="
+                  activeQuestionId
+                    ? assignmentDetails.questions[activeQuestionId].img
+                    : ''
+                "
                 alt="Student Response"
               />
             </div>
@@ -179,16 +166,14 @@ export default {
       addedUsers: [],
       maxUserCount: 5,
       searchInput: "",
+      folderList: [],
       assignmentDetails: {
         title: "",
         deadline: "",
-        selectedAssignmentId: "",
-        selectedAssignmentType: "",
+        selectedAssignmentId: "", // 수정됨
+        selectedAssignmentType: "", // 수정됨
         questions: [],
-        gradingScale: {
-          bin: ["Unknown", "Negative", "Positive"],
-          grade: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
-        },
+        gradingScale: null,
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -205,16 +190,18 @@ export default {
           options: { type: "date" },
         },
         "assignment-id": {
-          label: "과제 ID :",
-          component: "select",
-          model: "selectedAssignmentId",
-          options: { values: ["brst", "test"], names: ["BRST", "TEST"] },
+          label: "과제 ID :", // 수정됨
+          component: "input", // 수정됨
+          model: "selectedAssignmentId", // 수정됨
+          method: "generateQuestions", // 수정됨
+          options: {}, // 수정됨
         },
         "assignment-type": {
-          label: "선택 유형 :",
-          component: "select",
-          model: "selectedAssignmentType",
-          options: { values: ["bin", "grade"], names: ["Bin", "Grade"] },
+          label: "선택 유형 :", // 수정됨
+          component: "input", // 수정됨
+          model: "selectedAssignmentType", // 수정됨
+          method: "updateTableHeader", // 수정됨
+          options: {}, // 수정됨
         },
       },
     };
@@ -223,6 +210,7 @@ export default {
   mounted() {
     this.fetchUserList();
     this.fetchAssignmentData();
+    this.fetchFolderList();
   },
 
   computed: {
@@ -246,10 +234,44 @@ export default {
   },
 
   methods: {
+    fetchFolderList() {
+      this.$axios
+        .get("/api/assets")
+        .then((response) => {
+          this.folderList = response.data;
+          console.log(this.folderList);
+        })
+        .catch((error) => {
+          console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
+        });
+    },
+
     isUserAdded(user) {
       return this.addedUsers.some(
         (addedUser) => addedUser.username === user.username
       );
+    },
+
+    updateTableHeader() {
+      if (this.assignmentDetails.selectedAssignmentType.trim() === "") {
+        alert("선택 유형을 먼저 선택하세요.");
+        return;
+      }
+
+      const headerText = this.assignmentDetails.selectedAssignmentType;
+      const headerArray = headerText.split(",").map((item) => item.trim());
+
+      console.log(`headerText: ${headerText}`);
+      console.log(`headerArray: ${headerArray}`);
+
+      // 중복 검사 로직 추가
+      const hasDuplicates = new Set(headerArray).size !== headerArray.length;
+      if (hasDuplicates) {
+        alert("중복된 선택 유형은 추가할 수 없습니다.");
+        return; // 함수를 여기서 종료시켜서 테이블 헤더 업데이트를 막습니다.
+      }
+
+      this.assignmentDetails.gradingScale = headerArray;
     },
 
     addUser(user) {
@@ -329,17 +351,37 @@ export default {
         });
     },
 
-    generateQuestions(count) {
-      console.log(this.assignmentDetails);
+    generateQuestions() {
+      // 수정됨
+      if (this.assignmentDetails.selectedAssignmentId === "") {
+        alert("과제 ID를 먼저 선택하세요.");
+        return;
+      }
 
-      this.assignmentDetails.questions = Array.from(
-        { length: count },
-        (_, i) => ({
-          id: i + 1,
-          img: `https://via.placeholder.com/1080x1080.png?text=Q${i + 1}`,
-          select: null,
+      this.$axios
+        .get(`/api/assets/${this.assignmentDetails.selectedAssignmentId}`)
+        .then((response) => {
+          const imageList = response.data;
+          const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
+
+          // 이미지 리스트를 문제로 변환
+          const questions = imageList.map((image, index) => {
+            return {
+              id: index,
+              img: `http://localhost:3000${rout}/${image}`,
+              select: null,
+            };
+          });
+
+          // 문제 리스트를 저장
+          this.assignmentDetails.questions = questions;
         })
-      );
+        .catch((error) => {
+          console.error(
+            "해당 폴더의 이미지 리스트를 가져오는 중 오류 발생:",
+            error
+          );
+        });
     },
 
     fetchUserList() {
@@ -375,18 +417,11 @@ export default {
           this.assignmentDetails.selectedAssignmentType =
             response.data.selectedAssignmentId;
           this.assignmentDetails.questions = response.data.questions;
+          this.assignmentDetails.gradingScale = response.data.gradingScale;
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
         });
-    },
-  },
-
-  watch: {
-    "assignmentDetails.selectedAssignmentId"(newVal) {
-      this.generateQuestions(
-        newVal === "test" ? 100 : newVal === "brst" ? 100 : 0
-      );
     },
   },
 };
@@ -600,7 +635,13 @@ hr {
   display: flex;
   flex: 1;
   gap: 8px;
+  text-wrap: nowrap;
   align-items: center;
+}
+
+.assignment-field-select {
+  display: flex;
+  text-wrap: nowrap;
 }
 
 /* 과제 필드 입력 */

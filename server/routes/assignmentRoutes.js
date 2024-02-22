@@ -206,10 +206,9 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
       selectedAssignmentId: assignment.selectedAssignmentId,
       selectedAssignmentType: assignment.selectedAssignmentType,
       questions: questions.map((q) => ({ id: q.id, img: q.image })),
-      gradingScale: {
-        bin: ["Unknown", "Negative", "Positive"],
-        grade: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
-      },
+      gradingScale: assignment.selectedAssignmentId
+        .split(",")
+        .map((item) => item.trim()),
       assignedUsers: assignedUsers.map((user) => ({
         id: user.id,
         username: user.username,
