@@ -358,7 +358,7 @@ export default {
       ) {
         // 폴더 ID 존재하지 않음을 알리고, 가능한 폴더 ID를 보여줍니다.
         alert(
-          `해당 폴더 ID가 존재하지 않습니다.\n\n가능한 폴더 ID는 다음과 같습니다:${this.folderList.join(
+          `해당 과제 ID가 존재하지 않습니다.\n\n가능한 과제 ID는 다음과 같습니다:${this.folderList.join(
             ", "
           )}`
         );
