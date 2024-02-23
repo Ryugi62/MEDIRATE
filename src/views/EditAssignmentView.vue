@@ -115,9 +115,9 @@
                 </thead>
                 <tbody>
                   <tr
-                    @click="activeQuestionId = question.id"
+                    @click="activeQuestionId = index + 1"
                     :class="[{ active: question.id === activeQuestionId }]"
-                    v-for="question in assignmentDetails.questions"
+                    v-for="(question, index) in assignmentDetails.questions"
                     :key="question.id"
                   >
                     <td><img :src="question.img" /></td>
@@ -404,8 +404,6 @@ export default {
           },
         })
         .then((response) => {
-          console.log(response.data);
-
           this.addedUsers = response.data.assignedUsers;
           this.assignmentDetails.id = response.data.id;
           this.assignmentDetails.title = response.data.title;
