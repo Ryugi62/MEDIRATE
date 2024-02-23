@@ -31,7 +31,7 @@ export default {
     },
     minScale: {
       type: Number,
-      default: 1,
+      default: 0.8,
     },
   },
 
@@ -141,8 +141,9 @@ export default {
 }
 
 .image {
-  max-width: 100%; /* 이미지가 컨테이너를 넘지 않도록 함 */
-  max-height: 100%; /* 이미지가 컨테이너를 넘지 않도록 함 */
+  width: 100%; /* 이미지가 컨테이너를 넘지 않도록 함 */
+  height: 100%; /* 이미지가 컨테이너를 넘지 않도록 함 */
+  object-fit: contain;
   transition: transform 0.2s ease-out;
   position: absolute; /* 이미지를 절대 위치로 설정 */
   top: 50%; /* 상단에서 50% 위치에 배치 */
