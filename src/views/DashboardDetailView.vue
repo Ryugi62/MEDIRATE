@@ -222,6 +222,7 @@ td > img {
 }
 
 .image-box > img {
+  width: 100%;
   margin: auto;
   object-fit: contain;
   max-height: 710px;
