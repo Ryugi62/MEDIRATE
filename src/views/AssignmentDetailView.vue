@@ -394,7 +394,8 @@ td {
 }
 
 .student-response-image img {
-  width: fit-content;
+  width: 100%;
+  object-fit: contain;
   max-width: 100%;
   max-height: 100%;
 }
