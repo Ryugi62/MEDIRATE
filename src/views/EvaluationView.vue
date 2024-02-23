@@ -137,10 +137,9 @@
               </table>
             </div>
             <div class="student-response-image">
-              <img
+              <ImageComponent
                 v-if="activeQuestionId !== null"
-                :src="assignmentDetails.questions[activeQuestionId].img"
-                alt="Student Response"
+                :src="assignmentDetails.questions[activeQuestionId]?.img"
               />
             </div>
           </div>
@@ -154,6 +153,8 @@
 </template>
 
 <script>
+import ImageComponent from "@/components/ImageComponent.vue";
+
 export default {
   name: "AssignmentManagementView",
   data() {
@@ -207,6 +208,11 @@ export default {
     this.fetchUserList();
     this.fetchFolderList();
   },
+
+  components: {
+    ImageComponent,
+  },
+
   computed: {
     filteredUserList() {
       if (!this.searchInput) return this.userList;
@@ -375,7 +381,7 @@ export default {
           const questions = imageList.map((image, index) => {
             return {
               id: index,
-              img: `${rout}/${image}`,
+              img: `http://localhost:3000${rout}/${image}`,
               select: null,
             };
           });

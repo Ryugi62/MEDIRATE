@@ -78,7 +78,12 @@
         class="student-response-image"
         :class="{ 'full-screen': isFullScreenImage }"
       >
-        <img :src="activeQuestionImageUrl" alt="Student Response" />
+        <ImageComponent
+          :src="activeQuestionImageUrl"
+          ref="studentResponseImage
+        "
+          alt="Student Response"
+        />
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
       </div>
     </div>
@@ -87,6 +92,8 @@
 </template>
 
 <script>
+import ImageComponent from "@/components/ImageComponent.vue";
+
 export default {
   name: "AssignmentEvaluationView",
 
@@ -96,6 +103,7 @@ export default {
       draftAssignmentDetails: {},
       isEditEnabled: false,
       activeQuestionId: 1,
+      activeQuestionImageUrl: "https://via.placeholder.com/1050",
       gradingScale: {
         ungraded: ["Unknown", "Negative", "Positive"],
         grades: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
@@ -113,6 +121,10 @@ export default {
     this.$nextTick(() => {
       this.makeTdClickable();
     });
+  },
+
+  components: {
+    ImageComponent,
   },
 
   methods: {
@@ -217,33 +229,10 @@ export default {
       }
     },
 
-    updateActiveImage() {
-      if (
-        this.currentAssignmentDetails &&
-        this.currentAssignmentDetails.questions
-      ) {
-        const studentResponseImage = this.$refs.studentResponseImage;
-        const firstQuestion = this.currentAssignmentDetails.questions[0];
-        if (firstQuestion && studentResponseImage) {
-          studentResponseImage.src = firstQuestion.image;
-          const firstTr = this.$refs.gradesTable.querySelector(
-            ".grades-table table tbody tr"
-          );
-          if (firstTr) {
-            firstTr.classList.add("active");
-          }
-        }
-      }
-    },
-
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
 
-      // 오른쪽 이미지 업데이트
-      const studentResponseImage = this.$el.querySelector(
-        ".student-response-image img"
-      );
-      studentResponseImage.src = question.image;
+      this.activeQuestionImageUrl = question.image;
 
       // 모든 행의 'active' 클래스 제거 후 현재 클릭된 행에만 'active' 클래스 추가
       this.$nextTick(() => {

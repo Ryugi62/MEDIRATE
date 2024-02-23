@@ -115,8 +115,8 @@
                 </thead>
                 <tbody>
                   <tr
-                    @click="activeQuestionId = index + 1"
-                    :class="[{ active: question.id === activeQuestionId }]"
+                    @click="activeQuestionId = index"
+                    :class="[{ active: index === activeQuestionId }]"
                     v-for="(question, index) in assignmentDetails.questions"
                     :key="question.id"
                   >
@@ -138,13 +138,9 @@
               </table>
             </div>
             <div class="student-response-image">
-              <img
-                :src="
-                  activeQuestionId
-                    ? assignmentDetails.questions[activeQuestionId].img
-                    : ''
-                "
-                alt="Student Response"
+              <ImageComponent
+                v-if="activeQuestionId !== null"
+                :src="assignmentDetails.questions[activeQuestionId]?.img"
               />
             </div>
           </div>
@@ -158,6 +154,8 @@
 </template>
 
 <script>
+import ImageComponent from "@/components/ImageComponent.vue";
+
 export default {
   name: "EditAssignmentView",
   data() {
@@ -231,6 +229,10 @@ export default {
     studentName() {
       return "학생 이름";
     },
+  },
+
+  components: {
+    ImageComponent,
   },
 
   methods: {
