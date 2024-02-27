@@ -55,7 +55,8 @@
             </table>
           </div>
           <div class="image-box">
-            <img :src="activeImageUrl" alt="과제 이야기 이미지" />
+            <!-- <img :src="activeImageUrl" alt="과제 이야기 이미지" /> -->
+            <ImageComponent :src="activeImageUrl" />
           </div>
         </div>
       </div>
@@ -67,8 +68,15 @@
 </template>
 
 <script>
+import ImageComponent from "@/components/ImageComponent.vue";
+
 export default {
   name: "DashboardDetailView",
+
+  components: {
+    ImageComponent,
+  },
+
   data() {
     return {
       data: [], // This will hold your users and their question data
@@ -76,9 +84,11 @@ export default {
       assignmentId: this.$route.params.id,
     };
   },
+
   created() {
     this.loadData();
   },
+
   methods: {
     async loadData() {
       try {
