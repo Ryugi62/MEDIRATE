@@ -27,7 +27,7 @@ export default {
     },
     maxScale: {
       type: Number,
-      default: 4,
+      default: 50,
     },
     minScale: {
       type: Number,
@@ -50,6 +50,10 @@ export default {
     imageStyle() {
       return {
         transform: `translate(-50%, -50%) translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`,
+        maxWidth: "100%",
+        maxHeight: "100%",
+        width: "auto",
+        height: "auto",
       };
     },
   },
