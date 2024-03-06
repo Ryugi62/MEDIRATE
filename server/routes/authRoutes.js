@@ -58,6 +58,52 @@ router.post("/login", async (req, res) => {
 });
 
 /**
+ * 로그인 시도를 처리합니다.
+ */
+router.get("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const query = "SELECT * FROM users WHERE username = TRIM(?)";
+    const [rows] = await db.query(query, [username.trim()]);
+
+    if (rows.length === 0) {
+      return res.status(401).send("Invalid username or password.");
+    }
+
+    const user = rows[0];
+    if (!verifyPassword(password, user.password)) {
+      return res.status(401).send("Invalid username or password.");
+    }
+
+    // JWT 생성
+    const token = jwt.sign(
+      { id: user.id, username: user.username.trim() },
+      process.env.JWT_SECRET,
+      // 만료 5초로 설정
+      // { expiresIn: "1h" }
+      { expiresIn: "2h" }
+    );
+
+    // 사용자 정보와 JWT 함께 반환
+    const userWithoutPassword = {
+      username: user.username.trim(),
+      realname: user.realname,
+      organization: user.organization,
+      role: user.role,
+      token: token, // JWT 추가
+    };
+
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Server error during login:", error);
+    res.status(500).send("Server error during login.");
+  }
+});
+
+
+
+/**
  * 로그아웃을 처리하고 로그인 페이지로 리다이렉트합니다.
  */
 router.get("/logout", (req, res) => {
