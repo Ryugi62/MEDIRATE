@@ -40,26 +40,18 @@ router.get("/", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, username: user.username.trim() },
       process.env.JWT_SECRET,
-      // 만료 5초로 설정
-      // { expiresIn: "1h" }
       { expiresIn: "2h" }
     );
 
-    // 사용자 정보와 JWT 함께 반환
-    const userWithoutPassword = {
-      username: user.username.trim(),
-      realname: user.realname,
-      organization: user.organization,
-      role: user.role,
-      token: token, // JWT 추가
-    };
-
-    res.status(200).json(userWithoutPassword);
+    // 사용자를 리다이렉트 URL로 리다이렉트하고, JWT를 쿼리 파라미터로 포함시킵니다.
+    // 예를 들어, https://aialpa-eval.duckdns.org/dashboard 경로로 리다이렉트하고 싶다면:
+    res.redirect(`https://aialpa-eval.duckdns.org/#/?token=${encodeURIComponent(token)}`);
   } catch (error) {
     console.error("Server error during login:", error);
     res.status(500).send("Server error during login.");
   }
 });
+
 
 
 /**
