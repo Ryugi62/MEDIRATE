@@ -61,6 +61,20 @@ export default {
     this.$store.commit("closeSlideBar");
 
     this.retrieveRememberedUsername();
+
+    // URL 파라미터에서 username과 password 추출
+    const queryParams = this.$route.query;
+    if (queryParams.username && queryParams.password) {
+      this.formFields.find((field) => field.id === "username").model =
+        queryParams.username;
+      this.formFields.find((field) => field.id === "password").model =
+        queryParams.password;
+      // 자동 로그인 시도
+      this.login({
+        username: queryParams.username,
+        password: queryParams.password,
+      });
+    }
   },
 
   methods: {
