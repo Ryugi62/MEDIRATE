@@ -16,47 +16,6 @@ function verifyPassword(inputPassword, storedHash) {
 /**
  * 로그인 시도를 처리합니다.
  */
-router.get("/", async (req, res) => {
-  const { username, password } = req.query;
-
-  try {
-    if (!username || !password) {
-      return res.status(400).send("Username and password are required.");
-    }
-
-    const query = "SELECT * FROM users WHERE username = TRIM(?)";
-    const [rows] = await db.query(query, [username.trim()]);
-
-    if (rows.length === 0) {
-      return res.status(401).send("Invalid username or password.");
-    }
-
-    const user = rows[0];
-    if (!verifyPassword(password, user.password)) {
-      return res.status(401).send("Invalid username or password.");
-    }
-
-    // JWT 생성
-    const token = jwt.sign(
-      { id: user.id, username: user.username.trim() },
-      process.env.JWT_SECRET,
-      { expiresIn: "2h" }
-    );
-
-    // 사용자를 리다이렉트 URL로 리다이렉트하고, JWT를 쿼리 파라미터로 포함시킵니다.
-    // 예를 들어, https://aialpa-eval.duckdns.org/dashboard 경로로 리다이렉트하고 싶다면:
-    res.redirect(`https://aialpa-eval.duckdns.org/#/?token=${encodeURIComponent(token)}`);
-  } catch (error) {
-    console.error("Server error during login:", error);
-    res.status(500).send("Server error during login.");
-  }
-});
-
-
-
-/**
- * 로그인 시도를 처리합니다.
- */
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -97,7 +56,6 @@ router.post("/login", async (req, res) => {
     res.status(500).send("Server error during login.");
   }
 });
-
 
 /**
  * 로그아웃을 처리하고 로그인 페이지로 리다이렉트합니다.
