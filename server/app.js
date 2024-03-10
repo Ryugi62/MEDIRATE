@@ -77,14 +77,13 @@ app.get("/api/assets", (req, res) => {
 });
 
 app.get("/api/assets/:foldername", (req, res) => {
-  // foldername을 확인한 후 폴더가 있으면 파일 목록을 보여주고, 없으면 없다는 것을 알려준다.
   const { foldername } = req.params;
   const absolutePath = path.join(__dirname, "../assets", foldername);
 
   if (fs.existsSync(absolutePath)) {
     const files = fs.readdirSync(absolutePath);
+    // 필터링된 파일 목록만 클라이언트에 응답으로 보낸다.
     res.json(files.filter((file) => !file.startsWith(".")));
-    res.json(files);
   } else {
     res.status(404).send("없음");
   }
