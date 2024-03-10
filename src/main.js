@@ -6,7 +6,7 @@ import axios from "axios";
 
 // Axios 인스턴스 생성 및 기본 URL 설정
 const axiosInstance = axios.create({
-  baseURL: "https://aialpa-eval.duckdns.org", // 모든 요청에 자동으로 이 URL이 앞에 붙음
+  baseURL: process.env.VUE_APP_API_BASE_URL,
 });
 
 // 애플리케이션 인스턴스를 생성
