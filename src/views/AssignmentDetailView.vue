@@ -74,7 +74,7 @@
         </table>
       </div>
 
-      <div
+      <!-- <div
         class="student-response-image"
         :class="{ 'full-screen': isFullScreenImage }"
       >
@@ -85,14 +85,17 @@
           alt="Student Response"
         />
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
-      </div>
+      </div> -->
+
+      <BBoxComponent :src="activeQuestionImageUrl" />
     </div>
   </div>
   <div v-else class="loading-message">과제를 불러오는 중입니다...</div>
 </template>
 
 <script>
-import ImageComponent from "@/components/ImageComponent.vue";
+// import ImageComponent from "@/components/ImageComponent.vue";
+import BBoxComponent from "@/components/BBoxComponent.vue";
 
 export default {
   name: "AssignmentEvaluationView",
@@ -124,7 +127,8 @@ export default {
   },
 
   components: {
-    ImageComponent,
+    // ImageComponent,
+    BBoxComponent,
   },
 
   methods: {

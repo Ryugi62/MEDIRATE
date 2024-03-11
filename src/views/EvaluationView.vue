@@ -381,7 +381,7 @@ export default {
           const questions = imageList.map((image, index) => {
             return {
               id: index,
-              img: `${rout}/${image}`,
+              img: `https://aialpa-eval.duckdns.org${rout}/${image}`,
               select: null,
             };
           });
@@ -408,7 +408,6 @@ export default {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
         });
     },
-    // 기타 메서드들
   },
 };
 </script>
