@@ -6,7 +6,7 @@ const MySQLStore = require("express-mysql-session")(session);
 const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
-const AdmZip = require("adm-zip");
+const unzipper = require("unzipper");
 const fs = require("fs");
 
 // Internal dependencies
@@ -21,7 +21,7 @@ const commentRoutes = require("./routes/commentRoutes");
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
 const upload = multer({ dest: "uploads/" });
-const IF_DIRECTORY = path.join(__dirname, "data", "taskdata");
+const IF_DIRECTORY = path.join(__dirname, "..", "assets");
 const sessionStore = new MySQLStore({}, db);
 
 // Middleware for parsing request bodies and serving static files
@@ -76,8 +76,14 @@ app.listen(port, () => {
 
 // Function to serve an uploaded file
 function serveUploadedFile(req, res) {
-  const { filename } = req.params;
+  console.log("hello world");
+
+  // Decode the filename to handle spaces and special characters
+  const filename = decodeURIComponent(req.params.filename);
   const absolutePath = path.join(__dirname, "../uploads", filename);
+
+  console.log(`filename : ${filename}`);
+
   res.download(absolutePath, errorHandler(res));
 }
 
@@ -107,8 +113,11 @@ function listFilesInFolder(req, res) {
 
 // Function to serve a specific file from a folder
 function serveFileFromFolder(req, res) {
-  const { foldername, filename } = req.params;
+  // Decode foldername and filename to handle spaces and special characters
+  const foldername = decodeURIComponent(req.params.foldername);
+  const filename = decodeURIComponent(req.params.filename);
   const absolutePath = path.join(__dirname, "../assets", foldername, filename);
+
   if (fs.existsSync(absolutePath)) {
     res.download(absolutePath, errorHandler(res));
   } else {
@@ -116,8 +125,7 @@ function serveFileFromFolder(req, res) {
   }
 }
 
-// Handle POST request for uploading task data
-function handleTaskDataUpload(req, res) {
+async function handleTaskDataUpload(req, res) {
   try {
     const { userid, taskid } = req.body;
     console.log(
@@ -129,14 +137,41 @@ function handleTaskDataUpload(req, res) {
       fs.mkdirSync(taskDir, { recursive: true });
     }
 
-    const zipFilePath = path.join(taskDir, req.file.originalname);
-    fs.renameSync(req.file.path, zipFilePath);
+    const zipFilePath = req.file.path;
 
-    const zip = new AdmZip(zipFilePath);
-    zip.extractAllTo(taskDir, true);
-    fs.unlinkSync(zipFilePath);
+    // unzipper를 사용하여 ZIP 파일을 스트림으로 열고, 각 항목에 대해 처리합니다.
+    fs.createReadStream(zipFilePath)
+      .pipe(unzipper.Parse())
+      .on("entry", function (entry) {
+        // const fileName = entry.path;
+        // 파일의 이름만 담아둠
+        const fileName = path.basename(entry.path);
+        const type = entry.type; // 'Directory' 또는 'File'
+        const fullPath = path.join(taskDir, fileName);
 
-    res.json({ code: "1", result: "OK" });
+        // 이미지 일때만 처리
+        if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif)$/)) {
+          entry.pipe(fs.createWriteStream(fullPath));
+        }
+
+        // 항목을 처리한 후 스트림을 닫습니다.
+        entry.autodrain();
+
+        // 파일이름을 출력
+        console.log(fileName);
+      })
+      .promise()
+      .then(
+        () => {
+          // 압축 해제 후 원본 zip 파일 삭제
+          fs.unlinkSync(zipFilePath);
+          console.log(`Files extracted to: ${taskDir}`);
+          res.json({ code: "1", result: "OK" });
+        },
+        (err) => {
+          throw err;
+        }
+      );
   } catch (error) {
     console.error(error);
     res.status(500).send(`An error occurred: ${error.message}`);
