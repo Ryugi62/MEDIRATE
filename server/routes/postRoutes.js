@@ -289,8 +289,26 @@ router.delete("/:id", async (req, res) => {
   const postId = req.params.id;
 
   try {
+    // 파일도 삭제
+    const attachmentsQuery = "SELECT * FROM attachments WHERE post_id = ?";
+    const [attachments] = await db.query(attachmentsQuery, [postId]);
+
+    for (const file of attachments) {
+      const filePath = file.path;
+      // 데이터베이스에서 파일 레코드 삭제
+      const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
+      await db.query(deleteFileQuery, [file.id]);
+      // 파일 시스템에서 파일 삭제
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.error("파일 삭제 중 오류:", err);
+        }
+      });
+    }
+
     const query = "DELETE FROM posts WHERE id = ?";
     await db.query(query, [postId]);
+
     res.status(200).send("게시글이 성공적으로 삭제되었습니다.");
   } catch (error) {
     res.status(500).send("게시글 삭제 중 오류가 발생했습니다.");
