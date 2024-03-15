@@ -20,7 +20,10 @@ const commentRoutes = require("./routes/commentRoutes");
 // Constants and configurations
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
-const upload = multer({ dest: "uploads/" });
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
 const IF_DIRECTORY = path.join(__dirname, "..", "assets");
 const sessionStore = new MySQLStore({}, db);
 
@@ -128,9 +131,6 @@ function serveFileFromFolder(req, res) {
 async function handleTaskDataUpload(req, res) {
   try {
     const { userid, taskid } = req.body;
-    console.log(
-      `User ID: ${userid} | Task ID: ${taskid} | File: ${req.file.originalname}`
-    );
 
     const taskDir = path.join(IF_DIRECTORY, taskid);
     if (!fs.existsSync(taskDir)) {
@@ -150,7 +150,7 @@ async function handleTaskDataUpload(req, res) {
         const fullPath = path.join(taskDir, fileName);
 
         // 이미지 일때만 처리
-        if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif)$/)) {
+        if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif|json)$/)) {
           entry.pipe(fs.createWriteStream(fullPath));
         }
 
@@ -165,7 +165,6 @@ async function handleTaskDataUpload(req, res) {
         () => {
           // 압축 해제 후 원본 zip 파일 삭제
           fs.unlinkSync(zipFilePath);
-          console.log(`Files extracted to: ${taskDir}`);
           res.json({ code: "1", result: "OK" });
         },
         (err) => {
