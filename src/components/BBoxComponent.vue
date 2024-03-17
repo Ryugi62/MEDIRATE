@@ -138,8 +138,6 @@ export default {
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale; // 스케일 비율 계산
 
-      console.log("scaleRatio", scaleRatio);
-
       this.squares.forEach((square) => {
         // 사각형의 위치를 조정합니다. 이미지의 위치 변화와 스케일 변화를 반영합니다.
         square.x =
