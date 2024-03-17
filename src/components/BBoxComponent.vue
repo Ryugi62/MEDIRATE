@@ -18,19 +18,6 @@
 export default {
   name: "BBoxComponent",
 
-  data() {
-    return {
-      iconList: [
-        { name: "fa-square", active: true },
-        { name: "fa-eraser", active: false },
-      ],
-      squares: [],
-      backgroundImage: null,
-      originalWidth: null,
-      originalHeight: null,
-    };
-  },
-
   props: {
     src: {
       type: String,
@@ -38,21 +25,49 @@ export default {
     },
   },
 
-  methods: {
-    activateIcon(selectedIcon) {
-      this.iconList.forEach((icon) => {
-        icon.active = false;
-      });
-      selectedIcon.active = true;
+  data() {
+    return {
+      iconList: [
+        { name: "fa-square", active: true },
+        { name: "fa-eraser", active: false },
+      ],
+      beforeCanvas: { width: null, height: null },
+      squares: [],
+      backgroundImage: null,
+      originalWidth: null,
+      originalHeight: null,
+    };
+  },
+
+  computed: {
+    eraserActive() {
+      return this.iconList.some(
+        (icon) => icon.name === "fa-eraser" && icon.active
+      );
     },
 
-    loadBackgroundImage() {
-      const img = new Image();
-      img.onload = () => {
-        this.setBackgroundImage(img);
-        this.resizeCanvas();
-      };
-      img.src = this.src;
+    isSliderActive() {
+      return this.$store.getters.isSlideBarOpen;
+    },
+  },
+
+  methods: {
+    activateIcon(selectedIcon) {
+      this.iconList.forEach((icon) => (icon.active = icon === selectedIcon));
+    },
+
+    async loadBackgroundImage() {
+      const img = await this.createImage(this.src);
+      this.setBackgroundImage(img);
+      this.resizeCanvas();
+    },
+
+    createImage(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.src = src;
+      });
     },
 
     setBackgroundImage(img) {
@@ -62,15 +77,16 @@ export default {
     },
 
     drawBackgroundImage() {
-      if (!this.backgroundImage) return;
+      const canvas = this.getCanvasElement();
+      if (!this.backgroundImage || !canvas) return;
 
-      const canvas = this.$el.querySelector("canvas");
       const ctx = canvas.getContext("2d");
-      const { width, height } = canvas;
-      const { x, y, scale } = this.calculateImagePosition(width, height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.clearRect(0, 0, width, height);
-
+      const { x, y, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
       ctx.drawImage(
         this.backgroundImage,
         x,
@@ -85,47 +101,54 @@ export default {
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
       );
-      const x = canvasWidth / 2 - (this.originalWidth / 2) * scale;
-      const y = canvasHeight / 2 - (this.originalHeight / 2) * scale;
+      const x = (canvasWidth - this.originalWidth * scale) / 2;
+      const y = (canvasHeight - this.originalHeight * scale) / 2;
 
       return { x, y, scale };
     },
 
-    resizeCanvas() {
-      const canvas = this.$el.querySelector("canvas");
+    async resizeCanvas() {
+      const canvas = this.getCanvasElement();
+      if (!canvas) return;
+
+      await this.saveBeforeResize(canvas.width, canvas.height);
+
       canvas.width = 0;
       canvas.height = 0;
 
-      const { width, height } = this.$el
+      const bboxBody = this.$el
         .querySelector(".bbox-component__body")
         .getBoundingClientRect();
+      canvas.width = bboxBody.width;
+      canvas.height = bboxBody.height;
 
-      canvas.width = width;
-      canvas.height = height;
-
-      // this.adjustSquaresPosition(width, height);
       this.drawBackgroundImage();
+      await this.setSquaresPosition();
+
       this.redrawSquares();
     },
 
-    adjustSquaresPosition(newWidth, newHeight) {
-      const scale = Math.min(
-        newWidth / this.originalWidth,
-        newHeight / this.originalHeight
-      );
-      this.squares = this.squares.map((square) => ({
-        x: square.x * scale,
-        y: square.y * scale,
-      }));
+    saveBeforeResize(width, height) {
+      this.beforeCanvas = { width, height };
+    },
+
+    setSquaresPosition() {
+      const { width, height } = this.getCanvasElement();
+      const canvasWidthDiff = (width - this.beforeCanvas.width) / 2;
+
+      const { x, scale } = this.calculateImagePosition(width, height);
+
+      this.squares.forEach((square) => {
+        if (x) square.x += canvasWidthDiff;
+        else square.x += ((width - this.beforeCanvas.width) * scale) / 2;
+      });
+
+      console.log(this.beforeCanvas.width - width);
     },
 
     handleCanvasClick(event) {
       const { x, y } = this.getCanvasCoordinates(event);
-      const eraserActive = this.iconList.find(
-        (icon) => icon.name === "fa-eraser"
-      ).active;
-
-      eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
+      this.eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
     },
 
     drawSquare(x, y) {
@@ -142,34 +165,32 @@ export default {
 
     redrawSquares() {
       this.drawBackgroundImage();
-      const canvas = this.$el.querySelector("canvas");
+      const canvas = this.getCanvasElement();
       const ctx = canvas.getContext("2d");
-
       this.squares.forEach((square) => {
-        ctx.fillStyle = "red";
-        ctx.fillRect(square.x - 10, square.y - 10, 20, 20); // 사각형 중심 조정
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "red";
+        ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
     },
 
-    getCanvasCoordinates(event) {
-      const canvas = this.$el.querySelector("canvas"); // canvas 객체를 정의합니다.
-      const canvasRect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / canvasRect.width;
-      const scaleY = canvas.height / canvasRect.height;
+    getCanvasCoordinates({ clientX, clientY }) {
+      const canvas = this.getCanvasElement();
+      if (!canvas) return {};
 
+      const { left, top, width, height } = canvas.getBoundingClientRect();
       return {
-        x: (event.clientX - canvasRect.left) * scaleX,
-        y: (event.clientY - canvasRect.top) * scaleY,
+        x: (clientX - left) * (canvas.width / width),
+        y: (clientY - top) * (canvas.height / height),
       };
     },
 
-    isSquareClicked(square, x, y) {
-      return (
-        x >= square.x - 10 &&
-        x <= square.x + 10 &&
-        y >= square.y - 10 &&
-        y <= square.y + 10
-      );
+    isSquareClicked({ x, y }, mouseX, mouseY) {
+      return Math.abs(x - mouseX) <= 10 && Math.abs(y - mouseY) <= 10;
+    },
+
+    getCanvasElement() {
+      return this.$el.querySelector("canvas");
     },
   },
 
@@ -183,8 +204,12 @@ export default {
   },
 
   watch: {
-    src() {
-      this.loadBackgroundImage();
+    src(newVal, oldVal) {
+      if (newVal !== oldVal) this.loadBackgroundImage();
+    },
+
+    isSliderActive() {
+      this.resizeCanvas();
     },
   },
 };
@@ -196,25 +221,30 @@ export default {
   display: flex;
   flex-direction: column;
 }
+
 .bbox-component__header {
   gap: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .bbox-component__header i {
   cursor: pointer;
   padding: 10px;
 }
+
 .bbox-component__header i.active {
   color: var(--blue);
 }
+
 .bbox-component__body {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
 }
+
 canvas {
   background-color: gray;
 }
