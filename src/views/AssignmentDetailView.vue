@@ -153,6 +153,10 @@ export default {
         this.$nextTick(() => {
           this.makeTdClickable();
         });
+
+        // 현재 선택된 질문의 이미지 URL을 업데이트합니다.
+        this.activeQuestionImageUrl =
+          this.currentAssignmentDetails.questions[0].image;
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
