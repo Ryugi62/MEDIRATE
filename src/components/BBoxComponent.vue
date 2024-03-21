@@ -30,6 +30,7 @@ export default {
       iconList: [
         { name: "fa-square", active: true },
         { name: "fa-eraser", active: false },
+        { name: "fa-circle-minus", active: false },
       ],
       beforeCanvas: { width: null, height: null },
       beforeResizePosition: { x: 0, y: 0 }, // 리사이징 이전의 이미지 포지션 저장
@@ -54,6 +55,23 @@ export default {
 
   methods: {
     activateIcon(selectedIcon) {
+      if (selectedIcon.name === "fa-circle-minus") {
+        // confirm 창을 띄워서 삭제 여부를 확인합니다.
+        const isConfirmed = confirm("정말로 모든 사각형을 삭제하시겠습니까?");
+        if (!isConfirmed) return;
+
+        this.squares = [];
+        this.redrawSquares();
+
+        // fa-square 아이콘을 활성화합니다.
+        const squareIcon = this.iconList.find(
+          (icon) => icon.name === "fa-square"
+        );
+        this.activateIcon(squareIcon);
+
+        return;
+      }
+
       this.iconList.forEach((icon) => (icon.active = icon === selectedIcon));
     },
 
@@ -218,8 +236,9 @@ export default {
 
 <style scoped>
 .bbox-component {
-  width: 100%;
+  flex: 1;
   display: flex;
+  padding-right: 22px;
   flex-direction: column;
 }
 
