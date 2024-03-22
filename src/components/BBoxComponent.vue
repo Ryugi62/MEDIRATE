@@ -9,7 +9,10 @@
       ></i>
     </div>
     <div class="bbox-component__body">
-      <canvas @click="handleCanvasClick"></canvas>
+      <canvas
+        @click="handleCanvasClick"
+        @mousemove="handleCanvasMouseMove"
+      ></canvas>
     </div>
   </div>
 </template>
@@ -176,10 +179,25 @@ export default {
     },
 
     eraseSquare(mouseX, mouseY) {
-      this.squares = this.squares.filter(
-        (square) => !this.isSquareClicked(square, mouseX, mouseY)
-      );
-      this.redrawSquares();
+      const closestSquare = this.getClosestSquare(mouseX, mouseY);
+      if (closestSquare) {
+        const index = this.squares.indexOf(closestSquare);
+        this.squares.splice(index, 1);
+        this.redrawSquares();
+      }
+    },
+
+    getClosestSquare(x, y) {
+      return this.squares.reduce(
+        (closest, square) => {
+          const distance = Math.hypot(square.x - x, square.y - y);
+          if (distance <= 50) {
+            return distance < closest.distance ? { square, distance } : closest;
+          }
+          return closest;
+        },
+        { square: null, distance: Infinity }
+      ).square;
     },
 
     redrawSquares() {
@@ -210,6 +228,80 @@ export default {
 
     getCanvasElement() {
       return this.$el.querySelector("canvas");
+    },
+
+    handleCanvasMouseMove(event) {
+      const canvas = this.getCanvasElement();
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+      const closestSquare = this.getClosestSquare(x, y);
+
+      this.redrawSquares();
+
+      if (closestSquare && this.eraserActive) {
+        this.squares.forEach((square) => {
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "red";
+          ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+        });
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "blue";
+        ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 20, 20);
+      } else {
+        this.activeEnlarge(event);
+      }
+    },
+
+    activeEnlarge(event) {
+      const canvas = this.getCanvasElement();
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+      const zoomWidth = 100; // 확대될 사각형의 너비
+      const zoomHeight = 100; // 확대될 사각형의 높이
+      const zoomLevel = 2.5; // 확대 비율
+
+      // 이미지 위치 및 크기 계산
+      const {
+        x: imgX,
+        y: imgY,
+        scale,
+      } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 마우스 위치를 이미지 상의 좌표로 변환
+      const mouseXOnImage = (x - imgX) / scale;
+      const mouseYOnImage = (y - imgY) / scale;
+
+      // 확대할 이미지 부분 계산 (이미지 상의 좌표를 사용)
+      const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
+      const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
+      const sourceWidth = zoomWidth / zoomLevel;
+      const sourceHeight = zoomHeight / zoomLevel;
+
+      this.redrawSquares();
+
+      if (!this.backgroundImage) return;
+
+      ctx.save(); // 현재 드로잉 상태 저장
+      ctx.beginPath();
+      ctx.rect(x - zoomWidth / 2, y - zoomHeight / 2, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기
+      ctx.closePath();
+      ctx.clip(); // 클리핑 경로 설정
+
+      // 확대된 이미지 부분 그리기
+      ctx.drawImage(
+        this.backgroundImage,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        x - zoomWidth / 2,
+        y - zoomHeight / 2,
+        zoomWidth,
+        zoomHeight
+      );
+
+      ctx.restore(); // 드로잉 상태 복원 (클리핑 경로 제거)
     },
   },
 
