@@ -146,6 +146,9 @@
           </div>
           <div class="assignment-save">
             <button @click="saveAssignment">저장</button>
+            <button class="delete-button" @click="deleteAssignment">
+              삭제
+            </button>
           </div>
         </div>
       </div>
@@ -421,6 +424,32 @@ export default {
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
+        });
+    },
+
+    deleteAssignment() {
+      // confirm 함수를 사용하여 사용자에게 삭제 여부를 물어봅니다.
+      if (
+        !confirm(
+          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
+        )
+      )
+        return;
+
+      this.$axios
+        .delete(`/api/assignments/${this.$route.params.id}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((response) => {
+          console.log("과제 삭제 완료:", response.data);
+
+          // 과제 평가 리스트 페이지로 이동
+          this.$router.push({ name: "assignment" });
+        })
+        .catch((error) => {
+          console.error("과제 삭제 중 오류 발생:", error);
         });
     },
   },
@@ -715,6 +744,7 @@ hr {
   display: flex;
   justify-content: center;
   border-top: 1px solid var(--light-gray);
+  gap: 16px;
 }
 
 /* 점수 테이블 이미지 */
@@ -793,5 +823,11 @@ tbody tr.active {
 /* 전체 화면 아이콘 호버 */
 .fa-expand:hover {
   max-height: fit-content;
+}
+
+/* 삭제 버튼 */
+.delete-button {
+  background-color: var(--pink);
+  color: var(--white);
 }
 </style>
