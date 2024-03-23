@@ -87,7 +87,10 @@
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
       </div> -->
 
-      <BBoxComponent :src="activeQuestionImageUrl" />
+      <BBoxComponent
+        :src="activeQuestionImageUrl"
+        :questionIndex="activeQuestionId"
+      />
     </div>
   </div>
   <div v-else class="loading-message">과제를 불러오는 중입니다...</div>

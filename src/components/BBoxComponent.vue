@@ -26,6 +26,11 @@ export default {
       type: String,
       required: true,
     },
+
+    questionIndex: {
+      type: Number,
+      required: true,
+    },
   },
 
   data() {
@@ -36,7 +41,7 @@ export default {
         { name: "fa-circle-minus", active: false },
       ],
       beforeCanvas: { width: null, height: null },
-      beforeResizePosition: { x: 0, y: 0 }, // 리사이징 이전의 이미지 포지션 저장
+      beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
       squares: [],
       backgroundImage: null,
       originalWidth: null,
@@ -174,7 +179,7 @@ export default {
     },
 
     drawSquare(x, y) {
-      this.squares.push({ x, y });
+      this.squares.push({ x, y, questionIndex: this.questionIndex });
       this.redrawSquares();
     },
 
@@ -205,6 +210,8 @@ export default {
       const canvas = this.getCanvasElement();
       const ctx = canvas.getContext("2d");
       this.squares.forEach((square) => {
+        if (square.questionIndex !== this.questionIndex) return;
+
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = "red";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
