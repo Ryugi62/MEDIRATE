@@ -1,6 +1,7 @@
 <template>
   <div class="assignment-container">
     <h1 class="assignment-title">과제 관리</h1>
+
     <div class="content-container">
       <div class="user-addition">
         <div class="user-search-box">
@@ -54,36 +55,69 @@
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
+          <div class="assignment-field mode-field">
+            <span>
+              <label for="field-text-mode">TextBox</label>
+              <input
+                type="radio"
+                id="field-text-mode"
+                name="mode"
+                value="TextBox"
+                v-model="assignmentDetails.mode"
+              />
+            </span>
+            <span>
+              <label for="field-bbox-mode">BBox</label>
+              <input
+                type="radio"
+                id="field-bbox-mode"
+                name="mode"
+                value="BBox"
+                v-model="assignmentDetails.mode"
+              />
+            </span>
+          </div>
+
           <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
           >
-            <label :for="`field-${fieldName}`">{{ field.label }}</label>
-            <input
-              v-if="field.component === 'input'"
-              :id="`field-${fieldName}`"
-              :type="field.options?.type"
-              v-model="assignmentDetails[field.model]"
-              :list="
-                fieldName === 'assignment-id' ? 'assignment-id-list' : null
+            <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
+            <template
+              v-if="
+                !(
+                  fieldName === 'assignment-type' &&
+                  assignmentDetails.mode === 'BBox'
+                )
               "
-            />
-            <datalist id="assignment-id-list">
-              <option
-                v-for="folder in folderList"
-                :key="folder.id"
-                :value="folder.id"
-              >
-                {{ folder }}
-              </option>
-            </datalist>
-            <button
-              v-if="field.method"
-              @click="field.method ? this[field.method]() : null"
             >
-              조회
-            </button>
+              <label :for="`field-${fieldName}`">{{ field.label }}</label>
+              <input
+                v-if="field.component === 'input'"
+                :id="`field-${fieldName}`"
+                :type="field.options?.type"
+                v-model="assignmentDetails[field.model]"
+                :list="
+                  fieldName === 'assignment-id' ? 'assignment-id-list' : null
+                "
+              />
+              <datalist id="assignment-id-list">
+                <option
+                  v-for="folder in folderList"
+                  :key="folder.id"
+                  :value="folder.id"
+                >
+                  {{ folder }}
+                </option>
+              </datalist>
+              <button
+                v-if="field.method"
+                @click="field.method ? this[field.method]() : null"
+              >
+                조회
+              </button>
+            </template>
           </div>
         </div>
         <hr />
@@ -159,7 +193,7 @@ export default {
   name: "AssignmentManagementView",
   data() {
     return {
-      userList: [], // 기존의 userList 초기화
+      userList: [],
       addedUsers: [],
       maxUserCount: 5,
       searchInput: "",
@@ -167,10 +201,11 @@ export default {
       assignmentDetails: {
         title: "",
         deadline: "",
-        selectedAssignmentId: "", // 수정됨
-        selectedAssignmentType: "", // 수정됨
+        selectedAssignmentId: "",
+        selectedAssignmentType: "",
         questions: [],
         gradingScale: null,
+        mode: "TextBox",
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -187,18 +222,18 @@ export default {
           options: { type: "date" },
         },
         "assignment-id": {
-          label: "과제 ID :", // 수정됨
-          component: "input", // 수정됨
-          model: "selectedAssignmentId", // 수정됨
-          method: "generateQuestions", // 수정됨
-          options: {}, // 수정됨
+          label: "과제 ID :",
+          component: "input",
+          model: "selectedAssignmentId",
+          method: "generateQuestions",
+          options: {},
         },
         "assignment-type": {
-          label: "선택 유형 :", // 수정됨
-          component: "input", // 수정됨
-          model: "selectedAssignmentType", // 수정됨
-          method: "updateTableHeader", // 수정됨
-          options: {}, // 수정됨
+          label: "선택 유형 :",
+          component: "input",
+          model: "selectedAssignmentType",
+          method: "updateTableHeader",
+          options: {},
         },
       },
     };
@@ -241,7 +276,6 @@ export default {
           console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
         });
     },
-
     updateTableHeader() {
       if (this.assignmentDetails.selectedAssignmentType.trim() === "") {
         alert("선택 유형을 먼저 선택하세요.");
@@ -251,14 +285,12 @@ export default {
       const headerText = this.assignmentDetails.selectedAssignmentType;
       const headerArray = headerText.split(",").map((item) => item.trim());
 
-      // 중복 검사 로직 추가
       const hasDuplicates = new Set(headerArray).size !== headerArray.length;
       if (hasDuplicates) {
         alert("중복된 선택 유형은 추가할 수 없습니다.");
-        return; // 함수를 여기서 종료시켜서 테이블 헤더 업데이트를 막습니다.
+        return;
       }
 
-      // 테이블 헤더 업데이트
       this.assignmentDetails.gradingScale = headerArray;
     },
 
@@ -283,7 +315,6 @@ export default {
     saveAssignment() {
       console.log(this.assignmentDetails);
 
-      // 평가자 검색, 과제 제목, 마감일, 과제 ID, 선택 유형이 모두 입력되었는지 확인
       if (
         this.addedUsers.length === 0 ||
         !this.assignmentDetails.title ||
@@ -297,7 +328,6 @@ export default {
         return;
       }
 
-      // 마감일이 내일 이상인지 확인
       const today = new Date();
       const deadline = new Date(this.assignmentDetails.deadline);
       deadline.setHours(0, 0, 0, 0);
@@ -309,18 +339,15 @@ export default {
         return;
       }
 
-      // 모든 input 비활성화
       this.$el.querySelectorAll("input, select").forEach((input) => {
         input.disabled = true;
       });
 
-      // 새로운 과제를 생성 또는 수정합니다. 알림
       if (this.assignmentDetails.id) {
         alert("과제 변경사항을 저장합니다");
       } else {
         alert("새로운 과제를 생성합니다");
 
-        // { title, deadline, assignment_type, selection_type, questions, users }
         const newAssignment = {
           title: this.assignmentDetails.title,
           deadline: this.assignmentDetails.deadline,
@@ -339,7 +366,6 @@ export default {
           .then((response) => {
             response.data;
 
-            // 과제 평가 리스트 페이지로 이동
             this.$router.push({ name: "assignment" });
           })
           .catch((error) => {
@@ -352,17 +378,14 @@ export default {
       return number.toString().padStart(length, "0");
     },
     generateQuestions() {
-      // 수정됨
       if (this.assignmentDetails.selectedAssignmentId === "") {
         alert("과제 ID를 먼저 선택하세요.");
         return;
       }
 
-      // 폴더 리스트에 없는 폴더 ID를 입력했을 때
       if (
         !this.folderList.includes(this.assignmentDetails.selectedAssignmentId)
       ) {
-        // 폴더 ID 존재하지 않음을 알리고, 가능한 폴더 ID를 보여줍니다.
         alert(
           `해당 과제 ID가 존재하지 않습니다.\n\n가능한 과제 ID는 다음과 같습니다:${this.folderList.join(
             ", "
@@ -377,7 +400,6 @@ export default {
           const imageList = response.data;
           const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
 
-          // 이미지 리스트를 문제로 변환
           const questions = imageList.map((image, index) => {
             return {
               id: index,
@@ -386,7 +408,6 @@ export default {
             };
           });
 
-          // 문제 리스트를 저장
           this.assignmentDetails.questions = questions;
         })
         .catch((error) => {
@@ -398,7 +419,6 @@ export default {
     },
 
     fetchUserList() {
-      // jwt 토큰을 헤더에 추가하여 유저 정보를 가져옵니다.
       this.$axios
         .post("/api/assignments/user-list")
         .then((response) => {
@@ -622,6 +642,16 @@ hr {
   gap: 8px;
   text-wrap: nowrap;
   align-items: center;
+}
+
+.mode-field {
+  flex: 0;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 /* 과제 필드 입력 */
