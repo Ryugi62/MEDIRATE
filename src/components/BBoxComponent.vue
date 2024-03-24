@@ -68,7 +68,10 @@ export default {
         const isConfirmed = confirm("정말로 모든 사각형을 삭제하시겠습니까?");
         if (!isConfirmed) return;
 
-        this.squares = [];
+        this.squares = this.squares.filter(
+          (square) => square.questionIndex !== this.questionIndex
+        );
+
         this.redrawSquares();
 
         // fa-square 아이콘을 활성화합니다.
@@ -185,6 +188,7 @@ export default {
 
     eraseSquare(mouseX, mouseY) {
       const closestSquare = this.getClosestSquare(mouseX, mouseY);
+
       if (closestSquare) {
         const index = this.squares.indexOf(closestSquare);
         this.squares.splice(index, 1);
@@ -196,7 +200,7 @@ export default {
       return this.squares.reduce(
         (closest, square) => {
           const distance = Math.hypot(square.x - x, square.y - y);
-          if (distance <= 50) {
+          if (distance <= 50 && square.questionIndex === this.questionIndex) {
             return distance < closest.distance ? { square, distance } : closest;
           }
           return closest;
@@ -247,9 +251,11 @@ export default {
 
       if (closestSquare && this.eraserActive) {
         this.squares.forEach((square) => {
-          ctx.lineWidth = 2.5;
-          ctx.strokeStyle = "red";
-          ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+          if (square.questionIndex === this.questionIndex) {
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = "red";
+            ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+          }
         });
 
         ctx.lineWidth = 2.5;
