@@ -25,6 +25,7 @@ router.post("/", authenticateToken, async (req, res) => {
   } = req.body;
 
   try {
+    // 과제 정보를 assignments 테이블에 삽입
     const insertAssignmentQuery = `
       INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode)
       VALUES (?, ?, ?, ?, ?)`;
@@ -35,8 +36,13 @@ router.post("/", authenticateToken, async (req, res) => {
       selection_type,
       mode,
     ]);
-
     const assignmentId = assignmentResult.insertId;
+
+    // 캔버스 정보를 canvas_info 테이블에 삽입 (width와 height는 NULL로 설정)
+    const insertCanvasInfoQuery = `
+      INSERT INTO canvas_info (assignment_id, width, height)
+      VALUES (?, 0, 0)`;
+    await db.query(insertCanvasInfoQuery, [assignmentId]);
 
     for (const question of questions) {
       const insertQuestionQuery = `
@@ -148,20 +154,37 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     });
 
     const totalScore = questions.length; // 총 풀어야 하는 개수는 질문의 총 수입니다.
-    // assignment[0].selectionType.split(",") 이 이후 모든 공백을 제거하고 배열을 반환합니다.
     assignment[0].selectionType = assignment[0].selectionType
       .split(",")
       .map((s) => s.trim());
 
-    console.log(assignment[0].selectionType);
+    // 캔버스 정보 조회
+    const canvasQuery = `SELECT id, width, height FROM canvas_info WHERE assignment_id = ?`;
+    const [canvas] = await db.query(canvasQuery, [assignmentId]);
 
-    // 최종적으로 과제 상세 정보와 함께 score와 totalScore를 응답으로 반환합니다.
-    res.json({
+    let squares = []; // 캔버스에 그려진 사각형 정보 조회를 위한 초기화
+    if (canvas.length > 0) {
+      const squaresQuery = `SELECT id, x, y, question_id FROM squares_info WHERE canvas_id = ?`;
+      const [squaresResult] = await db.query(squaresQuery, [canvas[0].id]);
+      squares = squaresResult; // squares 정보 업데이트
+    }
+
+    const response = {
       ...assignment[0],
       questions: questionsWithResponses,
       score,
       totalScore,
+      beforeCanvas: canvas[0],
+      squares, // squares 정보 추가
+    };
+
+    console.log({
+      beforeCanvas: canvas,
+      squares,
     });
+
+    // 최종적으로 과제 상세 정보와 함께 score와 totalScore를 응답으로 반환합니다.
+    res.json(response);
   } catch (error) {
     handleError(res, "Error fetching assignment details", error);
   }

@@ -22,6 +22,16 @@ export default {
   name: "BBoxComponent",
 
   props: {
+    beforeCanvas: {
+      type: Object,
+      required: true,
+    },
+
+    squares: {
+      type: Array,
+      required: true,
+    },
+
     src: {
       type: String,
       required: true,
@@ -62,6 +72,11 @@ export default {
   },
 
   methods: {
+    fetchLocalInfo() {
+      this.localBeforeCanvas = this.beforeCanvas;
+      this.localSquares = this.squares;
+    },
+
     activateIcon(selectedIcon) {
       if (selectedIcon.name === "fa-circle-minus") {
         // confirm 창을 띄워서 삭제 여부를 확인합니다.
@@ -141,6 +156,11 @@ export default {
       const canvas = this.getCanvasElement();
       if (!canvas) return;
 
+      if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
+        canvas.width = this.localBeforeCanvas.width;
+        canvas.height = this.localBeforeCanvas.height;
+      }
+
       const beforePosition = this.calculateImagePosition(
         canvas.width,
         canvas.height
@@ -153,8 +173,15 @@ export default {
       const bboxBody = this.$el
         .querySelector(".bbox-component__body")
         .getBoundingClientRect();
+
       canvas.width = bboxBody.width;
       canvas.height = bboxBody.height;
+
+      console.log("canvas.width", canvas.width);
+      console.log("canvas.height", canvas.height);
+
+      this.localBeforeCanvas.width = canvas.width;
+      this.localBeforeCanvas.height = canvas.height;
 
       this.drawBackgroundImage();
       await this.setSquaresPosition(beforePosition); // 변경된 위치에 따라 사각형 포지션 조정
@@ -319,6 +346,8 @@ export default {
   },
 
   mounted() {
+    this.fetchLocalInfo();
+
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
   },

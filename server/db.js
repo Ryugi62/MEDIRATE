@@ -90,6 +90,24 @@ const createTablesSQL = {
         filename VARCHAR(255) NOT NULL,
         FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
     )`,
+  canvas_info: `
+    CREATE TABLE IF NOT EXISTS canvas_info (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        assignment_id INT,
+        width INT NOT NULL,
+        height INT NOT NULL,
+        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+    )`,
+  squares_info: `
+    CREATE TABLE IF NOT EXISTS squares_info (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        question_id INT,
+        canvas_id INT,
+        x INT NOT NULL,
+        y INT NOT NULL,
+        FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+        FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE
+    )`,
 };
 
 // 데이터베이스 초기화 및 테이블 생성 함수
