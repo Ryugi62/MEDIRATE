@@ -74,7 +74,8 @@
         </table>
       </div>
 
-      <!-- <div
+      <div
+        v-if="currentAssignmentDetails.assignmentMode === 'TextBox'"
         class="student-response-image"
         :class="{ 'full-screen': isFullScreenImage }"
       >
@@ -85,9 +86,10 @@
           alt="Student Response"
         />
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
-      </div> -->
+      </div>
 
       <BBoxComponent
+        v-else
         :src="activeQuestionImageUrl"
         :questionIndex="activeQuestionId"
       />
@@ -97,7 +99,7 @@
 </template>
 
 <script>
-// import ImageComponent from "@/components/ImageComponent.vue";
+import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxComponent from "@/components/BBoxComponent.vue";
 
 export default {
@@ -130,7 +132,7 @@ export default {
   },
 
   components: {
-    // ImageComponent,
+    ImageComponent,
     BBoxComponent,
   },
 
@@ -151,6 +153,10 @@ export default {
         const score = this.currentAssignmentDetails.score || 0;
 
         this.currentAssignmentDetails.score = score;
+
+        if (this.currentAssignmentDetails.assignmentMode === "BBox") {
+          this.currentAssignmentDetails.selectionType = [];
+        }
 
         // Ensure the DOM is updated before making TDs clickable
         this.$nextTick(() => {

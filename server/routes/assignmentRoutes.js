@@ -108,7 +108,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.title AS FileName, 
         u.realname AS studentName,
         a.deadline AS Deadline,
-        a.selection_type AS selectionType
+        a.selection_type AS selectionType,
+        a.assignment_mode AS assignmentMode
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
