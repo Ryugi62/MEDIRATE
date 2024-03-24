@@ -40,9 +40,9 @@ export default {
         { name: "fa-eraser", active: false },
         { name: "fa-circle-minus", active: false },
       ],
-      beforeCanvas: { width: null, height: null },
+      localBeforeCanvas: { width: null, height: null },
       beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
-      squares: [],
+      localSquares: [],
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -68,7 +68,7 @@ export default {
         const isConfirmed = confirm("정말로 모든 사각형을 삭제하시겠습니까?");
         if (!isConfirmed) return;
 
-        this.squares = this.squares.filter(
+        this.localSquares = this.localSquares.filter(
           (square) => square.questionIndex !== this.questionIndex
         );
 
@@ -167,7 +167,7 @@ export default {
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale; // 스케일 비율 계산
 
-      this.squares.forEach((square) => {
+      this.localSquares.forEach((square) => {
         // 사각형의 위치를 조정합니다. 이미지의 위치 변화와 스케일 변화를 반영합니다.
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
@@ -182,7 +182,7 @@ export default {
     },
 
     drawSquare(x, y) {
-      this.squares.push({ x, y, questionIndex: this.questionIndex });
+      this.localSquares.push({ x, y, questionIndex: this.questionIndex });
       this.redrawSquares();
     },
 
@@ -190,14 +190,14 @@ export default {
       const closestSquare = this.getClosestSquare(mouseX, mouseY);
 
       if (closestSquare) {
-        const index = this.squares.indexOf(closestSquare);
-        this.squares.splice(index, 1);
+        const index = this.localSquares.indexOf(closestSquare);
+        this.localSquares.splice(index, 1);
         this.redrawSquares();
       }
     },
 
     getClosestSquare(x, y) {
-      return this.squares.reduce(
+      return this.localSquares.reduce(
         (closest, square) => {
           const distance = Math.hypot(square.x - x, square.y - y);
           if (distance <= 50 && square.questionIndex === this.questionIndex) {
@@ -213,7 +213,7 @@ export default {
       this.drawBackgroundImage();
       const canvas = this.getCanvasElement();
       const ctx = canvas.getContext("2d");
-      this.squares.forEach((square) => {
+      this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
 
         ctx.lineWidth = 2.5;
@@ -250,7 +250,7 @@ export default {
       this.redrawSquares();
 
       if (closestSquare && this.eraserActive) {
-        this.squares.forEach((square) => {
+        this.localSquares.forEach((square) => {
           if (square.questionIndex === this.questionIndex) {
             ctx.lineWidth = 2.5;
             ctx.strokeStyle = "red";
