@@ -31,6 +31,7 @@ const createTablesSQL = {
         deadline DATE NOT NULL,
         assignment_type VARCHAR(255),
         selection_type VARCHAR(255),
+        assignment_mode ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
         UNIQUE KEY title_deadline_unique (title, deadline)
     )`,
   assignment_user: `

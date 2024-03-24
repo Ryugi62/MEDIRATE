@@ -313,14 +313,14 @@ export default {
       this.addedUsers.splice(index, 1);
     },
     saveAssignment() {
-      console.log(this.assignmentDetails);
-
       if (
         this.addedUsers.length === 0 ||
         !this.assignmentDetails.title ||
         !this.assignmentDetails.deadline ||
         !this.assignmentDetails.selectedAssignmentId ||
-        !this.assignmentDetails.questions.length > 0
+        !this.assignmentDetails.questions.length > 0 ||
+        (this.assignmentDetails.mode === "TextBox" &&
+          !this.assignmentDetails.selectedAssignmentType)
       ) {
         alert(
           "평가자, 과제 제목, 마감일, 과제 ID, 선택 유형을 모두 입력해주세요."
@@ -355,6 +355,7 @@ export default {
           selection_type: this.assignmentDetails.selectedAssignmentType,
           questions: this.assignmentDetails.questions,
           users: this.addedUsers.map((user) => user.id),
+          mode: this.assignmentDetails.mode,
         };
 
         this.$axios

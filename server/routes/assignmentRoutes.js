@@ -14,18 +14,26 @@ function handleError(res, message, error) {
 // and authenticateToken is middleware for JWT verification
 
 router.post("/", authenticateToken, async (req, res) => {
-  const { title, deadline, assignment_type, selection_type, questions, users } =
-    req.body;
+  const {
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    questions,
+    users,
+    mode,
+  } = req.body;
 
   try {
     const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type)
-      VALUES (?, ?, ?, ?)`;
+      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode)
+      VALUES (?, ?, ?, ?, ?)`;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
       deadline,
       assignment_type,
       selection_type,
+      mode,
     ]);
 
     const assignmentId = assignmentResult.insertId;
