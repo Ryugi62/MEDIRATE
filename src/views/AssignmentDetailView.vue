@@ -130,6 +130,7 @@ export default {
       },
       gradingType: "grades",
       isFullScreenImage: false,
+      isSaving: false,
     };
   },
 
@@ -213,6 +214,7 @@ export default {
             },
           }
         );
+        this.isSaving = true;
         alert("과제 평가가 성공적으로 저장되었습니다!");
         this.$router.push("/assignment");
       } catch (error) {
@@ -321,14 +323,18 @@ export default {
 
   // 페이지를 떠나기전 저장하실지 물어보는 기능
   beforeRouteLeave(to, from, next) {
-    if (this.currentAssignmentDetails) {
-      if (confirm("저장하지 않고 떠나시겠습니까?")) {
+    // 저장 버튼을 누른거면 안물어보고 넘어가기
+    if (this.isSaving) {
+      next();
+      return;
+    } else {
+      if (confirm("저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?")) {
+        this.commitAssignmentChanges();
         next();
       } else {
-        next(false);
+        next();
       }
     }
-    next();
   },
 
   watch: {
