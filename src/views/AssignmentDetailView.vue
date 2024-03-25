@@ -175,41 +175,41 @@ export default {
       }
     },
     async commitAssignmentChanges() {
-      console.log(this.currentAssignmentDetails);
-
-      //   // radio 버튼 비활성화
-      //   const radioButtons = this.$el.querySelectorAll(
-      //     ".grades-table table tbody input[type='radio']"
-      //   );
-      //   radioButtons.forEach((radio) => (radio.disabled = true));
-      //   const dataToSubmit = {
-      //     id: this.currentAssignmentDetails.id,
-      //     questions: this.currentAssignmentDetails.questions.map((question) => ({
-      //       id: question.id,
-      //       selectedValue:
-      //         question.selectedValue !== undefined
-      //           ? question.selectedValue
-      //           : null,
-      //     })),
-      //   };
-      //   try {
-      //     await this.$axios.put(
-      //       "/api/assignments/" + this.currentAssignmentDetails.id,
-      //       dataToSubmit,
-      //       {
-      //         headers: {
-      //           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-      //         },
-      //       }
-      //     );
-      //     alert("과제 평가가 성공적으로 저장되었습니다!");
-      //     this.$router.push("/assignment");
-      //   } catch (error) {
-      //     console.error("과제 저장 중 오류 발생:", error);
-      //     // 오류 처리 로직
-      //   }
-      //   // radio 버튼 활성화
-      //   radioButtons.forEach((radio) => (radio.disabled = false));
+      // radio 버튼 비활성화
+      const radioButtons = this.$el.querySelectorAll(
+        ".grades-table table tbody input[type='radio']"
+      );
+      radioButtons.forEach((radio) => (radio.disabled = true));
+      const dataToSubmit = {
+        id: this.currentAssignmentDetails.id,
+        questions: this.currentAssignmentDetails.questions.map((question) => ({
+          id: question.id,
+          selectedValue:
+            question.selectedValue !== undefined
+              ? question.selectedValue
+              : null,
+        })),
+        beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
+        squares: this.currentAssignmentDetails.squares,
+      };
+      try {
+        await this.$axios.put(
+          "/api/assignments/" + this.currentAssignmentDetails.id,
+          dataToSubmit,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        alert("과제 평가가 성공적으로 저장되었습니다!");
+        this.$router.push("/assignment");
+      } catch (error) {
+        console.error("과제 저장 중 오류 발생:", error);
+        // 오류 처리 로직
+      }
+      // radio 버튼 활성화
+      radioButtons.forEach((radio) => (radio.disabled = false));
     },
 
     toggleEditState() {

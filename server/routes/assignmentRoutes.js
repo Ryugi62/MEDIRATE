@@ -12,7 +12,6 @@ function handleError(res, message, error) {
 
 // Assuming db is a configured MySQL database connection
 // and authenticateToken is middleware for JWT verification
-
 router.post("/", authenticateToken, async (req, res) => {
   const {
     title,
@@ -92,6 +91,28 @@ router.get("/", authenticateToken, async (req, res) => {
       WHERE au.user_id = ?`;
 
     const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
+
+    // Calculate scores based on whether squares exist for each assignment
+    for (const assignment of assignments) {
+      const { id } = assignment;
+
+      const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ?`;
+      const [canvas] = await db.query(canvasQuery, [id]);
+
+      if (canvas.length > 0) {
+        const squaresQuery = `
+          SELECT DISTINCT question_id
+          FROM squares_info 
+          WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`;
+        const [squares] = await db.query(squaresQuery, [id]);
+        assignment.completed = assignment.completed + squares.length;
+      } else {
+        assignment.completed = assignment.completed;
+      }
+    }
+
+    console.log(assignments);
+
     res.json(assignments);
   } catch (error) {
     handleError(
@@ -164,10 +185,16 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     let squares = []; // 캔버스에 그려진 사각형 정보 조회를 위한 초기화
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id FROM squares_info WHERE canvas_id = ?`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex FROM squares_info WHERE canvas_id = ?`;
       const [squaresResult] = await db.query(squaresQuery, [canvas[0].id]);
       squares = squaresResult; // squares 정보 업데이트
     }
+
+    // 문제에 사각형이 하나라도 있으면 사각형이 있는 문제마다 score를 증가시킵니다.
+    // 사각형에서 같은 questionIndex 있으면 중복 삭제
+    const squareQuestionIndex = squares.map((square) => square.questionIndex);
+    const uniqueSquareQuestionIndex = [...new Set(squareQuestionIndex)];
+    score += uniqueSquareQuestionIndex.length;
 
     const response = {
       ...assignment[0],
@@ -177,11 +204,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       beforeCanvas: canvas[0],
       squares, // squares 정보 추가
     };
-
-    console.log({
-      beforeCanvas: canvas,
-      squares,
-    });
 
     // 최종적으로 과제 상세 정보와 함께 score와 totalScore를 응답으로 반환합니다.
     res.json(response);
@@ -211,8 +233,6 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
     }
 
     const assignment = assignmentDetails[0];
-
-    console.log(assignment);
 
     // 과제에 할당된 유저들을 가져옵니다.
     const assignedUsersQuery = `
@@ -258,10 +278,9 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
 
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId;
-  const { questions } = req.body;
+  const { questions, beforeCanvas, squares } = req.body;
 
   try {
-    // 이전에 모든 응답을 삭제하는 로직은 제거됩니다.
     // 각 질문에 대한 사용자 응답을 데이터베이스에 업데이트합니다.
     for (const question of questions) {
       // 사용자가 선택한 응답이 유효한 경우에만 데이터베이스에 삽입/업데이트합니다.
@@ -279,6 +298,48 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           question.selectedValue,
           question.selectedValue,
         ]);
+      }
+    }
+
+    // 캔버스 width, height이 0이 아닌 경우에만 업데이트합니다.
+    if (beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
+      const updateCanvasQuery = `
+        UPDATE canvas_info
+        SET width = ?, height = ?
+        WHERE assignment_id = ?`;
+      await db.query(updateCanvasQuery, [
+        beforeCanvas.width,
+        beforeCanvas.height,
+        assignmentId,
+      ]);
+    }
+
+    // 캔버스에 그려진 사각형 정보를 업데이트합니다.
+    if (squares.length > 0) {
+      for (const square of squares) {
+        // 만약 같은 canvas_id, question_id, x, y를 가진 사각형이 이미 존재하지 않는 경우에만 삽입합니다.
+        const checkSquareQuery = `
+        SELECT COUNT(*) AS count
+          FROM squares_info
+          WHERE canvas_id = ? AND question_id = ? AND x = ? AND y = ?`;
+        const [result] = await db.query(checkSquareQuery, [
+          beforeCanvas.id,
+          square.questionIndex,
+          square.x,
+          square.y,
+        ]);
+
+        if (result[0].count === 0) {
+          const insertSquareQuery = `
+          INSERT INTO squares_info (canvas_id, x, y, question_id)
+            VALUES (?, ?, ?, ?)`;
+          await db.query(insertSquareQuery, [
+            beforeCanvas.id,
+            square.x,
+            square.y,
+            square.questionIndex,
+          ]);
+        }
       }
     }
 
