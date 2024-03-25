@@ -17,8 +17,18 @@
 
       <div class="evaluation-actions">
         <!-- <span class="evaluation-score"><strong>20</strong> / 300</span> -->
-        <span class="evaluation-score"
-          ><strong>{{ currentAssignmentDetails.score }}</strong> /
+        <span class="evaluation-score">
+          <strong
+            v-if="currentAssignmentDetails.assignmentMode === 'TextBox'"
+            >{{ currentAssignmentDetails.score }}</strong
+          >
+          <strong v-else>{{
+            currentAssignmentDetails.squares
+              .map((square) => square.questionIndex)
+              .filter((value, index, self) => self.indexOf(value) === index)
+              .length
+          }}</strong>
+          /
           {{ currentAssignmentDetails.totalScore }}</span
         >
         <button
@@ -151,8 +161,6 @@ export default {
         );
         this.currentAssignmentDetails = response.data;
 
-        console.log("currentAssignmentDetails:", this.currentAssignmentDetails);
-
         // this.currentAssignmentDetails.score 이 null이 아니고 0 이상일 때만 score를 업데이트합니다.
         const score = this.currentAssignmentDetails.score || 0;
 
@@ -170,6 +178,9 @@ export default {
         // 현재 선택된 질문의 이미지 URL을 업데이트합니다.
         this.activeQuestionImageUrl =
           this.currentAssignmentDetails.questions[0].image;
+
+        // 현재 선택된 질문의 ID를 업데이트합니다.
+        this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
@@ -305,6 +316,24 @@ export default {
       this.currentAssignmentDetails.questions[
         this.activeQuestionId
       ].beforeCanvas = canvas;
+    },
+  },
+
+  // 페이지를 떠나기전 저장하실지 물어보는 기능
+  beforeRouteLeave(to, from, next) {
+    if (this.currentAssignmentDetails) {
+      if (confirm("저장하지 않고 떠나시겠습니까?")) {
+        next();
+      } else {
+        next(false);
+      }
+    }
+    next();
+  },
+
+  watch: {
+    testScore() {
+      console.log("testScore changed:", this.testScore);
     },
   },
 };
