@@ -98,7 +98,14 @@
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
       </div>
 
-      <BBoxComponent
+      <!-- <BBoxComponent
+        v-else
+        :src="activeQuestionImageUrl"
+        :questionIndex="activeQuestionId"
+        :squares="currentAssignmentDetails.squares"
+        :beforeCanvas="currentAssignmentDetails.beforeCanvas"
+      /> -->
+      <NewBBoxComponent
         v-else
         :src="activeQuestionImageUrl"
         :questionIndex="activeQuestionId"
@@ -112,7 +119,8 @@
 
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
-import BBoxComponent from "@/components/BBoxComponent.vue";
+// import BBoxComponent from "@/components/BBoxComponent.vue";
+import NewBBoxComponent from "@/components/newBBoxComponent.vue";
 
 export default {
   name: "AssignmentEvaluationView",
@@ -146,7 +154,8 @@ export default {
 
   components: {
     ImageComponent,
-    BBoxComponent,
+    // BBoxComponent,
+    NewBBoxComponent,
   },
 
   methods: {
@@ -307,17 +316,6 @@ export default {
 
     toggleFullScreenImage() {
       this.isFullScreenImage = !this.isFullScreenImage;
-    },
-
-    updateSquares(squares) {
-      this.currentAssignmentDetails.questions[this.activeQuestionId].squares =
-        squares;
-    },
-
-    updateBeforeCanvas(canvas) {
-      this.currentAssignmentDetails.questions[
-        this.activeQuestionId
-      ].beforeCanvas = canvas;
     },
   },
 
