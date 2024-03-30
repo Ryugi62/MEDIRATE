@@ -103,8 +103,8 @@ router.get("/", authenticateToken, async (req, res) => {
         const squaresQuery = `
           SELECT DISTINCT question_id
           FROM squares_info 
-          WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`;
-        const [squares] = await db.query(squaresQuery, [id]);
+          WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?)`;
+        const [squares] = await db.query(squaresQuery, [id, userId]);
         assignment.completed = assignment.completed + squares.length;
       } else {
         assignment.completed = assignment.completed;
