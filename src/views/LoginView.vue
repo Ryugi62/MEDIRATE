@@ -100,10 +100,6 @@ export default {
           password,
         })
         .then((result) => {
-          const isAdministrator =
-            result.data.username === "admin" ||
-            result.data.username === "superadmin ";
-
           const token = result.data.token;
           const base64Url = token.split(".")[1];
           const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -115,7 +111,7 @@ export default {
             realname: result.data.realname,
             token: result.data.token,
             expires,
-            isAdministrator,
+            isAdministrator: result.data.isAdministrator,
           });
 
           // mutateion

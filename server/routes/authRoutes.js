@@ -48,6 +48,7 @@ router.post("/login", async (req, res) => {
       organization: user.organization,
       role: user.role,
       token: token, // JWT 추가
+      isAdministrator: user.role === "admin" ? true : false,
     };
 
     res.status(200).json(userWithoutPassword);
