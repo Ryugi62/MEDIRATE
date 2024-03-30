@@ -13,6 +13,7 @@ router.get("/", async (_req, res) => {
         a.title, 
         a.creation_date AS createdAt, 
         a.deadline AS endAt,
+        a.assignment_mode AS assignmentMode,
         COUNT(DISTINCT au.user_id) AS evaluatorCount,
         (
           SELECT COUNT(q.id)
@@ -45,6 +46,42 @@ router.get("/", async (_req, res) => {
         unansweredRate: `${unansweredRate.toFixed(2)}%`,
       };
     });
+
+    for (const assignment of assignments) {
+      if (assignment.assignmentMode === "BBox") {
+        // Get the list of users who need to solve the assignment
+        const [assignedUsers] = await db.query(
+          `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
+          [assignment.id]
+        );
+
+        for (const user of assignedUsers) {
+          const [submitted] = await db.query(
+            `SELECT COUNT(DISTINCT si.question_id) AS count
+              FROM squares_info si
+              JOIN canvas_info ci ON si.canvas_id = ci.id
+              WHERE ci.assignment_id = ? AND si.user_id = ?
+            `,
+            [assignment.id, user.user_id]
+          );
+
+          formattedAssignments[0].answeredQuestions += submitted[0].count;
+
+          console.log(`submitted: ${submitted[0].count}`);
+        }
+
+        const { evaluatorCount, totalQuestions, answeredQuestions } =
+          formattedAssignments[0];
+        const answerRate =
+          (answeredQuestions / (evaluatorCount * totalQuestions)) * 100;
+        const unansweredRate = 100 - answerRate;
+
+        formattedAssignments[0].answerRate = `${answerRate.toFixed(2)}%`;
+        formattedAssignments[0].unansweredRate = `${unansweredRate.toFixed(
+          2
+        )}%`;
+      }
+    }
 
     res.json(formattedAssignments);
   } catch (error) {
@@ -110,6 +147,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 });
 
 // 게시글 삭제
-router.delete("/:id", async (req, res) => {});
+router.delete("/:id", async (_req) => {});
 
 module.exports = router;
