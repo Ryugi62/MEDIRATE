@@ -146,7 +146,4 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
-// 게시글 삭제
-router.delete("/:id", async (_req) => {});
-
 module.exports = router;
