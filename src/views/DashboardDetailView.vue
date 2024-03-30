@@ -27,6 +27,7 @@
                 <tr
                   v-for="(item, index) in data[0].questions"
                   :key="index"
+                  :class="{ active: index === assignmentId }"
                   @click="setActiveImage(item.questionImage, index)"
                 >
                   <td>
@@ -102,6 +103,8 @@ export default {
         );
 
         this.data = response.data; // Assuming the response has the data in { data: { data: [...] } } format
+        this.assignmentId = 0;
+        this.activeImageUrl = this.data[0].questions[0].questionImage;
       } catch (error) {
         console.error("Failed to load data:", error);
         // Handle error, perhaps show a user-friendly message
