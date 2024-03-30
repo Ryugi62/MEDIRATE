@@ -127,6 +127,7 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
+    const userId = req.user.id; // Assuming the JWT contains the user ID
 
     // 과제의 상세 정보를 가져옵니다.
     const assignmentQuery = `
@@ -140,8 +141,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
-      WHERE a.id = ?`;
-    const [assignment] = await db.query(assignmentQuery, [assignmentId]);
+      WHERE a.id = ? AND u.id = ?`;
+    const [assignment] = await db.query(assignmentQuery, [
+      assignmentId,
+      userId,
+    ]);
 
     // 과제에 관련된 질문들을 가져옵니다.
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
@@ -152,8 +156,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
       FROM question_responses qr
       JOIN questions q ON qr.question_id = q.id
-      WHERE q.assignment_id = ?`;
-    const [responses] = await db.query(questionResponsesQuery, [assignmentId]);
+      WHERE q.assignment_id = ? AND qr.user_id = ?`;
+    const [responses] = await db.query(questionResponsesQuery, [
+      assignmentId,
+      userId,
+    ]);
 
     // 응답을 질문에 매핑합니다.
     let score = 0; // 현재 푼 개수를 초기화합니다.
@@ -185,8 +192,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     let squares = []; // 캔버스에 그려진 사각형 정보 조회를 위한 초기화
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id as questionIndex FROM squares_info WHERE canvas_id = ?`;
-      const [squaresResult] = await db.query(squaresQuery, [canvas[0].id]);
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+      const [squaresResult] = await db.query(squaresQuery, [
+        canvas[0].id,
+        userId,
+      ]);
       squares = squaresResult; // squares 정보 업데이트
     }
 
@@ -315,20 +325,21 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     }
 
     // 기존 과제의 사각형들을 전부 삭제
-    const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ?`;
-    await db.query(deleteSquaresQuery, [beforeCanvas.id]);
+    const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+    await db.query(deleteSquaresQuery, [beforeCanvas.id, req.user.id]);
 
     if (squares.length > 0) {
       // 새로운 사각형들을 삽입
       for (const square of squares) {
         const insertSquareQuery = `
-            INSERT INTO squares_info (canvas_id, x, y, question_id)
-            VALUES (?, ?, ?, ?)`;
+            INSERT INTO squares_info (canvas_id, x, y, question_id, user_id)
+            VALUES (?, ?, ?, ?, ?)`;
         await db.query(insertSquareQuery, [
           beforeCanvas.id,
           square.x,
           square.y,
           square.questionIndex,
+          req.user.id,
         ]);
       } // squares 정보 업데이트
     }
