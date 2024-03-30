@@ -314,33 +314,23 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       ]);
     }
 
-    // 캔버스에 그려진 사각형 정보를 업데이트합니다.
+    // 기존 과제의 사각형들을 전부 삭제
+    const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ?`;
+    await db.query(deleteSquaresQuery, [beforeCanvas.id]);
+
     if (squares.length > 0) {
+      // 새로운 사각형들을 삽입
       for (const square of squares) {
-        // 만약 같은 canvas_id, question_id, x, y를 가진 사각형이 이미 존재하지 않는 경우에만 삽입합니다.
-        const checkSquareQuery = `
-        SELECT COUNT(*) AS count
-          FROM squares_info
-          WHERE canvas_id = ? AND question_id = ? AND x = ? AND y = ?`;
-        const [result] = await db.query(checkSquareQuery, [
+        const insertSquareQuery = `
+            INSERT INTO squares_info (canvas_id, x, y, question_id)
+            VALUES (?, ?, ?, ?)`;
+        await db.query(insertSquareQuery, [
           beforeCanvas.id,
-          square.questionIndex,
           square.x,
           square.y,
+          square.questionIndex,
         ]);
-
-        if (result[0].count === 0) {
-          const insertSquareQuery = `
-          INSERT INTO squares_info (canvas_id, x, y, question_id)
-            VALUES (?, ?, ?, ?)`;
-          await db.query(insertSquareQuery, [
-            beforeCanvas.id,
-            square.x,
-            square.y,
-            square.questionIndex,
-          ]);
-        }
-      }
+      } // squares 정보 업데이트
     }
 
     res.json({ message: "Assignment responses successfully updated." });

@@ -87,6 +87,8 @@ export default {
           (square) => square.questionIndex !== this.questionIndex
         );
 
+        this.$emit("update:squares", this.localSquares);
+
         this.redrawSquares();
 
         // fa-square 아이콘을 활성화합니다.
@@ -177,9 +179,6 @@ export default {
       canvas.width = bboxBody.width;
       canvas.height = bboxBody.height;
 
-      console.log("canvas.width", canvas.width);
-      console.log("canvas.height", canvas.height);
-
       this.localBeforeCanvas.width = canvas.width;
       this.localBeforeCanvas.height = canvas.height;
 
@@ -247,6 +246,8 @@ export default {
         ctx.strokeStyle = "red";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
+
+      this.$emit("update:squares", this.localSquares);
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -346,6 +347,8 @@ export default {
   },
 
   mounted() {
+    console.log(this.squares);
+
     this.fetchLocalInfo();
 
     this.loadBackgroundImage();
