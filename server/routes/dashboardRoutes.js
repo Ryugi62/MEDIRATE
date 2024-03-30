@@ -5,7 +5,7 @@ const authenticateToken = require("../jwt");
 
 require("dotenv").config();
 
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const [assignments] = await db.query(`
       SELECT 
@@ -30,11 +30,11 @@ router.get("/", async (req, res) => {
       GROUP BY a.id
     `);
 
-    // 답변율 및 미답변율 계산 로직을 JavaScript로 이동
+    // Calculate answerRate and unansweredRate for each assignment
     const formattedAssignments = assignments.map((assignment) => {
-      const { totalQuestions, answeredQuestions } = assignment;
+      const { evaluatorCount, totalQuestions, answeredQuestions } = assignment;
       const answerRate =
-        totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+        (answeredQuestions / (evaluatorCount * totalQuestions)) * 100;
       const unansweredRate = 100 - answerRate;
 
       return {
