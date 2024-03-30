@@ -235,7 +235,7 @@ export default {
       ).square;
     },
 
-    redrawSquares() {
+    redrawSquares(event = null) {
       this.drawBackgroundImage();
       const canvas = this.getCanvasElement();
       const ctx = canvas.getContext("2d");
@@ -246,6 +246,11 @@ export default {
         ctx.strokeStyle = "red";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
+
+      if (event) {
+        this.activeEnlarge(event);
+        this.activeSquareCursor(event);
+      }
 
       this.$emit("update:squares", this.localSquares);
     },
@@ -275,7 +280,7 @@ export default {
       const { x, y } = this.getCanvasCoordinates(event);
       const closestSquare = this.getClosestSquare(x, y);
 
-      this.redrawSquares();
+      this.redrawSquares(event);
 
       if (closestSquare && this.eraserActive) {
         this.localSquares.forEach((square) => {
@@ -289,8 +294,6 @@ export default {
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = "blue";
         ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 20, 20);
-      } else {
-        this.activeEnlarge(event);
       }
     },
 
@@ -298,8 +301,8 @@ export default {
       const canvas = this.getCanvasElement();
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 100; // 확대될 사각형의 너비
-      const zoomHeight = 100; // 확대될 사각형의 높이
+      const zoomWidth = 200; // 확대될 사각형의 너비
+      const zoomHeight = 200; // 확대될 사각형의 높이
       const zoomLevel = 2.5; // 확대 비율
 
       // 이미지 위치 및 크기 계산
@@ -325,7 +328,7 @@ export default {
 
       ctx.save(); // 현재 드로잉 상태 저장
       ctx.beginPath();
-      ctx.rect(x - zoomWidth / 2, y - zoomHeight / 2, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기
+      ctx.rect(0, 0, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기 (상단 좌측에 표출)
       ctx.closePath();
       ctx.clip(); // 클리핑 경로 설정
 
@@ -336,19 +339,33 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        x - zoomWidth / 2,
-        y - zoomHeight / 2,
+        0,
+        0,
         zoomWidth,
         zoomHeight
       );
 
       ctx.restore(); // 드로잉 상태 복원 (클리핑 경로 제거)
     },
+
+    activeSquareCursor(event) {
+      const canvas = this.getCanvasElement();
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+      const squareSize = 20;
+
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "orange";
+      ctx.strokeRect(
+        x - squareSize / 2,
+        y - squareSize / 2,
+        squareSize,
+        squareSize
+      );
+    },
   },
 
   mounted() {
-    console.log(this.squares);
-
     this.fetchLocalInfo();
 
     this.loadBackgroundImage();
@@ -403,6 +420,6 @@ export default {
 }
 
 canvas {
-  background-color: gray;
+  background-color: rgb(0, 0, 0);
 }
 </style>
