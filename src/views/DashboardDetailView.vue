@@ -27,7 +27,7 @@
                 <tr
                   v-for="(item, index) in data[0].questions"
                   :key="index"
-                  :class="{ active: index === assignmentId }"
+                  :class="{ active: index === activeIndex }"
                   @click="setActiveImage(item.questionImage, index)"
                 >
                   <td>
@@ -56,7 +56,6 @@
             </table>
           </div>
           <div class="image-box">
-            <!-- <img :src="activeImageUrl" alt="과제 이야기 이미지" /> -->
             <ImageComponent :src="activeImageUrl" />
           </div>
         </div>
@@ -83,6 +82,7 @@ export default {
       data: [], // This will hold your users and their question data
       activeImageUrl: "https://via.placeholder.com/1050", // 기본 이미지 URL 설정
       assignmentId: this.$route.params.id,
+      activeIndex: 0,
     };
   },
 
@@ -117,13 +117,7 @@ export default {
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
 
-      // 해당 index의 tr에 active 클래스 추가
-      // 이미지 클릭 시 해당 이미지가 활성화되도록 구현
-      this.$el.querySelectorAll("tbody > tr").forEach((tr) => {
-        tr.classList.remove("active");
-      });
-
-      this.$el.querySelectorAll("tbody > tr")[index].classList.add("active");
+      this.activeIndex = index;
     },
   },
 
