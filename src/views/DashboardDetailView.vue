@@ -18,7 +18,20 @@
               <thead class="table-head">
                 <tr>
                   <th>문번</th>
-                  <th v-for="person in data" :key="person.name">
+                  <th
+                    :style="{
+                      // 만약 assignmentMode이 'TextBox'라면 colorList 사용,
+                      // 아니라면 사용하지 않음
+                      backgroundColor:
+                        assignmentMode === 'BBox'
+                          ? colorList[index].backgroundColor
+                          : '',
+                      color:
+                        assignmentMode === 'BBox' ? colorList[index].color : '',
+                    }"
+                    v-for="(person, index) in data"
+                    :key="person.name"
+                  >
                     {{ person.name }}
                   </th>
                 </tr>
@@ -95,6 +108,20 @@ export default {
       activeImageUrl: "https://via.placeholder.com/1050", // 기본 이미지 URL 설정
       assignmentId: this.$route.params.id,
       activeIndex: 0,
+      colorList: [
+        { backgroundColor: "#FF6384", color: "white" },
+        { backgroundColor: "#36A2EB", color: "white" },
+        { backgroundColor: "#FFCE56", color: "white" },
+        { backgroundColor: "#4BC0C0", color: "white" },
+        { backgroundColor: "#9966FF", color: "white" },
+        { backgroundColor: "#FF9F40", color: "white" },
+        { backgroundColor: "#FF6384", color: "white" },
+        { backgroundColor: "#36A2EB", color: "white" },
+        { backgroundColor: "#FFCE56", color: "white" },
+        { backgroundColor: "#4BC0C0", color: "white" },
+        { backgroundColor: "#9966FF", color: "white" },
+        { backgroundColor: "#FF9F40", color: "white" },
+      ],
     };
   },
 
