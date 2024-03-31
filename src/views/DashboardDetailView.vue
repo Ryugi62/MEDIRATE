@@ -5,7 +5,7 @@
       <div class="table-box">
         <div class="table-header">
           <span class="table-title">과제 이야기</span>
-          <div class="slider-container">
+          <div class="slider-container" v-if="assignmentMode === 'BBox'">
             <span id="sliderValue">+{{ getSliderRange }}</span>
             <input
               type="range"
@@ -181,23 +181,8 @@ const COLOR_LIST = [
   { backgroundColor: "#FF6384", color: "white" }, // 밝은 분홍
   { backgroundColor: "#36A2EB", color: "white" }, // 밝은 파랑
   { backgroundColor: "#FF9F40", color: "white" }, // 주황색
-  { backgroundColor: "#9966FF", color: "white" }, // 연보라
-  { backgroundColor: "#FFCE56", color: "white" }, // 밝은 노랑
-  { backgroundColor: "#4BC0C0", color: "white" }, // 청록색
-  { backgroundColor: "#FF6EFF", color: "white" }, // 밝은 자주색
-  { backgroundColor: "#B2F302", color: "white" }, // 라임 그린
-  { backgroundColor: "#DDA0DD", color: "black" }, // 자두색
-  { backgroundColor: "#50BFE6", color: "white" }, // 밝은 하늘색
-  { backgroundColor: "#7ED957", color: "white" }, // 밝은 녹색
-  { backgroundColor: "#D860F1", color: "white" }, // 자홍색
-  { backgroundColor: "#FFD300", color: "white" }, // 금색
-  { backgroundColor: "#009B77", color: "white" }, // 에메랄드 그린
-  { backgroundColor: "#800080", color: "white" }, // 보라색
-  { backgroundColor: "#E77200", color: "white" }, // 양갱 오렌지
-  { backgroundColor: "#FFA07A", color: "black" }, // 연어색
-  { backgroundColor: "#AAF0D1", color: "black" }, // 밝은 민트
-  { backgroundColor: "#E6E6FA", color: "black" }, // 라벤더
-  { backgroundColor: "#FF5A09", color: "white" }, // 어두운 주황색
+  { backgroundColor: "#B2F302", color: "black" }, // 라임 그린
+  { backgroundColor: "#FFA07A", color: "white" }, // 연어색
 ];
 </script>
 
