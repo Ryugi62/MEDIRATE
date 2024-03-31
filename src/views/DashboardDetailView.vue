@@ -103,7 +103,7 @@ export default {
         );
 
         this.data = response.data; // Assuming the response has the data in { data: { data: [...] } } format
-        this.assignmentId = 0;
+        console.log(this.data);
         this.activeImageUrl = this.data[0].questions[0].questionImage;
       } catch (error) {
         console.error("Failed to load data:", error);
