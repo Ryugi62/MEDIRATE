@@ -25,21 +25,25 @@ export default {
     beforeCanvas: {
       type: Object,
       required: true,
+      default: () => ({ width: null, height: null }),
     },
 
     squares: {
       type: Array,
       required: true,
+      default: () => [],
     },
 
     src: {
       type: String,
       required: true,
+      default: "",
     },
 
     questionIndex: {
       type: Number,
       required: true,
+      default: 0,
     },
   },
 
