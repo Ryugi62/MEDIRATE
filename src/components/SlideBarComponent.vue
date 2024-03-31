@@ -38,7 +38,11 @@ export default {
           paths: ["/assignment", "/assignment/:id"],
           isAdmin: false,
         },
-        { name: "과제 관리", paths: ["/evaluation"], isAdmin: true },
+        {
+          name: "과제 관리",
+          paths: ["/evaluation", "/edit-assignment/1"],
+          isAdmin: true,
+        },
         {
           name: "대시보드",
           paths: ["/dashboard", "/dashboard/:id"],
