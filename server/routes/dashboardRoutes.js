@@ -115,14 +115,14 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       assignedUsers.map(async (user) => {
         const [questions] = await db.query(
           `
-        SELECT 
-          q.id AS questionId, 
-          q.image AS questionImage, 
-          COALESCE(qr.selected_option, -1) AS questionSelection
-        FROM questions q
-        LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = ?
-        WHERE q.assignment_id = ?
-      `,
+            SELECT 
+              q.id AS questionId, 
+              q.image AS questionImage, 
+              COALESCE(qr.selected_option, -1) AS questionSelection
+              FROM questions q
+              LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = ?
+              WHERE q.assignment_id = ?
+          `,
           [user.user_id, assignmentId]
         );
 
