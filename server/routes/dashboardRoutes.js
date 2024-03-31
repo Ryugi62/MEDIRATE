@@ -145,7 +145,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     );
 
     const result = {
-      assignemnt: data,
+      assignment: data,
       assignmentMode: assignmentMode[0][0].assignment_mode,
     };
 

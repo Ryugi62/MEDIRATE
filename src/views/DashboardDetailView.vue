@@ -1,10 +1,21 @@
 <template>
-  <div class="dashboard" v-if="data.length">
+  <div v-if="data.length" class="dashboard">
     <h1 class="title">대시보드</h1>
     <div class="dashboard-content">
       <div class="table-box">
         <div class="table-header">
           <span class="table-title">과제 이야기</span>
+          <div class="slider-container">
+            <span id="sliderValue">+{{ getSliderRange }}</span>
+            <input
+              type="range"
+              min="1"
+              :max="data.length"
+              class="slider"
+              id="slider"
+              v-model="sliderValue"
+            />
+          </div>
           <span class="completed-status"
             ><strong>{{ completedPercentage }}%</strong> / 100%</span
           >
@@ -19,18 +30,9 @@
                 <tr>
                   <th>문번</th>
                   <th
-                    :style="{
-                      // 만약 assignmentMode이 'TextBox'라면 colorList 사용,
-                      // 아니라면 사용하지 않음
-                      backgroundColor:
-                        assignmentMode === 'BBox'
-                          ? colorList[index].backgroundColor
-                          : '',
-                      color:
-                        assignmentMode === 'BBox' ? colorList[index].color : '',
-                    }"
                     v-for="(person, index) in data"
                     :key="person.name"
+                    :style="getStyleForPerson(index)"
                   >
                     {{ person.name }}
                   </th>
@@ -51,7 +53,6 @@
                   </td>
                 </tr>
               </tbody>
-
               <tfoot class="table-footer">
                 <tr>
                   <th>답변</th>
@@ -85,7 +86,8 @@
       </div>
     </div>
   </div>
-  <div v-else class="loading-message">
+
+  <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
 </template>
@@ -96,43 +98,28 @@ import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
 
 export default {
   name: "DashboardDetailView",
-
   components: {
     ImageComponent,
     BBoxViewerComponent,
   },
-
   data() {
     return {
-      data: [], // This will hold your users and their question data
-      activeImageUrl: "https://via.placeholder.com/1050", // 기본 이미지 URL 설정
+      data: [],
+      activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
       activeIndex: 0,
-      colorList: [
-        { backgroundColor: "#FF6384", color: "white" },
-        { backgroundColor: "#36A2EB", color: "white" },
-        { backgroundColor: "#FFCE56", color: "white" },
-        { backgroundColor: "#4BC0C0", color: "white" },
-        { backgroundColor: "#9966FF", color: "white" },
-        { backgroundColor: "#FF9F40", color: "white" },
-        { backgroundColor: "#FF6384", color: "white" },
-        { backgroundColor: "#36A2EB", color: "white" },
-        { backgroundColor: "#FFCE56", color: "white" },
-        { backgroundColor: "#4BC0C0", color: "white" },
-        { backgroundColor: "#9966FF", color: "white" },
-        { backgroundColor: "#FF9F40", color: "white" },
-      ],
+      assignmentMode: "",
+      colorList: COLOR_LIST, // 상수로 정의된 색상 리스트 사용
+      sliderValue: 1,
     };
   },
-
   created() {
     this.loadData();
   },
-
   methods: {
     async loadData() {
       try {
-        const response = await this.$axios.get(
+        const { data } = await this.$axios.get(
           `/api/dashboard/${this.assignmentId}`,
           {
             headers: {
@@ -141,30 +128,30 @@ export default {
           }
         );
 
-        this.assignmentMode = response.data.assignmentMode;
-        this.data = response.data.assignemnt; // Assuming the response has the data in { data: { data: [...] } } format
+        console.log(data);
+
+        this.assignmentMode = data.assignmentMode;
+        this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
       } catch (error) {
         console.error("Failed to load data:", error);
-        // Handle error, perhaps show a user-friendly message
       }
     },
-
     moveToAssignmentManagement() {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
-
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
-
       this.activeIndex = index;
     },
+    getStyleForPerson(index) {
+      const style = this.colorList[index % this.colorList.length];
+      return this.assignmentMode === "BBox" ? style : {};
+    },
   },
-
   computed: {
     completedPercentage() {
       if (!this.data.length) return 0;
-
       const totalAnswered = this.data.reduce(
         (acc, user) => acc + user.answeredCount,
         0
@@ -174,13 +161,44 @@ export default {
         0
       );
       const totalQuestions = totalAnswered + totalUnanswered;
-
-      return totalQuestions > 0
+      return totalQuestions
         ? ((totalAnswered / totalQuestions) * 100).toFixed(2)
         : 0;
     },
+
+    getSliderRange() {
+      // this.data.length만큼 배열을 만들어서 1부터 10까지의 값을 순서대로 넣어줍니다.
+      const rangeValues = Array.from(
+        { length: this.data.length },
+        (_, i) => i + 1
+      );
+      return rangeValues[this.sliderValue - 1] || "";
+    },
   },
 };
+
+const COLOR_LIST = [
+  { backgroundColor: "#FF6384", color: "white" }, // 밝은 분홍
+  { backgroundColor: "#36A2EB", color: "white" }, // 밝은 파랑
+  { backgroundColor: "#FF9F40", color: "white" }, // 주황색
+  { backgroundColor: "#9966FF", color: "white" }, // 연보라
+  { backgroundColor: "#FFCE56", color: "white" }, // 밝은 노랑
+  { backgroundColor: "#4BC0C0", color: "white" }, // 청록색
+  { backgroundColor: "#FF6EFF", color: "white" }, // 밝은 자주색
+  { backgroundColor: "#B2F302", color: "white" }, // 라임 그린
+  { backgroundColor: "#DDA0DD", color: "black" }, // 자두색
+  { backgroundColor: "#50BFE6", color: "white" }, // 밝은 하늘색
+  { backgroundColor: "#7ED957", color: "white" }, // 밝은 녹색
+  { backgroundColor: "#D860F1", color: "white" }, // 자홍색
+  { backgroundColor: "#FFD300", color: "white" }, // 금색
+  { backgroundColor: "#009B77", color: "white" }, // 에메랄드 그린
+  { backgroundColor: "#800080", color: "white" }, // 보라색
+  { backgroundColor: "#E77200", color: "white" }, // 양갱 오렌지
+  { backgroundColor: "#FFA07A", color: "black" }, // 연어색
+  { backgroundColor: "#AAF0D1", color: "black" }, // 밝은 민트
+  { backgroundColor: "#E6E6FA", color: "black" }, // 라벤더
+  { backgroundColor: "#FF5A09", color: "white" }, // 어두운 주황색
+];
 </script>
 
 <style scoped>
@@ -213,10 +231,15 @@ export default {
   font-weight: bold;
   margin: 0;
   padding: 0;
+  margin-right: auto;
+}
+
+.slider-container {
+  display: flex;
+  gap: 8px;
 }
 
 .completed-status {
-  margin-left: auto;
   font-size: 14px;
 }
 
