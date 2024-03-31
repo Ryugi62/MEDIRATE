@@ -1,13 +1,5 @@
 <template>
   <div class="bbox-component">
-    <div class="bbox-component__header">
-      <i
-        v-for="icon in iconList"
-        :key="icon.name"
-        :class="['fas', icon.name, { active: icon.active }]"
-        @click="activateIcon(icon)"
-      ></i>
-    </div>
     <div class="bbox-component__body">
       <canvas
         @click="handleCanvasClick"
@@ -49,11 +41,6 @@ export default {
 
   data() {
     return {
-      iconList: [
-        { name: "fa-square", active: true },
-        { name: "fa-eraser", active: false },
-        { name: "fa-circle-minus", active: false },
-      ],
       localBeforeCanvas: { width: null, height: null },
       beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
       localSquares: [],
