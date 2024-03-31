@@ -55,8 +55,18 @@
               </tfoot>
             </table>
           </div>
+
           <div class="image-box">
-            <ImageComponent :src="activeImageUrl" />
+            <ImageComponent
+              v-if="assignmentMode === 'TextBox'"
+              :src="activeImageUrl"
+            />
+
+            <BBoxViewerComponent
+              v-else
+              :src="activeImageUrl"
+              :questionIndex="activeIndex"
+            />
           </div>
         </div>
       </div>
@@ -69,12 +79,14 @@
 
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
+import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
 
 export default {
   name: "DashboardDetailView",
 
   components: {
     ImageComponent,
+    BBoxViewerComponent,
   },
 
   data() {
@@ -102,7 +114,8 @@ export default {
           }
         );
 
-        this.data = response.data; // Assuming the response has the data in { data: { data: [...] } } format
+        this.assignmentMode = response.data.assignmentMode;
+        this.data = response.data.assignemnt; // Assuming the response has the data in { data: { data: [...] } } format
         this.activeImageUrl = this.data[0].questions[0].questionImage;
       } catch (error) {
         console.error("Failed to load data:", error);

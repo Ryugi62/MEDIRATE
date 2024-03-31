@@ -105,6 +105,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       [assignmentId]
     );
 
+    const assignmentMode = await db.query(
+      `SELECT assignment_mode FROM assignments WHERE id = ?`,
+      [assignmentId]
+    );
+
     // For each user, fetch their questions and selections for the assignment
     const data = await Promise.all(
       assignedUsers.map(async (user) => {
@@ -139,7 +144,12 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       })
     );
 
-    res.status(200).json(data);
+    const result = {
+      assignemnt: data,
+      assignmentMode: assignmentMode[0][0].assignment_mode,
+    };
+
+    res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching data:", error);
     res.status(500).send("Internal Server Error");
