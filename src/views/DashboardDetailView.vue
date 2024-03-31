@@ -212,6 +212,10 @@ const COLOR_LIST = [
   border-bottom: 1px solid var(--light-gray);
 }
 
+.table-body {
+  padding-left: 24px;
+}
+
 .table-title {
   font-weight: bold;
   margin: 0;
