@@ -51,12 +51,6 @@ export default {
   },
 
   computed: {
-    eraserActive() {
-      return this.iconList.some(
-        (icon) => icon.name === "fa-eraser" && icon.active
-      );
-    },
-
     isSliderActive() {
       return this.$store.getters.isSlideBarOpen;
     },
@@ -66,32 +60,6 @@ export default {
     fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
       this.localSquares = this.squares;
-    },
-
-    activateIcon(selectedIcon) {
-      if (selectedIcon.name === "fa-circle-minus") {
-        // confirm 창을 띄워서 삭제 여부를 확인합니다.
-        const isConfirmed = confirm("정말로 모든 사각형을 삭제하시겠습니까?");
-        if (!isConfirmed) return;
-
-        this.localSquares = this.localSquares.filter(
-          (square) => square.questionIndex !== this.questionIndex
-        );
-
-        this.$emit("update:squares", this.localSquares);
-
-        this.redrawSquares();
-
-        // fa-square 아이콘을 활성화합니다.
-        const squareIcon = this.iconList.find(
-          (icon) => icon.name === "fa-square"
-        );
-        this.activateIcon(squareIcon);
-
-        return;
-      }
-
-      this.iconList.forEach((icon) => (icon.active = icon === selectedIcon));
     },
 
     async loadBackgroundImage() {
@@ -193,26 +161,6 @@ export default {
       });
     },
 
-    handleCanvasClick(event) {
-      const { x, y } = this.getCanvasCoordinates(event);
-      this.eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
-    },
-
-    drawSquare(x, y) {
-      this.localSquares.push({ x, y, questionIndex: this.questionIndex });
-      this.redrawSquares();
-    },
-
-    eraseSquare(mouseX, mouseY) {
-      const closestSquare = this.getClosestSquare(mouseX, mouseY);
-
-      if (closestSquare) {
-        const index = this.localSquares.indexOf(closestSquare);
-        this.localSquares.splice(index, 1);
-        this.redrawSquares();
-      }
-    },
-
     getClosestSquare(x, y) {
       return this.localSquares.reduce(
         (closest, square) => {
@@ -242,8 +190,6 @@ export default {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
-
-      this.$emit("update:squares", this.localSquares);
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -255,10 +201,6 @@ export default {
         x: (clientX - left) * (canvas.width / width),
         y: (clientY - top) * (canvas.height / height),
       };
-    },
-
-    isSquareClicked({ x, y }, mouseX, mouseY) {
-      return Math.abs(x - mouseX) <= 10 && Math.abs(y - mouseY) <= 10;
     },
 
     getCanvasElement() {
