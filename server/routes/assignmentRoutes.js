@@ -37,12 +37,6 @@ router.post("/", authenticateToken, async (req, res) => {
     ]);
     const assignmentId = assignmentResult.insertId;
 
-    // 캔버스 정보를 canvas_info 테이블에 삽입 (width와 height는 NULL로 설정)
-    const insertCanvasInfoQuery = `
-      INSERT INTO canvas_info (assignment_id, width, height)
-      VALUES (?, 0, 0)`;
-    await db.query(insertCanvasInfoQuery, [assignmentId]);
-
     for (const question of questions) {
       const insertQuestionQuery = `
         INSERT INTO questions (assignment_id, image)
@@ -55,6 +49,12 @@ router.post("/", authenticateToken, async (req, res) => {
         INSERT INTO assignment_user (assignment_id, user_id)
         VALUES (?, ?)`;
       await db.query(insertUserQuery, [assignmentId, userId]);
+
+      // 캔버스 정보를 canvas_info 테이블에 삽입 (width와 height는 NULL로 설정)
+      const insertCanvasInfoQuery = `
+      INSERT INTO canvas_info (assignment_id, width, height, user_id)
+      VALUES (?, 0, 0, ?)`;
+      await db.query(insertCanvasInfoQuery, [assignmentId, userId]);
     }
 
     res
@@ -187,8 +187,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       .map((s) => s.trim());
 
     // 캔버스 정보 조회
-    const canvasQuery = `SELECT id, width, height FROM canvas_info WHERE assignment_id = ?`;
-    const [canvas] = await db.query(canvasQuery, [assignmentId]);
+    const canvasQuery = `SELECT id, width, height FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
+    const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = []; // 캔버스에 그려진 사각형 정보 조회를 위한 초기화
     if (canvas.length > 0) {

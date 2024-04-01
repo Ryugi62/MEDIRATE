@@ -96,7 +96,9 @@ const createTablesSQL = {
         assignment_id INT,
         width INT NOT NULL,
         height INT NOT NULL,
-        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+        user_id INT,
+        FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
   squares_info: `
     CREATE TABLE IF NOT EXISTS squares_info (
