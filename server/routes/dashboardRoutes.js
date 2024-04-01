@@ -32,6 +32,7 @@ router.get("/", async (_req, res) => {
            JOIN questions q ON si.question_id = q.id WHERE q.assignment_id = ?`,
           [assignment.id]
         );
+
         assignment.answeredQuestions += additionalAnswers[0].additionalCount;
       }
 
@@ -40,12 +41,14 @@ router.get("/", async (_req, res) => {
         assignment.totalQuestions,
         assignment.evaluatorCount
       );
+
       assignment.unansweredRate = calculateRates(
         assignment.totalQuestions * assignment.evaluatorCount -
           assignment.answeredQuestions,
         assignment.totalQuestions,
         assignment.evaluatorCount
       );
+
       assignment.createdAt = formatDate(new Date(assignment.createdAt));
       assignment.endAt = formatDate(new Date(assignment.endAt));
     }
@@ -64,6 +67,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       `SELECT assignment_mode FROM assignments WHERE id = ?`,
       [assignmentId]
     );
+
     const [usersData] = await db.query(
       `
       SELECT u.username AS name, q.id AS questionId, q.image AS questionImage,
@@ -79,6 +83,23 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       [assignmentId]
     );
 
+    // 사용자 ID를 지정하지 않고 모든 사각형 정보 조회
+    const [squaresData] = await db.query(
+      `SELECT si.id, si.question_id as questionIndex, si.x, si.y
+       FROM squares_info si
+       JOIN questions q ON si.question_id = q.id
+       JOIN canvas_info ci ON si.canvas_id = ci.id
+       WHERE q.assignment_id = ?`,
+      [assignmentId]
+    );
+
+    const [canvasData] = await db.query(
+      `SELECT ci.id, ci.width, ci.height
+       FROM canvas_info ci
+       WHERE ci.assignment_id = ?`,
+      [assignmentId]
+    );
+
     const structuredData = usersData.reduce(
       (
         acc,
@@ -86,6 +107,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       ) => {
         const selection =
           assignment_mode === "BBox" ? squareCount : originalSelection;
+
         const user =
           acc[name] ||
           (acc[name] = {
@@ -93,13 +115,21 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
             questions: [],
             answeredCount: 0,
             unansweredCount: 0,
+            squares: [],
+            beforeCanvas: {},
           });
+
         user.questions.push({
           questionId,
           questionImage,
           questionSelection: selection,
         });
+
+        if (assignment_mode === "BBox") user.squares = squaresData;
+        if (assignment_mode === "BBox") user.beforeCanvas = canvasData[0];
+
         selection > 0 ? user.answeredCount++ : user.unansweredCount++;
+
         return acc;
       },
       {}
