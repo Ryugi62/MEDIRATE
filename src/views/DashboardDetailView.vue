@@ -152,6 +152,8 @@ export default {
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
+
+      this.activeQuestionIndex = this.data[0].questions[index].questionId;
     },
     getStyleForPerson(index) {
       const style = this.colorList[index % this.colorList.length];

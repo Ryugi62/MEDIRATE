@@ -58,7 +58,6 @@ export default {
 
       this.userSquaresList.forEach((user) => {
         user.squares.forEach((square) => {
-          console.log(square, user);
           this.localSquares.push({
             id: square.id,
             questionIndex: square.questionIndex,
