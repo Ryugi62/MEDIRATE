@@ -70,7 +70,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     const [usersData] = await db.query(
       `
-      SELECT u.username AS name, q.id AS questionId, q.image AS questionImage,
+      SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId,
              COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
       FROM users u
       JOIN assignment_user au ON u.id = au.user_id
@@ -85,7 +85,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     // 사용자 ID를 지정하지 않고 모든 사각형 정보 조회
     const [squaresData] = await db.query(
-      `SELECT si.id, si.question_id as questionIndex, si.x, si.y
+      `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id
        FROM squares_info si
        JOIN questions q ON si.question_id = q.id
        JOIN canvas_info ci ON si.canvas_id = ci.id
@@ -94,7 +94,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     );
 
     const [canvasData] = await db.query(
-      `SELECT ci.id, ci.width, ci.height
+      `SELECT ci.id, ci.width, ci.height, ci.user_id
        FROM canvas_info ci
        WHERE ci.assignment_id = ?`,
       [assignmentId]
@@ -112,6 +112,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
           acc[name] ||
           (acc[name] = {
             name,
+            userId: usersData.find((user, index) => user.name === name).userId,
             questions: [],
             answeredCount: 0,
             unansweredCount: 0,
@@ -126,7 +127,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         });
 
         if (assignment_mode === "BBox") user.squares = squaresData;
-        if (assignment_mode === "BBox") user.beforeCanvas = canvasData[0];
+        if (assignment_mode === "BBox") user.beforeCanvas = canvasData;
 
         selection > 0 ? user.answeredCount++ : user.unansweredCount++;
 
@@ -134,6 +135,22 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       },
       {}
     );
+
+    Object.values(structuredData).forEach((user) => {
+      user.questions = user.questions.sort(
+        (a, b) => a.questionId - b.questionId
+      );
+
+      user.squares = user.squares.filter(
+        (square) => square.user_id === user.userId
+      );
+
+      user.beforeCanvas = user.beforeCanvas.find(
+        (canvas) => canvas.user_id === user.userId
+      );
+    });
+
+    console.log("structuredData: ", structuredData);
 
     res.status(200).json({
       assignment: Object.values(structuredData),

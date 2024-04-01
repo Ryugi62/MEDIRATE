@@ -133,6 +133,14 @@ export default {
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
+
+        this.beforeCanvas = this.data.map((person) => {
+          return person.beforeCanvas;
+        });
+
+        this.squares = this.data.map((person) => {
+          return person.squares;
+        });
       } catch (error) {
         console.error("Failed to load data:", error);
       }
