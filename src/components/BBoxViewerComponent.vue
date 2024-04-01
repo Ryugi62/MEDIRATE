@@ -14,13 +14,7 @@ export default {
   name: "BBoxComponent",
 
   props: {
-    beforeCanvas: {
-      type: Object,
-      required: true,
-      default: () => ({ width: null, height: null }),
-    },
-
-    squares: {
+    userSquaresList: {
       type: Array,
       required: true,
       default: () => [],
@@ -58,8 +52,26 @@ export default {
 
   methods: {
     fetchLocalInfo() {
-      this.localBeforeCanvas = this.beforeCanvas;
-      this.localSquares = this.squares;
+      this.localBeforeCanvas =
+        this.userSquaresList[0]?.beforeCanvas || this.localBeforeCanvas;
+      this.localSquares = [];
+
+      this.userSquaresList.forEach((user) => {
+        user.squares.forEach((square) => {
+          console.log(square, user);
+          this.localSquares.push({
+            id: square.id,
+            questionIndex: square.questionIndex,
+            user_id: square.user_id,
+            x: square.x,
+            y: square.y,
+            color: user.color,
+          });
+        });
+
+        // 현재 this.localBeforeCanvas의 width, height에 맞춰서
+        // this.localSquares의 x, y 좌표를 조정합니다.
+      });
     },
 
     async loadBackgroundImage() {
@@ -182,7 +194,7 @@ export default {
         if (square.questionIndex !== this.questionIndex) return;
 
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "red";
+        ctx.strokeStyle = square.color;
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
 

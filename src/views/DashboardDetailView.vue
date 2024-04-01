@@ -79,7 +79,8 @@
             <BBoxViewerComponent
               v-else
               :src="activeImageUrl"
-              :questionIndex="activeIndex"
+              :questionIndex="activeQuestionIndex"
+              :userSquaresList="userSquaresList"
             />
           </div>
         </div>
@@ -111,6 +112,7 @@ export default {
       assignmentMode: "",
       colorList: COLOR_LIST, // 상수로 정의된 색상 리스트 사용
       sliderValue: 1,
+      userSquaresList: [],
     };
   },
   created() {
@@ -128,18 +130,17 @@ export default {
           }
         );
 
-        console.log(data);
-
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
+        this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
-        this.beforeCanvas = this.data.map((person) => {
-          return person.beforeCanvas;
-        });
-
-        this.squares = this.data.map((person) => {
-          return person.squares;
+        this.userSquaresList = this.data.map((person, index) => {
+          return {
+            beforeCanvas: person.beforeCanvas,
+            squares: person.squares,
+            color: this.colorList[index].backgroundColor,
+          };
         });
       } catch (error) {
         console.error("Failed to load data:", error);
