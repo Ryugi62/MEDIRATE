@@ -110,14 +110,25 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       [assignmentId]
     );
 
+    const canvas = await db.query(
+      `SELECT id FROM canvas_info WHERE assignment_id = ?`,
+      [assignmentId]
+    );
+    const canvasID = canvas[0][0].id;
+
+    const squares = await db.query(
+      `SELECT * FROM squares_info WHERE canvas_id = ?`,
+      [canvasID]
+    );
+
     // For each user, fetch their questions and selections for the assignment
     const data = await Promise.all(
       assignedUsers.map(async (user) => {
         const [questions] = await db.query(
           `
             SELECT 
-              q.id AS questionId, 
-              q.image AS questionImage, 
+              q.id AS questionId,
+              q.image AS questionImage,
               COALESCE(qr.selected_option, -1) AS questionSelection
               FROM questions q
               LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = ?
@@ -127,8 +138,14 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         );
 
         const answeredCount = questions.filter(
-          (q) => q.questionSelection !== -1
+          (q) =>
+            q.questionSelection !== -1 ||
+            squares[0].some(
+              (s) =>
+                s.user_id === user.user_id && s.question_id === q.questionId
+            )
         ).length;
+
         const unansweredCount = questions.length - answeredCount;
 
         return {
