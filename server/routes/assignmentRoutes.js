@@ -316,11 +316,12 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       const updateCanvasQuery = `
         UPDATE canvas_info
         SET width = ?, height = ?
-        WHERE assignment_id = ?`;
+        WHERE assignment_id = ? AND user_id = ?`;
       await db.query(updateCanvasQuery, [
         beforeCanvas.width,
         beforeCanvas.height,
         assignmentId,
+        req.user.id,
       ]);
     }
 
