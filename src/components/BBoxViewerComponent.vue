@@ -52,25 +52,42 @@ export default {
 
   methods: {
     fetchLocalInfo() {
-      this.localBeforeCanvas =
-        this.userSquaresList[0]?.beforeCanvas || this.localBeforeCanvas;
-      this.localSquares = [];
+      const { width, height } = this.$el
+        .querySelector(".bbox-component__body")
+        .getBoundingClientRect();
+
+      const img = new Image();
+      img.src = this.src;
+      this.setBackgroundImage(img);
+
+      this.localBeforeCanvas = { width, height };
 
       this.userSquaresList.forEach((user) => {
-        user.squares.forEach((square) => {
-          this.localSquares.push({
-            id: square.id,
-            questionIndex: square.questionIndex,
-            user_id: square.user_id,
-            x: square.x,
-            y: square.y,
-            color: user.color,
-          });
-        });
+        // 현재 width, height에 맞춰서.
+        // user.beforeCanvas.width, user.beforeCanvas.height의 변경된 비율만큼
+        // user.squares의 x, y 좌표를 조정해줘야함.
+        const beforePosition = this.calculateImagePosition(width, height);
 
-        // 현재 this.localBeforeCanvas의 width, height에 맞춰서
-        // this.localSquares의 x, y 좌표를 조정합니다.
+        const userBeforePosition = this.calculateImagePosition(
+          user.beforeCanvas.width,
+          user.beforeCanvas.height
+        );
+
+        const scaleRatio = beforePosition.scale / userBeforePosition.scale;
+
+        user.squares.forEach((square) => {
+          square.color = user.color;
+
+          square.x =
+            (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
+          square.y =
+            (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
+
+          this.localSquares.push(square);
+        });
       });
+
+      console.log(this.localSquares);
     },
 
     async loadBackgroundImage() {
