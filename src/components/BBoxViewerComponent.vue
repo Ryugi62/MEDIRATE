@@ -36,7 +36,6 @@ export default {
   data() {
     return {
       localBeforeCanvas: { width: null, height: null },
-      beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
       localSquares: [],
       backgroundImage: null,
       originalWidth: null,
@@ -63,9 +62,6 @@ export default {
       this.localBeforeCanvas = { width, height };
 
       this.userSquaresList.forEach((user) => {
-        // 현재 width, height에 맞춰서.
-        // user.beforeCanvas.width, user.beforeCanvas.height의 변경된 비율만큼
-        // user.squares의 x, y 좌표를 조정해줘야함.
         const beforePosition = this.calculateImagePosition(width, height);
 
         const userBeforePosition = this.calculateImagePosition(
@@ -154,7 +150,6 @@ export default {
         canvas.width,
         canvas.height
       ); // 리사이징 이전 포지션 저장
-      this.beforeResizePosition = beforePosition;
 
       canvas.width = 0;
       canvas.height = 0;
@@ -316,7 +311,7 @@ export default {
       const squareSize = 20;
 
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "orange";
+      ctx.strokeStyle = "white";
       ctx.strokeRect(
         x - squareSize / 2,
         y - squareSize / 2,
