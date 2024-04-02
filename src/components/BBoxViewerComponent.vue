@@ -31,11 +31,18 @@ export default {
       required: true,
       default: 0,
     },
+
+    sliderValue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
   },
 
   data() {
     return {
       localBeforeCanvas: { width: null, height: null },
+      originalLocalSquares: [],
       localSquares: [],
       backgroundImage: null,
       originalWidth: null,
@@ -79,11 +86,37 @@ export default {
           square.y =
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
 
-          this.localSquares.push(square);
+          if (square.questionIndex === this.questionIndex) {
+            this.localSquares.push(square);
+          }
         });
       });
 
-      console.log(this.localSquares);
+      this.originalLocalSquares = [...this.localSquares];
+    },
+
+    filterSquares() {
+      this.localSquares = [...this.originalLocalSquares];
+      const squares = this.originalLocalSquares;
+
+      squares.forEach((square) => {
+        const count = squares.filter(
+          (s) =>
+            Math.abs(s.x - square.x) <= 10 && Math.abs(s.y - square.y) <= 10
+        ).length;
+
+        console.log(count, this.sliderValue);
+
+        if (count < this.sliderValue) {
+          const index = this.localSquares.findIndex(
+            (s) => s.x === square.x && s.y === square.y
+          );
+
+          this.localSquares.splice(index, 1);
+        }
+      });
+
+      this.redrawSquares();
     },
 
     async loadBackgroundImage() {
@@ -323,6 +356,7 @@ export default {
 
   mounted() {
     this.fetchLocalInfo();
+    this.filterSquares();
 
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
@@ -339,6 +373,10 @@ export default {
 
     isSliderActive() {
       this.resizeCanvas();
+    },
+
+    sliderValue() {
+      this.filterSquares();
     },
   },
 };

@@ -81,6 +81,7 @@
               :src="activeImageUrl"
               :questionIndex="activeQuestionIndex"
               :userSquaresList="userSquaresList"
+              :sliderValue="Number(sliderValue)"
             />
           </div>
         </div>
