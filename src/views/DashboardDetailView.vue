@@ -116,9 +116,11 @@ export default {
       userSquaresList: [],
     };
   },
-  created() {
-    this.loadData();
+
+  async created() {
+    await this.loadData();
   },
+
   methods: {
     async loadData() {
       try {
