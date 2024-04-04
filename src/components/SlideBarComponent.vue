@@ -40,7 +40,7 @@ export default {
         },
         {
           name: "과제 관리",
-          paths: ["/evaluation", "/edit-assignment/1"],
+          paths: ["/evaluation", "/edit-assignment/:id"],
           isAdmin: true,
         },
         {
