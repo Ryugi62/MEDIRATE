@@ -430,6 +430,19 @@ export default {
         });
     },
   },
+
+  watch: {
+    assignmentDetails: {
+      // 만약 assignmentDetial.mode가 BBox면 선택 유형을 초기화한다.
+      handler() {
+        if (this.assignmentDetails.mode === "BBox") {
+          this.assignmentDetails.selectedAssignmentType = "";
+          this.assignmentDetails.gradingScale = null;
+        }
+      },
+      deep: true,
+    },
+  },
 };
 </script>
 
