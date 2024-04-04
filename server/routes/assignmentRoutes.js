@@ -111,8 +111,6 @@ router.get("/", authenticateToken, async (req, res) => {
       }
     }
 
-    console.log(assignments);
-
     res.json(assignments);
   } catch (error) {
     handleError(
@@ -233,7 +231,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.title, 
         a.deadline,
         a.assignment_type AS selectedAssignmentType,
-        a.selection_type AS selectedAssignmentId
+        a.selection_type AS selectedAssignmentId,
+        a.assignment_mode AS mode
       FROM assignments a
       WHERE a.id = ?`;
     const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
@@ -264,6 +263,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
     const transformedAssignmentDetails = {
       id: assignment.id,
       title: assignment.title,
+      assigment_mode: assignment.mode,
       deadline: assignment.deadline,
       selectedAssignmentId: assignment.selectedAssignmentId,
       selectedAssignmentType: assignment.selectedAssignmentType,
@@ -356,60 +356,34 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
 });
 
 router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
-  const assignmentId = req.params.assignmentId; // Extracting the assignmentId from the request parameters
-  const { title, deadline, assignment_type, selection_type, questions, users } =
-    req.body;
+  const { assignmentId } = req.params;
+  const {
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    questions,
+    users,
+    mode,
+  } = req.body;
 
   try {
-    // Start by updating the main assignment details
-    const updateQuery = `
-      UPDATE assignments
-      SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?
-      WHERE id = ?`;
-    await db.query(updateQuery, [
+    const assignmentChanged = await updateAssignment({
+      assignmentId,
       title,
       deadline,
       assignment_type,
       selection_type,
-      assignmentId,
-    ]);
+      mode,
+    });
 
-    // Before deleting the questions, delete any responses to those questions to avoid foreign key constraint errors
-    const deleteResponsesQuery = `
-      DELETE qr FROM question_responses qr
-      JOIN questions q ON qr.question_id = q.id
-      WHERE q.assignment_id = ?`;
-    await db.query(deleteResponsesQuery, [assignmentId]);
+    if (assignmentChanged) {
+      await deleteResponsesAndQuestions(assignmentId);
+      await addQuestions(assignmentId, questions);
+      await deleteSquareInfo(assignmentId);
+    }
 
-    // Now it's safe to delete the questions for the assignment
-    await db.query(`DELETE FROM questions WHERE assignment_id = ?`, [
-      assignmentId,
-    ]);
-
-    // Clear existing users associated with this assignment
-    await db.query(`DELETE FROM assignment_user WHERE assignment_id = ?`, [
-      assignmentId,
-    ]);
-
-    // Re-assign users to the assignment
-    await Promise.all(
-      users.map((userId) =>
-        db.query(
-          `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
-          [assignmentId, userId]
-        )
-      )
-    );
-
-    // Re-add questions to the assignment
-    await Promise.all(
-      questions.map((question) =>
-        db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
-          assignmentId,
-          question.img,
-        ])
-      )
-    );
+    await updateUserAssignments(assignmentId, users);
 
     res.json({ message: "Assignment successfully updated." });
   } catch (error) {
@@ -419,6 +393,86 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       .send({ message: "Failed to update assignment", error: error.message });
   }
 });
+
+async function updateAssignment({
+  assignmentId,
+  title,
+  deadline,
+  assignment_type,
+  selection_type,
+  mode,
+}) {
+  const updateQuery = `
+    UPDATE assignments
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?
+    WHERE id = ?`;
+
+  const [originalAssignment] = await db.query(
+    `SELECT * FROM assignments WHERE id = ?`,
+    [assignmentId]
+  );
+
+  await db.query(updateQuery, [
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    mode,
+    assignmentId,
+  ]);
+
+  console.log(originalAssignment[0].selection_type, selection_type);
+  console.log(originalAssignment[0].assignment_type, assignment_type);
+  console.log(originalAssignment[0].assignment_mode, mode);
+
+  return (
+    originalAssignment[0].selection_type !== selection_type ||
+    originalAssignment[0].assignment_type !== assignment_type ||
+    originalAssignment[0].assignment_mode !== mode
+  );
+}
+
+async function deleteResponsesAndQuestions(assignmentId) {
+  await db.query(
+    `DELETE qr FROM question_responses qr JOIN questions q ON qr.question_id = q.id WHERE q.assignment_id = ?`,
+    [assignmentId]
+  );
+  await db.query(`DELETE FROM questions WHERE assignment_id = ?`, [
+    assignmentId,
+  ]);
+}
+
+async function addQuestions(assignmentId, questions) {
+  await Promise.all(
+    questions.map((question) =>
+      db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
+        assignmentId,
+        question.img,
+      ])
+    )
+  );
+}
+
+async function deleteSquareInfo(assignmentId) {
+  await db.query(
+    `DELETE si FROM squares_info si JOIN canvas_info ci ON si.canvas_id = ci.id WHERE ci.assignment_id = ?`,
+    [assignmentId]
+  );
+} // squares 정보 삭제
+
+async function updateUserAssignments(assignmentId, users) {
+  await db.query(`DELETE FROM assignment_user WHERE assignment_id = ?`, [
+    assignmentId,
+  ]);
+  await Promise.all(
+    users.map((userId) =>
+      db.query(
+        `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+        [assignmentId, userId]
+      )
+    )
+  );
+}
 
 // Delete assignment
 router.delete("/:id", authenticateToken, async (req, res) => {

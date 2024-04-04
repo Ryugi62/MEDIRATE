@@ -1,6 +1,7 @@
 <template>
   <div class="assignment-container">
     <h1 class="assignment-title">과제 관리</h1>
+
     <div class="content-container">
       <div class="user-addition">
         <div class="user-search-box">
@@ -54,36 +55,69 @@
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
+          <div class="assignment-field mode-field">
+            <span>
+              <label for="field-text-mode">TextBox</label>
+              <input
+                type="radio"
+                id="field-text-mode"
+                name="mode"
+                value="TextBox"
+                v-model="assignmentDetails.mode"
+              />
+            </span>
+            <span>
+              <label for="field-bbox-mode">BBox</label>
+              <input
+                type="radio"
+                id="field-bbox-mode"
+                name="mode"
+                value="BBox"
+                v-model="assignmentDetails.mode"
+              />
+            </span>
+          </div>
+
           <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
           >
-            <label :for="`field-${fieldName}`">{{ field.label }}</label>
-            <input
-              v-if="field.component === 'input'"
-              :id="`field-${fieldName}`"
-              :type="field.options?.type"
-              v-model="assignmentDetails[field.model]"
-              :list="
-                fieldName === 'assignment-id' ? 'assignment-id-list' : null
+            <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
+            <template
+              v-if="
+                !(
+                  fieldName === 'assignment-type' &&
+                  assignmentDetails.mode === 'BBox'
+                )
               "
-            />
-            <datalist id="assignment-id-list">
-              <option
-                v-for="folder in folderList"
-                :key="folder.id"
-                :value="folder.id"
-              >
-                {{ folder }}
-              </option>
-            </datalist>
-            <button
-              v-if="field.method"
-              @click="field.method ? this[field.method]() : null"
             >
-              조회
-            </button>
+              <label :for="`field-${fieldName}`">{{ field.label }}</label>
+              <input
+                v-if="field.component === 'input'"
+                :id="`field-${fieldName}`"
+                :type="field.options?.type"
+                v-model="assignmentDetails[field.model]"
+                :list="
+                  fieldName === 'assignment-id' ? 'assignment-id-list' : null
+                "
+              />
+              <datalist id="assignment-id-list">
+                <option
+                  v-for="folder in folderList"
+                  :key="folder.id"
+                  :value="folder.id"
+                >
+                  {{ folder }}
+                </option>
+              </datalist>
+              <button
+                v-if="field.method"
+                @click="field.method ? this[field.method]() : null"
+              >
+                조회
+              </button>
+            </template>
           </div>
         </div>
         <hr />
@@ -93,7 +127,6 @@
               <h2 class="metadata-assignment-title">
                 {{ assignmentDetails.title }}
               </h2>
-              <span class="metadata-student-name">{{ studentName }}</span>
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
@@ -105,10 +138,7 @@
                 <thead>
                   <tr>
                     <th>문제</th>
-                    <th
-                      v-for="option in assignmentDetails.gradingScale"
-                      :key="option"
-                    >
+                    <th v-for="option in gradingScale" :key="option">
                       {{ option }}
                     </th>
                   </tr>
@@ -122,7 +152,7 @@
                   >
                     <td><img :src="question.img" /></td>
                     <td
-                      v-for="option in assignmentDetails.gradingScale"
+                      v-for="option in gradingScale"
                       :key="`question-${question.id}-option-${option}`"
                     >
                       <input
@@ -139,16 +169,14 @@
             </div>
             <div class="student-response-image">
               <ImageComponent
-                v-if="activeQuestionId !== null"
-                :src="assignmentDetails.questions[activeQuestionId]?.img"
+                v-if="assignmentDetails.questions[activeQuestionId]"
+                :src="assignmentDetails.questions[activeQuestionId].img"
               />
             </div>
           </div>
           <div class="assignment-save">
-            <button @click="saveAssignment">저장</button>
-            <button class="delete-button" @click="deleteAssignment">
-              삭제
-            </button>
+            <button @click="saveEditAssignment">저장</button>
+            <button class="delete" @click="deleteAssignment">삭제</button>
           </div>
         </div>
       </div>
@@ -163,7 +191,7 @@ export default {
   name: "EditAssignmentView",
   data() {
     return {
-      userList: [], // 기존의 userList 초기화
+      userList: [],
       addedUsers: [],
       maxUserCount: 5,
       searchInput: "",
@@ -171,10 +199,11 @@ export default {
       assignmentDetails: {
         title: "",
         deadline: "",
-        selectedAssignmentId: "", // 수정됨
-        selectedAssignmentType: "", // 수정됨
+        selectedAssignmentId: "",
+        selectedAssignmentType: "",
         questions: [],
         gradingScale: null,
+        mode: "TextBox",
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -191,18 +220,18 @@ export default {
           options: { type: "date" },
         },
         "assignment-id": {
-          label: "과제 ID :", // 수정됨
-          component: "input", // 수정됨
-          model: "selectedAssignmentId", // 수정됨
-          method: "generateQuestions", // 수정됨
-          options: {}, // 수정됨
+          label: "과제 ID :",
+          component: "input",
+          model: "selectedAssignmentId",
+          method: "generateQuestions",
+          options: {},
         },
         "assignment-type": {
-          label: "선택 유형 :", // 수정됨
-          component: "input", // 수정됨
-          model: "selectedAssignmentType", // 수정됨
-          method: "updateTableHeader", // 수정됨
-          options: {}, // 수정됨
+          label: "선택 유형 :",
+          component: "input",
+          model: "selectedAssignmentType",
+          method: "updateTableHeader",
+          options: {},
         },
       },
     };
@@ -210,8 +239,12 @@ export default {
 
   mounted() {
     this.fetchUserList();
-    this.fetchAssignmentData();
     this.fetchFolderList();
+    this.fetchAssignmentData();
+  },
+
+  components: {
+    ImageComponent,
   },
 
   computed: {
@@ -229,15 +262,13 @@ export default {
         );
       });
     },
-    studentName() {
-      return "학생 이름";
+
+    gradingScale() {
+      return this.assignmentDetails.mode === "TextBox"
+        ? this.assignmentDetails.gradingScale
+        : [];
     },
   },
-
-  components: {
-    ImageComponent,
-  },
-
   methods: {
     fetchFolderList() {
       this.$axios
@@ -250,13 +281,6 @@ export default {
           console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
         });
     },
-
-    isUserAdded(user) {
-      return this.addedUsers.some(
-        (addedUser) => addedUser.username === user.username
-      );
-    },
-
     updateTableHeader() {
       if (this.assignmentDetails.selectedAssignmentType.trim() === "") {
         alert("선택 유형을 먼저 선택하세요.");
@@ -266,19 +290,20 @@ export default {
       const headerText = this.assignmentDetails.selectedAssignmentType;
       const headerArray = headerText.split(",").map((item) => item.trim());
 
-      console.log(`headerText: ${headerText}`);
-      console.log(`headerArray: ${headerArray}`);
-
-      // 중복 검사 로직 추가
       const hasDuplicates = new Set(headerArray).size !== headerArray.length;
       if (hasDuplicates) {
         alert("중복된 선택 유형은 추가할 수 없습니다.");
-        return; // 함수를 여기서 종료시켜서 테이블 헤더 업데이트를 막습니다.
+        return;
       }
 
       this.assignmentDetails.gradingScale = headerArray;
     },
 
+    isUserAdded(user) {
+      return this.addedUsers.some(
+        (addedUser) => addedUser.username === user.username
+      );
+    },
     addUser(user) {
       if (
         this.addedUsers.length < this.maxUserCount &&
@@ -289,19 +314,18 @@ export default {
         alert("최대 유저 수를 초과하였거나 이미 추가된 유저입니다.");
       }
     },
-
     removeUser(index) {
       this.addedUsers.splice(index, 1);
     },
-
-    saveAssignment() {
-      // 평가자 검색, 과제 제목, 마감일, 과제 ID, 선택 유형이 모두 입력되었는지 확인
+    saveEditAssignment() {
       if (
         this.addedUsers.length === 0 ||
         !this.assignmentDetails.title ||
         !this.assignmentDetails.deadline ||
         !this.assignmentDetails.selectedAssignmentId ||
-        !this.assignmentDetails.selectedAssignmentType
+        !this.assignmentDetails.questions.length > 0 ||
+        (this.assignmentDetails.mode === "TextBox" &&
+          !this.assignmentDetails.selectedAssignmentType)
       ) {
         alert(
           "평가자, 과제 제목, 마감일, 과제 ID, 선택 유형을 모두 입력해주세요."
@@ -309,7 +333,6 @@ export default {
         return;
       }
 
-      // 마감일이 내일 이상인지 확인
       const today = new Date();
       const deadline = new Date(this.assignmentDetails.deadline);
       deadline.setHours(0, 0, 0, 0);
@@ -321,23 +344,29 @@ export default {
         return;
       }
 
-      // 모든 input 비활성화
       this.$el.querySelectorAll("input, select").forEach((input) => {
         input.disabled = true;
       });
 
-      // { title, deadline, assignment_type, selection_type, questions, users }
+      alert("새로운 과제를 생성합니다");
+
       const newAssignment = {
         id: this.assignmentDetails.id,
         title: this.assignmentDetails.title,
         deadline: this.assignmentDetails.deadline,
         assignment_type: this.assignmentDetails.selectedAssignmentId,
-        selection_type: this.assignmentDetails.selectedAssignmentType,
+        selection_type:
+          this.assignmentDetails.mode === "TextBox"
+            ? this.assignmentDetails.selectedAssignmentType
+            : "",
         questions: this.assignmentDetails.questions,
         users: this.addedUsers.map((user) => user.id),
+        mode: this.assignmentDetails.mode,
+        gradingScale:
+          this.assignmentDetails.mode === "TextBox"
+            ? this.assignmentDetails.gradingScale
+            : [],
       };
-
-      console.log("새로운 과제 정보", newAssignment);
 
       this.$axios
         .put(`/api/assignments/edit/${newAssignment.id}`, newAssignment, {
@@ -346,9 +375,8 @@ export default {
           },
         })
         .then((response) => {
-          console.log("새로운 과제 생성 완료:", response.data);
+          response.data;
 
-          // 과제 평가 리스트 페이지로 이동
           this.$router.push({ name: "assignment" });
         })
         .catch((error) => {
@@ -356,10 +384,25 @@ export default {
         });
     },
 
+    formatNumber(number, length) {
+      number += 1;
+      return number.toString().padStart(length, "0");
+    },
+
     generateQuestions() {
-      // 수정됨
       if (this.assignmentDetails.selectedAssignmentId === "") {
         alert("과제 ID를 먼저 선택하세요.");
+        return;
+      }
+
+      if (
+        !this.folderList.includes(this.assignmentDetails.selectedAssignmentId)
+      ) {
+        alert(
+          `해당 과제 ID가 존재하지 않습니다.\n\n가능한 과제 ID는 다음과 같습니다:${this.folderList.join(
+            ", "
+          )}`
+        );
         return;
       }
 
@@ -369,17 +412,16 @@ export default {
           const imageList = response.data;
           const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
 
-          // 이미지 리스트를 문제로 변환
           const questions = imageList.map((image, index) => {
             return {
               id: index,
-              img: `${rout}/${image}`,
+              img: `https://aialpa-eval.duckdns.org${rout}/${image}`,
               select: null,
             };
           });
 
-          // 문제 리스트를 저장
           this.assignmentDetails.questions = questions;
+          this.activeQuestionId = 0;
         })
         .catch((error) => {
           console.error(
@@ -390,7 +432,6 @@ export default {
     },
 
     fetchUserList() {
-      // jwt 토큰을 헤더에 추가하여 유저 정보를 가져옵니다.
       this.$axios
         .post("/api/assignments/user-list")
         .then((response) => {
@@ -409,6 +450,9 @@ export default {
           },
         })
         .then((response) => {
+          console.log(response.data);
+
+          this.activeQuestionId = 0;
           this.addedUsers = response.data.assignedUsers;
           this.assignmentDetails.id = response.data.id;
           this.assignmentDetails.title = response.data.title;
@@ -421,6 +465,7 @@ export default {
             response.data.selectedAssignmentId;
           this.assignmentDetails.questions = response.data.questions;
           this.assignmentDetails.gradingScale = response.data.gradingScale;
+          this.assignmentDetails.mode = response.data.assigment_mode;
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
@@ -428,7 +473,6 @@ export default {
     },
 
     deleteAssignment() {
-      // confirm 함수를 사용하여 사용자에게 삭제 여부를 물어봅니다.
       if (
         !confirm(
           "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
@@ -668,9 +712,14 @@ hr {
   align-items: center;
 }
 
-.assignment-field-select {
-  display: flex;
-  text-wrap: nowrap;
+.mode-field {
+  flex: 0;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 /* 과제 필드 입력 */
@@ -682,6 +731,11 @@ hr {
   border-radius: 4px;
   box-sizing: border-box;
   height: 42px;
+}
+
+.assignment-field-select {
+  display: flex;
+  text-wrap: nowrap;
 }
 
 /* 과제 미리보기 */
@@ -740,11 +794,11 @@ hr {
 
 /* 과제 저장 버튼 */
 .assignment-save {
+  gap: 16px;
   padding: 8px;
   display: flex;
   justify-content: center;
   border-top: 1px solid var(--light-gray);
-  gap: 16px;
 }
 
 /* 점수 테이블 이미지 */
@@ -825,9 +879,7 @@ tbody tr.active {
   max-height: fit-content;
 }
 
-/* 삭제 버튼 */
-.delete-button {
+.delete {
   background-color: var(--pink);
-  color: var(--white);
 }
 </style>

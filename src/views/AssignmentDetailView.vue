@@ -188,11 +188,6 @@ export default {
       }
     },
     async commitAssignmentChanges() {
-      console.log(
-        `this.currentAssignmentDetails:`,
-        this.currentAssignmentDetails
-      );
-
       // radio 버튼 비활성화
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
@@ -318,8 +313,6 @@ export default {
 
   // 페이지를 떠나기전 저장하실지 물어보는 기능
   beforeRouteLeave(to, from, next) {
-    console.log(this.currentAssignmentDetails);
-
     // 저장 버튼을 누른거면 안물어보고 넘어가기
     if (this.isSaving) {
       next();
@@ -332,12 +325,6 @@ export default {
         next();
       }
     }
-  },
-
-  watch: {
-    testScore() {
-      console.log("testScore changed:", this.testScore);
-    },
   },
 };
 </script>

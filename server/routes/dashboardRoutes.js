@@ -69,88 +69,88 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     );
 
     const [usersData] = await db.query(
-      `
-      SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId,
-             COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
-      FROM users u
-      JOIN assignment_user au ON u.id = au.user_id
-      LEFT JOIN questions q ON au.assignment_id = q.assignment_id
-      LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
-      LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
-      WHERE au.assignment_id = ?
-      GROUP BY u.id, q.id
-    `,
+      `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId,
+       COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
+       FROM users u
+       JOIN assignment_user au ON u.id = au.user_id
+       LEFT JOIN questions q ON au.assignment_id = q.assignment_id
+       LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
+       LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
+       WHERE au.assignment_id = ?
+       GROUP BY u.id, q.id`,
       [assignmentId]
     );
 
-    // 사용자 ID를 지정하지 않고 모든 사각형 정보 조회
-    const [squaresData] = await db.query(
-      `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id
+    const fetchData = async (query, params) => {
+      const [data] = await db.query(query, params);
+      return data;
+    };
+
+    const squaresData =
+      assignment_mode === "BBox"
+        ? await fetchData(
+            `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id
        FROM squares_info si
        JOIN questions q ON si.question_id = q.id
        JOIN canvas_info ci ON si.canvas_id = ci.id
        WHERE q.assignment_id = ?`,
-      [assignmentId]
-    );
+            [assignmentId]
+          )
+        : [];
 
-    const [canvasData] = await db.query(
-      `SELECT ci.id, ci.width, ci.height, ci.user_id
+    const canvasData =
+      assignment_mode === "BBox"
+        ? await fetchData(
+            `SELECT ci.id, ci.width, ci.height, ci.user_id
        FROM canvas_info ci
        WHERE ci.assignment_id = ?`,
-      [assignmentId]
+            [assignmentId]
+          )
+        : [];
+
+    const structuredData = usersData.reduce((acc, user) => {
+      const {
+        name,
+        questionId,
+        questionImage,
+        userId,
+        originalSelection,
+        squareCount,
+      } = user;
+      const selection =
+        assignment_mode === "BBox" ? squareCount : originalSelection;
+
+      if (!acc[name]) {
+        acc[name] = {
+          name,
+          userId,
+          questions: [],
+          answeredCount: 0,
+          unansweredCount: 0,
+        };
+        if (assignment_mode === "BBox") {
+          acc[name].squares = squaresData.filter(
+            (square) => square.user_id === userId
+          );
+          acc[name].beforeCanvas = canvasData.find(
+            (canvas) => canvas.user_id === userId
+          );
+        }
+      }
+
+      acc[name].questions.push({
+        questionId,
+        questionImage,
+        questionSelection: selection,
+      });
+      selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
+
+      return acc;
+    }, {});
+
+    Object.values(structuredData).forEach((user) =>
+      user.questions.sort((a, b) => a.questionId - b.questionId)
     );
-
-    const structuredData = usersData.reduce(
-      (
-        acc,
-        { name, questionId, questionImage, originalSelection, squareCount }
-      ) => {
-        const selection =
-          assignment_mode === "BBox" ? squareCount : originalSelection;
-
-        const user =
-          acc[name] ||
-          (acc[name] = {
-            name,
-            userId: usersData.find((user, index) => user.name === name).userId,
-            questions: [],
-            answeredCount: 0,
-            unansweredCount: 0,
-            squares: [],
-            beforeCanvas: {},
-          });
-
-        user.questions.push({
-          questionId,
-          questionImage,
-          questionSelection: selection,
-        });
-
-        if (assignment_mode === "BBox") user.squares = squaresData;
-        if (assignment_mode === "BBox") user.beforeCanvas = canvasData;
-
-        selection > 0 ? user.answeredCount++ : user.unansweredCount++;
-
-        return acc;
-      },
-      {}
-    );
-
-    Object.values(structuredData).forEach((user) => {
-      user.questions = user.questions.sort(
-        (a, b) => a.questionId - b.questionId
-      );
-
-      user.squares = user.squares.filter(
-        (square) => square.user_id === user.userId
-      );
-
-      user.beforeCanvas = user.beforeCanvas.find(
-        (canvas) => canvas.user_id === user.userId
-      );
-    });
-
-    console.log("structuredData: ", structuredData);
 
     res.status(200).json({
       assignment: Object.values(structuredData),
