@@ -22,6 +22,7 @@
           <button class="edit-button" @click="moveToAssignmentManagement">
             수정
           </button>
+          <button class="export-button" @click="exportToExcel">내보내기</button>
         </div>
         <div class="table-body">
           <div class="table-section">
@@ -97,6 +98,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
+import { saveAs } from "file-saver";
 
 export default {
   name: "DashboardDetailView",
@@ -152,6 +154,43 @@ export default {
     moveToAssignmentManagement() {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
+    async exportToExcel() {
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook(); // 새 엑셀 워크북 생성
+      const worksheet = workbook.addWorksheet("User Squares"); // 새 시트 추가
+
+      // 컬럼 헤더 설정
+      worksheet.columns = [
+        { header: "Name", key: "name", width: 10 },
+        { header: "Squares", key: "squares", width: 30 },
+        { header: "Color", key: "color", width: 10 },
+      ];
+
+      // 데이터 삽입
+      this.userSquaresList.forEach((person, index) => {
+        console.log(person);
+        worksheet.addRow({
+          name: this.data[index].name,
+          // squares: person.squares.join(", "), // squares가 배열이라고 가정
+          // Object Object가 나오는 이유는 squares가 객체이기 때문입니다.
+          // squares: JSON.stringify(person.squares), // JSON 문자열로 변환
+          // personl.squares에서 color 삭제
+          squares: person.squares.map((square) => {
+            const { x, y } = square;
+            return `${x}, ${y}`;
+          }),
+          color: person.color, // color 속성이 있는지 확인하세요
+        });
+      });
+
+      // 엑셀 파일 생성 및 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(blob, "UserSquares.xlsx");
+    },
+
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
@@ -310,5 +349,9 @@ td > img {
   position: sticky;
   bottom: 0;
   background-color: var(--white);
+}
+
+.export-button {
+  background-color: var(--green);
 }
 </style>
