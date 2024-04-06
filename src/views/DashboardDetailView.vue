@@ -151,9 +151,11 @@ export default {
         console.error("Failed to load data:", error);
       }
     },
+
     moveToAssignmentManagement() {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
+
     async exportToExcel() {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook(); // 새 엑셀 워크북 생성
@@ -171,10 +173,6 @@ export default {
         console.log(person);
         worksheet.addRow({
           name: this.data[index].name,
-          // squares: person.squares.join(", "), // squares가 배열이라고 가정
-          // Object Object가 나오는 이유는 squares가 객체이기 때문입니다.
-          // squares: JSON.stringify(person.squares), // JSON 문자열로 변환
-          // personl.squares에서 color 삭제
           squares: person.squares.map((square) => {
             const { x, y } = square;
             return `${x}, ${y}`;
@@ -197,6 +195,7 @@ export default {
 
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
     },
+
     getStyleForPerson(index) {
       const style = this.colorList[index % this.colorList.length];
       return this.assignmentMode === "BBox" ? style : {};

@@ -86,9 +86,10 @@ export default {
           square.y =
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
 
-          if (square.questionIndex === this.questionIndex) {
-            this.localSquares.push(square);
-          }
+          console.log(`sqare.questionIndex : ${square.questionIndex}`);
+          console.log(`this.questionIndex : ${this.questionIndex}`);
+
+          this.localSquares.push(square);
         });
       });
 
