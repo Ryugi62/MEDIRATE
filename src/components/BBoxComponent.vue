@@ -6,7 +6,9 @@
         :key="icon.name"
         :class="['fas', icon.name, { active: icon.active }]"
         @click="activateIcon(icon)"
-      ></i>
+      >
+        <span>({{ icon.explanation }})</span>
+      </i>
     </div>
     <div class="bbox-component__body">
       <canvas
@@ -50,9 +52,10 @@ export default {
   data() {
     return {
       iconList: [
-        { name: "fa-square", active: true },
-        { name: "fa-eraser", active: false },
-        { name: "fa-circle-minus", active: false },
+        { name: "fa-square", active: true, explanation: "추가" },
+        { name: "fa-eraser", active: false, explanation: "선택삭제" },
+        { name: "fa-circle-minus", active: false, explanation: "전체삭제" },
+        { name: "fa-robot", active: false, explanation: "AI" },
       ],
       localBeforeCanvas: { width: null, height: null },
       beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
@@ -414,6 +417,10 @@ export default {
 
 .bbox-component__header i.active {
   color: var(--blue);
+}
+
+.bbox-component__header i span {
+  margin-left: 6px;
 }
 
 .bbox-component__body {
