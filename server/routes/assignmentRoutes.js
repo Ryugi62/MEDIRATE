@@ -377,6 +377,12 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       mode,
     });
 
+    // Delete existing canvas for assignment users
+    await deleteCanvasForAssignmentUsers(assignmentId);
+
+    // Create new canvas for users
+    await createCanvasForUsers(assignmentId, users);
+
     if (assignmentChanged) {
       await deleteResponsesAndQuestions(assignmentId);
       await addQuestions(assignmentId, questions);
@@ -470,6 +476,23 @@ async function updateUserAssignments(assignmentId, users) {
         `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
         [assignmentId, userId]
       )
+    )
+  );
+}
+
+// Function to delete existing canvas for assignment users
+async function deleteCanvasForAssignmentUsers(assignmentId) {
+  // 기존에 있는 유저들만 삭제
+  const deleteCanvasQuery = `DELETE FROM canvas_info WHERE assignment_id = ? AND user_id IN (SELECT user_id FROM assignment_user WHERE assignment_id = ?)`;
+  await db.query(deleteCanvasQuery, [assignmentId, assignmentId]);
+}
+
+// Function to create new canvas for users
+async function createCanvasForUsers(assignmentId, users) {
+  const createCanvasQuery = `INSERT INTO canvas_info (assignment_id, user_id, width, height) VALUES (?, ?, 0, 0)`;
+  await Promise.all(
+    users.map(
+      (userId) => db.query(createCanvasQuery, [assignmentId, userId]) // width와 height는 0으로 설정
     )
   );
 }
