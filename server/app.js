@@ -151,8 +151,9 @@ async function handleTaskDataUpload(req, res) {
 
         // 이미지 일때만 처리
         if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif|json)$/)) {
-          // 파일 이름에 따옴표 추가
-          const sanitizedFileName = fileName.replace(/"/g, "'");
+          // 파일 이름에 따옴표 제거
+          // 'test.jpg' -> test.jpg
+          const sanitizedFileName = fileName.replace(/'/g, "");
           const sanitizedFullPath = path.join(taskDir, sanitizedFileName);
           entry.pipe(fs.createWriteStream(sanitizedFullPath));
         }
