@@ -294,12 +294,21 @@ export default {
       const zoomHeight = 200; // 확대될 사각형의 높이
       const zoomLevel = 2.5; // 확대 비율
 
+      // 마우스 위치에 따라 확대 화면의 위치를 결정합니다.
+      const enlargePosition = this.getEnlargePosition(
+        x,
+        canvas.width,
+        zoomWidth
+      );
+
       // 이미지 위치 및 크기 계산
       const {
         x: imgX,
         y: imgY,
         scale,
       } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      console.log(imgX, imgY, scale);
 
       // 마우스 위치를 이미지 상의 좌표로 변환
       const mouseXOnImage = (x - imgX) / scale;
@@ -317,9 +326,9 @@ export default {
 
       ctx.save(); // 현재 드로잉 상태 저장
       ctx.beginPath();
-      ctx.rect(0, 0, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기 (상단 좌측에 표출)
+      ctx.rect(enlargePosition.x, enlargePosition.y, zoomWidth, zoomHeight);
       ctx.closePath();
-      ctx.clip(); // 클리핑 경로 설정
+      ctx.clip();
 
       // 확대된 이미지 부분 그리기
       ctx.drawImage(
@@ -328,13 +337,31 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        0,
-        0,
+        enlargePosition.x,
+        enlargePosition.y,
         zoomWidth,
         zoomHeight
       );
 
       ctx.restore(); // 드로잉 상태 복원 (클리핑 경로 제거)
+    },
+
+    // 확대 화면 위치 결정 함수
+    getEnlargePosition(mouseX, canvasWidth, zoomWidth) {
+      let positionX = 0;
+      let positionY = 0;
+
+      if (mouseX < canvasWidth / 2) {
+        // 마우스가 화면의 좌측에 있을 경우 확대 화면은 우측에 위치
+        positionX = canvasWidth - zoomWidth;
+        positionY = 0;
+      } else {
+        // 마우스가 화면의 우측에 있을 경우 확대 화면은 좌측에 위치
+        positionX = 0;
+        positionY = 0;
+      }
+
+      return { x: positionX, y: positionY };
     },
 
     activeSquareCursor(event) {
