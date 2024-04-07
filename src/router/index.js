@@ -11,6 +11,7 @@ import EvaluationView from "../views/EvaluationView.vue";
 import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
+import AddUserView from "../views/AddUserView.vue";
 
 const routes = [
   {
@@ -82,6 +83,12 @@ const routes = [
     path: "/dashboard/:id",
     name: "dashboardDetail",
     component: DashboardDetailView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/add-user",
+    name: "dashboardDetail",
+    component: AddUserView,
     meta: { requiresAuth: true },
   },
   // 추가적인 라우트는 여기에 정의합니다.

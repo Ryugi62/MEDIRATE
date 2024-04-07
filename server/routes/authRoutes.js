@@ -76,4 +76,36 @@ router.get("/logout", (req, res) => {
   }
 });
 
+// checkDuplicate
+router.get("/:username", async (req, res) => {
+  const username = req.params.username;
+
+  try {
+    const query = "SELECT * FROM users WHERE username = TRIM(?)";
+    const [rows] = await db.query(query, [username.trim()]);
+    if (rows.length > 0) {
+      return res.status(409).send("Duplicate username.");
+    }
+    res.status(200).send("success");
+  } catch (error) {
+    console.error("Server error during checkDuplicate:", error);
+    res.status(500).send("Server error during checkDuplicate.");
+  }
+});
+
+// 회원가입
+router.post("/register", async (req, res) => {
+  const { username, password, realname, role } = req.body;
+
+  try {
+    const query =
+      "INSERT INTO users (username, password, realname, organization, role) VALUES (?, ?, ?, ?, ?)";
+    await db.query(query, [username, password, realname, null, role]);
+    res.status(200).send("success");
+  } catch (error) {
+    console.error("Server error during register:", error);
+    res.status(500).send("Server error during register.");
+  }
+});
+
 module.exports = router;

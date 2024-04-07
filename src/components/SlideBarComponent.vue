@@ -48,6 +48,11 @@ export default {
           paths: ["/dashboard", "/dashboard/:id"],
           isAdmin: true,
         },
+        {
+          name: "회원추가",
+          paths: ["/add-user"],
+          isAdmin: true,
+        },
       ],
     };
   },
