@@ -130,7 +130,7 @@ function serveFileFromFolder(req, res) {
 
 async function handleTaskDataUpload(req, res) {
   try {
-    const { userid, taskid } = req.body;
+    const { taskid } = req.body;
 
     const taskDir = path.join(IF_DIRECTORY, taskid);
     if (!fs.existsSync(taskDir)) {
@@ -151,14 +151,16 @@ async function handleTaskDataUpload(req, res) {
 
         // 이미지 일때만 처리
         if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif|json)$/)) {
-          entry.pipe(fs.createWriteStream(fullPath));
+          // 파일 이름에 따옴표 추가
+          const sanitizedFileName = fileName.replace(/"/g, "'");
+          const sanitizedFullPath = path.join(taskDir, sanitizedFileName);
+          entry.pipe(fs.createWriteStream(sanitizedFullPath));
         }
 
         // 항목을 처리한 후 스트림을 닫습니다.
         entry.autodrain();
 
         // 파일이름을 출력
-        console.log(fileName);
       })
       .promise()
       .then(
