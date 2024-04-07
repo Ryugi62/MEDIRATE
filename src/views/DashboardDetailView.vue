@@ -162,6 +162,8 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
+        console.log(this.data);
+
         this.userSquaresList = this.data.map((person, index) => {
           return {
             beforeCanvas: person.beforeCanvas,
@@ -207,39 +209,54 @@ export default {
 
     async exportToExcel() {
       const ExcelJS = await import("exceljs");
-
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Assignemnt");
+      const worksheet = workbook.addWorksheet("Assignment Responses");
 
-      worksheet.columns = [
-        { header: "이미지", key: "Image" },
-        ...this.data.map((person) => ({
-          header: person.name,
-          key: person.name,
+      // 열 헤더 설정
+      const columns = [
+        { header: "문번", key: "questionNumber", width: 10 },
+        ...this.data.map((user) => ({
+          header: user.name,
+          key: user.name,
+          width: 15,
         })),
-        ...Array.from({ length: this.data.length }, (_, i) => i + 1).map(
-          (index) => ({
-            header: `+${index.toString()}`,
-            key: `+${index.toString()}`,
-          })
-        ),
       ];
 
-      // 데이터 추가
-      this.data[0].questions.forEach((question, index) => {
-        const row = { Image: question.questionImage.split("/").pop() };
-        this.data.forEach((person) => {
-          row[person.name] = person.questions[index].questionSelection;
+      // 중첩 영역 열 추가 (+1, +2, ...)
+      for (let i = 1; i <= this.data.length; i++) {
+        columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
+      }
+
+      worksheet.columns = columns;
+
+      // 행 데이터 추가
+      this.data[0].questions.forEach((question, qIndex) => {
+        // 문제 이미지 파일 이름만 추출
+        const questionImageFileName = question.questionImage.split("/").pop();
+        const row = { questionNumber: questionImageFileName };
+
+        this.data.forEach((user) => {
+          row[user.name] = user.questions[qIndex].questionSelection;
         });
+
+        // 중첩 영역 데이터 추가
+        for (let i = 1; i <= this.data.length; i++) {
+          row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
+        }
+
         worksheet.addRow(row);
       });
 
-      // 엑셀 파일 생성
+      // 첫 번째 행(헤더)에 볼드체 적용
+      worksheet.getRow(1).font = { bold: true };
+
+      // 엑셀 파일 생성 및 다운로드
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(blob, "assignment.xlsx");
+
+      saveAs(blob, "assignment_responses.xlsx");
     },
 
     setActiveImage(imageUrl, index) {
