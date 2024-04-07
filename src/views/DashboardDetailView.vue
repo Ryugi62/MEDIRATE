@@ -222,9 +222,11 @@ export default {
         })),
       ];
 
-      // 중첩 영역 열 추가 (+1, +2, ...)
-      for (let i = 1; i <= this.data.length; i++) {
-        columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
+      if (this.assignmentMode === "BBox") {
+        // 중첩 영역 열 추가 (+1, +2, ...)
+        for (let i = 1; i <= this.data.length; i++) {
+          columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
+        }
       }
 
       worksheet.columns = columns;
@@ -239,9 +241,11 @@ export default {
           row[user.name] = user.questions[qIndex].questionSelection;
         });
 
-        // 중첩 영역 데이터 추가
-        for (let i = 1; i <= this.data.length; i++) {
-          row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
+        if (this.assignmentMode === "BBox") {
+          // 중첩 영역 데이터 추가
+          for (let i = 1; i <= this.data.length; i++) {
+            row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
+          }
         }
 
         worksheet.addRow(row);
