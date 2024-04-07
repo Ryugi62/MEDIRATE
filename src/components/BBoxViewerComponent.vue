@@ -91,9 +91,6 @@ export default {
           square.y =
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
 
-          console.log(`sqare.questionIndex : ${square.questionIndex}`);
-          console.log(`this.questionIndex : ${this.questionIndex}`);
-
           this.localSquares.push(square);
         }
       });
@@ -104,25 +101,21 @@ export default {
 
     async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
-      const squares = [...this.originalLocalSquares];
+      const squares = [];
 
-      squares.forEach((square) => {
-        const count = squares.filter(
-          (s) =>
-            Math.abs(s.x - square.x) <= 10 && Math.abs(s.y - square.y) <= 10
-        ).length;
-
-        console.log(count, this.sliderValue);
-
-        if (count < this.sliderValue) {
-          const index = this.localSquares.findIndex(
-            (s) => s.x === square.x && s.y === square.y
+      this.localSquares.forEach((square) => {
+        const overlap = this.localSquares.filter((s) => {
+          return (
+            Math.abs(s.x - square.x) < 30 &&
+            Math.abs(s.y - square.y) < 30 &&
+            s.color !== square.color
           );
+        });
 
-          this.localSquares.splice(index, 1);
-        }
+        if (overlap.length + 1 >= this.sliderValue) squares.push(square);
       });
 
+      this.localSquares = [...squares];
       this.redrawSquares();
     },
 
@@ -382,8 +375,8 @@ export default {
       this.resizeCanvas();
     },
 
-    sliderValue() {
-      this.filterSquares();
+    async sliderValue() {
+      await this.filterSquares();
     },
   },
 };
