@@ -131,47 +131,40 @@ function serveFileFromFolder(req, res) {
 async function handleTaskDataUpload(req, res) {
   try {
     const { taskid } = req.body;
-
     const taskDir = path.join(IF_DIRECTORY, taskid);
+
     if (!fs.existsSync(taskDir)) {
       fs.mkdirSync(taskDir, { recursive: true });
     }
 
     const zipFilePath = req.file.path;
 
-    // unzipper를 사용하여 ZIP 파일을 스트림으로 열고, 각 항목에 대해 처리합니다.
     fs.createReadStream(zipFilePath)
       .pipe(unzipper.Parse())
       .on("entry", function (entry) {
-        // const fileName = entry.path;
-        // 파일의 이름만 담아둠
         const fileName = path.basename(entry.path);
-        const type = entry.type; // 'Directory' 또는 'File'
-        const fullPath = path.join(taskDir, fileName);
-
-        // 이미지 일때만 처리
-        if (type === "File" && fileName.match(/\.(jpg|jpeg|png|gif|json)$/)) {
-          // 파일 이름에 따옴표 제거
-          // 'test.jpg' -> test.jpg
-          const sanitizedFileName = fileName.replace(/'/g, "");
-          const sanitizedFullPath = path.join(taskDir, sanitizedFileName);
-          entry.pipe(fs.createWriteStream(sanitizedFullPath));
+        // 'File' 타입이고, 지정된 확장자를 가진 파일만 처리
+        if (
+          entry.type === "File" &&
+          fileName.match(/\.(jpg|jpeg|png|gif|json)$/)
+        ) {
+          const fullPath = path.join(taskDir, fileName);
+          entry.pipe(fs.createWriteStream(fullPath)).on("finish", function () {
+            console.log(`File extracted: ${fullPath}`);
+          });
+        } else {
+          entry.autodrain();
         }
-
-        // 항목을 처리한 후 스트림을 닫습니다.
-        entry.autodrain();
-
-        // 파일이름을 출력
       })
       .promise()
       .then(
         () => {
-          // 압축 해제 후 원본 zip 파일 삭제
-          fs.unlinkSync(zipFilePath);
+          console.log("All files are extracted successfully.");
+          fs.unlinkSync(zipFilePath); // 압축 해제 후 원본 ZIP 파일 삭제
           res.json({ code: "1", result: "OK" });
         },
         (err) => {
-          throw err;
+          throw err; // 압축 해제 과정에서 오류 발생
         }
       );
   } catch (error) {
