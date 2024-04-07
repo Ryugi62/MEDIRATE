@@ -145,7 +145,6 @@ export default {
   align-items: center;
   justify-content: center;
   background-color: #f8f8f7;
-  padding: 20px;
   border-radius: 10px;
   font-family: "Arial", "Helvetica", sans-serif;
   color: #1d1d1f;
