@@ -37,6 +37,12 @@ export default {
       required: true,
       default: 0,
     },
+
+    updateSquares: {
+      type: Function,
+      required: true,
+      default: () => {},
+    },
   },
 
   data() {
@@ -57,18 +63,17 @@ export default {
   },
 
   methods: {
-    fetchLocalInfo() {
+    async fetchLocalInfo() {
       const { width, height } = this.$el
         .querySelector(".bbox-component__body")
         .getBoundingClientRect();
 
-      const img = new Image();
-      img.src = this.src;
+      const img = await this.createImage(this.src);
       this.setBackgroundImage(img);
 
       this.localBeforeCanvas = { width, height };
 
-      this.userSquaresList.forEach((user) => {
+      this.userSquaresList.forEach(async (user) => {
         const beforePosition = this.calculateImagePosition(width, height);
 
         const userBeforePosition = this.calculateImagePosition(
@@ -78,7 +83,7 @@ export default {
 
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
-        user.squares.forEach((square) => {
+        for (const square of user.squares) {
           square.color = user.color;
 
           square.x =
@@ -90,15 +95,16 @@ export default {
           console.log(`this.questionIndex : ${this.questionIndex}`);
 
           this.localSquares.push(square);
-        });
+        }
       });
 
       this.originalLocalSquares = [...this.localSquares];
+      this.updateSquares([...this.localSquares]);
     },
 
-    filterSquares() {
+    async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
-      const squares = this.originalLocalSquares;
+      const squares = [...this.originalLocalSquares];
 
       squares.forEach((square) => {
         const count = squares.filter(
@@ -355,11 +361,11 @@ export default {
     },
   },
 
-  mounted() {
-    this.fetchLocalInfo();
-    this.filterSquares();
+  async mounted() {
+    await this.fetchLocalInfo();
+    await this.filterSquares();
 
-    this.loadBackgroundImage();
+    await this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
   },
 
