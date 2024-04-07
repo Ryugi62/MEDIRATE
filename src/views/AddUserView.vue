@@ -48,13 +48,28 @@ export default {
       user_name: "",
       password: "",
       role: "user",
-      isDuplicate: false,
-      isAvailable: false,
+      isDuplicate: null,
+      isAvailable: null,
     };
   },
 
   methods: {
     submitForm() {
+      if (!this.user_id || !this.user_name || !this.password) {
+        alert("모든 필드를 입력해주세요.");
+        return;
+      }
+
+      if (this.isDuplicate) {
+        alert("이미 존재하는 아이디입니다. 다른 아이디를 입력해주세요.");
+        return;
+      }
+
+      if (this.isDuplicate === null) {
+        alert("아이디 중복확인을 해주세요.");
+        return;
+      }
+
       this.$axios
         .post("/api/auth/register", {
           username: this.user_id,
@@ -66,7 +81,7 @@ export default {
           this.$router.push("/");
         })
         .catch((error) => {
-          alert("Failed to add user. Please try again.");
+          alert("유저 추가에 실패했습니다. 다시 시도해주세요.");
 
           console.log(error);
         });
