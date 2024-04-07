@@ -11,7 +11,7 @@
 
 <script>
 export default {
-  name: "BBoxComponent",
+  name: "BBoxViewerComponent",
 
   props: {
     userSquaresList: {
