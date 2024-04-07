@@ -87,11 +87,10 @@ const routes = [
   },
   {
     path: "/add-user",
-    name: "dashboardDetail",
+    name: "add-user",
     component: AddUserView,
     meta: { requiresAuth: true },
   },
-  // 추가적인 라우트는 여기에 정의합니다.
   {
     path: "/:pathMatch(.*)*",
     name: "not-found",
