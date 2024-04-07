@@ -37,6 +37,9 @@
                   >
                     {{ person.name }}
                   </th>
+                  <th v-for="(person, index) in data" :key="index">
+                    +{{ index + 1 }}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -52,6 +55,17 @@
                   <td v-for="person in data" :key="person.name">
                     {{ person.questions[index].questionSelection }}
                   </td>
+                  <td
+                    v-for="(person, overlapDeepest) in data"
+                    :key="person.name"
+                  >
+                    {{
+                      getOverlapSquares(
+                        person.questions[index].questionId,
+                        overlapDeepest + 1
+                      )
+                    }}
+                  </td>
                 </tr>
               </tbody>
               <tfoot class="table-footer">
@@ -60,11 +74,17 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.answeredCount }}
                   </th>
+                  <th class="none" v-for="person in data" :key="person.name">
+                    <i class="fas fa-times"></i>
+                  </th>
                 </tr>
                 <tr>
                   <th>미답변</th>
                   <th v-for="person in data" :key="person.name">
                     {{ person.unansweredCount }}
+                  </th>
+                  <th class="none" v-for="person in data" :key="person.name">
+                    <i class="fas fa-times"></i>
                   </th>
                 </tr>
               </tfoot>
@@ -83,6 +103,7 @@
               :questionIndex="activeQuestionIndex"
               :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)"
+              :updateSquares="updateSquares"
             />
           </div>
         </div>
@@ -116,6 +137,7 @@ export default {
       colorList: COLOR_LIST, // 상수로 정의된 색상 리스트 사용
       sliderValue: 1,
       userSquaresList: [],
+      tempSquares: [],
     };
   },
 
@@ -156,37 +178,68 @@ export default {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
 
-    async exportToExcel() {
-      const ExcelJS = await import("exceljs");
-      const workbook = new ExcelJS.Workbook(); // 새 엑셀 워크북 생성
-      const worksheet = workbook.addWorksheet("User Squares"); // 새 시트 추가
+    updateSquares(squares) {
+      this.tempSquares = squares;
+    },
 
-      // 컬럼 헤더 설정
-      worksheet.columns = [
-        { header: "Name", key: "name", width: 10 },
-        { header: "Squares", key: "squares", width: 30 },
-        { header: "Color", key: "color", width: 10 },
-      ];
+    getOverlapSquares(questionID, overlapDeepest) {
+      questionID, overlapDeepest;
 
-      // 데이터 삽입
-      this.userSquaresList.forEach((person, index) => {
-        console.log(person);
-        worksheet.addRow({
-          name: this.data[index].name,
-          squares: person.squares.map((square) => {
-            const { x, y } = square;
-            return `${x}, ${y}`;
-          }),
-          color: person.color, // color 속성이 있는지 확인하세요
+      const originalSqaures = [...this.tempSquares];
+      const squares = [];
+
+      originalSqaures.forEach((square) => {
+        if (square.questionIndex !== questionID) return;
+
+        const overlap = originalSqaures.filter((s) => {
+          return (
+            Math.abs(s.x - square.x) < 30 &&
+            Math.abs(s.y - square.y) < 30 &&
+            s.color !== square.color
+          );
         });
+
+        if (overlap.length + 1 >= overlapDeepest) squares.push(square);
       });
 
-      // 엑셀 파일 생성 및 다운로드
+      return squares.length;
+    },
+
+    async exportToExcel() {
+      const ExcelJS = await import("exceljs");
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignemnt");
+
+      worksheet.columns = [
+        { header: "이미지", key: "Image" },
+        ...this.data.map((person) => ({
+          header: person.name,
+          key: person.name,
+        })),
+        ...Array.from({ length: this.data.length }, (_, i) => i + 1).map(
+          (index) => ({
+            header: `+${index.toString()}`,
+            key: `+${index.toString()}`,
+          })
+        ),
+      ];
+
+      // 데이터 추가
+      this.data[0].questions.forEach((question, index) => {
+        const row = { Image: question.questionImage.split("/").pop() };
+        this.data.forEach((person) => {
+          row[person.name] = person.questions[index].questionSelection;
+        });
+        worksheet.addRow(row);
+      });
+
+      // 엑셀 파일 생성
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(blob, "UserSquares.xlsx");
+      saveAs(blob, "assignment.xlsx");
     },
 
     setActiveImage(imageUrl, index) {
@@ -309,6 +362,7 @@ td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: center;
+  min-width: 35px;
 }
 
 tr.active {
@@ -352,5 +406,13 @@ td > img {
 
 .export-button {
   background-color: var(--green);
+}
+
+tfoot th {
+  border: 0;
+  background-color: white;
+  .none {
+    display: none;
+  }
 }
 </style>
