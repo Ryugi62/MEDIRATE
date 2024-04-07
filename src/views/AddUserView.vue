@@ -26,6 +26,21 @@
       </div>
 
       <div class="input-group">
+        <label for="role">Confirm Password:</label>
+        <input
+          type="password"
+          id="confirm_password"
+          v-model="confirm_password"
+        />
+        <div class="status-message">
+          <span v-if="!isMatch" class="error">Passwords do not match</span>
+          <span v-else-if="isMatch && confirm_password" class="success"
+            >Passwords match</span
+          >
+        </div>
+      </div>
+
+      <div class="input-group">
         <label for="role">Role:</label>
         <select id="role" v-model="role">
           <option value="admin">Admin</option>
@@ -47,6 +62,7 @@ export default {
       user_id: "",
       user_name: "",
       password: "",
+      confirm_password: "",
       role: "user",
       isDuplicate: null,
       isAvailable: null,
@@ -67,6 +83,11 @@ export default {
 
       if (this.isDuplicate === null) {
         alert("아이디 중복확인을 해주세요.");
+        return;
+      }
+
+      if (!this.isMatch) {
+        alert("비밀번호가 일치하지 않습니다.");
         return;
       }
 
@@ -106,6 +127,12 @@ export default {
 
           console.log(error);
         });
+    },
+  },
+
+  computed: {
+    isMatch() {
+      return this.password === this.confirm_password;
     },
   },
 };
