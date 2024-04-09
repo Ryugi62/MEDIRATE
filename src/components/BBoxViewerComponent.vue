@@ -106,8 +106,8 @@ export default {
       this.localSquares.forEach((square) => {
         const overlap = this.localSquares.filter((s) => {
           return (
-            Math.abs(s.x - square.x) < 30 &&
-            Math.abs(s.y - square.y) < 30 &&
+            Math.abs(s.x - square.x) < 5 &&
+            Math.abs(s.y - square.y) < 5 &&
             s.color !== square.color
           );
         });
