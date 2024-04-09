@@ -210,12 +210,32 @@ export default {
     },
 
     getOverlapSquares(questionID, overlapDeepest) {
-      const originalSquares = [...this.tempSquares];
-      const squares = originalSquares.filter(
-        (s) => s.questionIndex === questionID
-      );
+      const originalSquares = [
+        ...this.tempSquares.filter((s) => s.questionIndex === questionID),
+      ];
+      const squares = [];
 
-      overlapDeepest;
+      originalSquares.forEach((square) => {
+        const count =
+          originalSquares.filter(
+            (s) =>
+              Math.abs(s.x - square.x) <= 5 &&
+              Math.abs(s.y - square.y) <= 5 &&
+              s.user_id !== square.user_id
+          ).length + 1;
+
+        if (
+          count === overlapDeepest &&
+          !squares.some(
+            (s) =>
+              Math.abs(s.x - square.x) <= 5 &&
+              Math.abs(s.y - square.y) <= 5 &&
+              s.user_id !== square.user_id
+          )
+        ) {
+          squares.push(square);
+        }
+      });
 
       return squares.length;
     },
