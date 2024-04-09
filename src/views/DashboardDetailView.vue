@@ -163,8 +163,6 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
-        console.log(this.data);
-
         this.userSquaresList = this.data.map((person, index) => {
           return {
             beforeCanvas: person.beforeCanvas,
@@ -195,9 +193,7 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
-        .then((response) => {
-          console.log("과제 삭제 완료:", response.data);
-
+        .then(() => {
           // 과제 평가 리스트 페이지로 이동
           this.$router.push({ name: "dashboard" });
         })
@@ -214,21 +210,25 @@ export default {
       questionID, overlapDeepest;
 
       const originalSqaures = [...this.tempSquares];
-      const squares = [];
+      const squares = [
+        ...originalSqaures.filter((s) => s.questionIndex === questionID),
+      ];
 
-      originalSqaures.forEach((square) => {
-        if (square.questionIndex !== questionID) return;
+      // originalSqaures.forEach((square) => {
+      //   if (square.questionIndex !== questionID) return;
 
-        const overlap = originalSqaures.filter((s) => {
-          return (
-            Math.abs(s.x - square.x) < 5 &&
-            Math.abs(s.y - square.y) < 5 &&
-            s.color !== square.color
-          );
-        });
+      //   const overlap = originalSqaures.filter((s) => {
+      //     return (
+      //       Math.abs(s.x - square.x) < 5 &&
+      //       Math.abs(s.y - square.y) < 5 &&
+      //       s.color !== square.color
+      //     );
+      //   });
 
-        if (overlap.length + 1 >= overlapDeepest) squares.push(square);
-      });
+      //   if (overlap.length + 1 >= overlapDeepest) squares.push(square);
+      // });
+
+      console.log(squares);
 
       return squares.length;
     },

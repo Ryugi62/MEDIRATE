@@ -275,7 +275,6 @@ export default {
         .get("/api/assets")
         .then((response) => {
           this.folderList = response.data;
-          console.log(this.folderList);
         })
         .catch((error) => {
           console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
@@ -450,8 +449,6 @@ export default {
           },
         })
         .then((response) => {
-          console.log(response.data);
-
           this.activeQuestionId = 0;
           this.addedUsers = response.data.assignedUsers;
           this.assignmentDetails.id = response.data.id;
@@ -486,9 +483,7 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
-        .then((response) => {
-          console.log("과제 삭제 완료:", response.data);
-
+        .then(() => {
           // 과제 평가 리스트 페이지로 이동
           this.$router.push({ name: "assignment" });
         })

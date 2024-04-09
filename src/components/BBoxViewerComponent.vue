@@ -308,8 +308,6 @@ export default {
         scale,
       } = this.calculateImagePosition(canvas.width, canvas.height);
 
-      console.log(imgX, imgY, scale);
-
       // 마우스 위치를 이미지 상의 좌표로 변환
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;

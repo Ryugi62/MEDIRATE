@@ -270,7 +270,6 @@ export default {
         .get("/api/assets")
         .then((response) => {
           this.folderList = response.data;
-          console.log(this.folderList);
         })
         .catch((error) => {
           console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
