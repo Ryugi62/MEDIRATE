@@ -6,7 +6,7 @@
         <div class="table-header">
           <span class="table-title">과제 이야기</span>
           <div class="slider-container" v-if="assignmentMode === 'BBox'">
-            <span id="sliderValue">+{{ getSliderRange }}</span>
+            <span id="sliderValue">+{{ sliderRange }}</span>
             <input
               type="range"
               min="1"
@@ -16,9 +16,9 @@
               v-model="sliderValue"
             />
           </div>
-          <span class="completed-status"
-            ><strong>{{ completedPercentage }}%</strong> / 100%</span
-          >
+          <span class="completed-status">
+            <strong>{{ completionPercentage }}%</strong> / 100%
+          </span>
           <button class="edit-button" @click="moveToAssignmentManagement">
             수정
           </button>
@@ -30,12 +30,8 @@
             <table class="assignment-table">
               <thead class="table-head">
                 <tr>
-                  <th>문번</th>
-                  <th
-                    v-for="(person, index) in data"
-                    :key="person.name"
-                    :style="getStyleForPerson(index)"
-                  >
+                  <th>문제 번호</th>
+                  <th v-for="person in data" :key="person.name">
                     {{ person.name }}
                   </th>
                   <th v-for="(person, index) in data" :key="index">
@@ -93,13 +89,12 @@
           </div>
 
           <div class="image-box">
-            <ImageComponent
-              v-if="assignmentMode === 'TextBox'"
-              :src="activeImageUrl"
-            />
-
-            <BBoxViewerComponent
-              v-else
+            <component
+              :is="
+                assignmentMode === 'TextBox'
+                  ? 'ImageComponent'
+                  : 'BBoxViewerComponent'
+              "
               :src="activeImageUrl"
               :questionIndex="activeQuestionIndex"
               :userSquaresList="userSquaresList"
@@ -135,7 +130,13 @@ export default {
       assignmentId: this.$route.params.id,
       activeIndex: 0,
       assignmentMode: "",
-      colorList: COLOR_LIST, // 상수로 정의된 색상 리스트 사용
+      colorList: [
+        { backgroundColor: "#FF6384", color: "white" },
+        { backgroundColor: "#36A2EB", color: "white" },
+        { backgroundColor: "#FF9F40", color: "white" },
+        { backgroundColor: "#B2F302", color: "black" },
+        { backgroundColor: "#FFA07A", color: "white" },
+      ],
       sliderValue: 1,
       userSquaresList: [],
       tempSquares: [],
@@ -167,7 +168,8 @@ export default {
           return {
             beforeCanvas: person.beforeCanvas,
             squares: person.squares,
-            color: this.colorList[index].backgroundColor,
+            color:
+              this.colorList[index % this.colorList.length].backgroundColor,
           };
         });
       } catch (error) {
@@ -179,7 +181,7 @@ export default {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
 
-    deleteAssignment() {
+    async deleteAssignment() {
       if (
         !confirm(
           "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
@@ -187,19 +189,16 @@ export default {
       )
         return;
 
-      this.$axios
-        .delete(`/api/assignments/${this.$route.params.id}`, {
+      try {
+        await this.$axios.delete(`/api/assignments/${this.assignmentId}`, {
           headers: {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
-        })
-        .then(() => {
-          // 과제 평가 리스트 페이지로 이동
-          this.$router.push({ name: "dashboard" });
-        })
-        .catch((error) => {
-          console.error("과제 삭제 중 오류 발생:", error);
         });
+        this.$router.push({ name: "dashboard" });
+      } catch (error) {
+        console.error("과제 삭제 중 오류 발생:", error);
+      }
     },
 
     updateSquares(squares) {
@@ -207,28 +206,12 @@ export default {
     },
 
     getOverlapSquares(questionID, overlapDeepest) {
-      questionID, overlapDeepest;
+      const originalSquares = [...this.tempSquares];
+      const squares = originalSquares.filter(
+        (s) => s.questionIndex === questionID
+      );
 
-      const originalSqaures = [...this.tempSquares];
-      const squares = [
-        ...originalSqaures.filter((s) => s.questionIndex === questionID),
-      ];
-
-      // originalSqaures.forEach((square) => {
-      //   if (square.questionIndex !== questionID) return;
-
-      //   const overlap = originalSqaures.filter((s) => {
-      //     return (
-      //       Math.abs(s.x - square.x) < 5 &&
-      //       Math.abs(s.y - square.y) < 5 &&
-      //       s.color !== square.color
-      //     );
-      //   });
-
-      //   if (overlap.length + 1 >= overlapDeepest) squares.push(square);
-      // });
-
-      console.log(squares);
+      console.log(overlapDeepest);
 
       return squares.length;
     },
@@ -238,9 +221,8 @@ export default {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
-      // 열 헤더 설정
       const columns = [
-        { header: "문번", key: "questionNumber", width: 10 },
+        { header: "문제 번호", key: "questionNumber", width: 10 },
         ...this.data.map((user) => ({
           header: user.name,
           key: user.name,
@@ -249,7 +231,6 @@ export default {
       ];
 
       if (this.assignmentMode === "BBox") {
-        // 중첩 영역 열 추가 (+1, +2, ...)
         for (let i = 1; i <= this.data.length; i++) {
           columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
         }
@@ -257,9 +238,7 @@ export default {
 
       worksheet.columns = columns;
 
-      // 행 데이터 추가
       this.data[0].questions.forEach((question, qIndex) => {
-        // 문제 이미지 파일 이름만 추출
         const questionImageFileName = question.questionImage.split("/").pop();
         const row = { questionNumber: questionImageFileName };
 
@@ -268,7 +247,6 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          // 중첩 영역 데이터 추가
           for (let i = 1; i <= this.data.length; i++) {
             row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
           }
@@ -277,10 +255,8 @@ export default {
         worksheet.addRow(row);
       });
 
-      // 첫 번째 행(헤더)에 볼드체 적용
       worksheet.getRow(1).font = { bold: true };
 
-      // 엑셀 파일 생성 및 다운로드
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -292,7 +268,6 @@ export default {
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
-
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
     },
 
@@ -302,7 +277,7 @@ export default {
     },
   },
   computed: {
-    completedPercentage() {
+    completionPercentage() {
       if (!this.data.length) return 0;
       const totalAnswered = this.data.reduce(
         (acc, user) => acc + user.answeredCount,
@@ -318,8 +293,7 @@ export default {
         : 0;
     },
 
-    getSliderRange() {
-      // this.data.length만큼 배열을 만들어서 1부터 10까지의 값을 순서대로 넣어줍니다.
+    sliderRange() {
       const rangeValues = Array.from(
         { length: this.data.length },
         (_, i) => i + 1
@@ -328,19 +302,10 @@ export default {
     },
   },
 };
-
-const COLOR_LIST = [
-  { backgroundColor: "#FF6384", color: "white" }, // 밝은 분홍
-  { backgroundColor: "#36A2EB", color: "white" }, // 밝은 파랑
-  { backgroundColor: "#FF9F40", color: "white" }, // 주황색
-  { backgroundColor: "#B2F302", color: "black" }, // 라임 그린
-  { backgroundColor: "#FFA07A", color: "white" }, // 연어색
-];
 </script>
 
 <style scoped>
 .dashboard {
-  /* border: 1px solid red; */
 }
 
 .title {
@@ -416,11 +381,6 @@ tr.active {
   color: var(--white);
   background-color: var(--blue);
 }
-w td {
-  text-align: center;
-  padding: 4px 8px;
-  width: 70px;
-}
 
 td > img {
   width: 25px;
@@ -439,15 +399,9 @@ td > img {
   max-height: 710px;
 }
 
-.table-head {
-  position: sticky;
-  top: 0;
-  background-color: var(--white);
-}
-
+.table-head,
 .table-footer {
   position: sticky;
-  bottom: 0;
   background-color: var(--white);
 }
 
@@ -455,12 +409,8 @@ td > img {
   background-color: var(--green);
 }
 
-tfoot th {
-  border: 0;
-  background-color: white;
-  .none {
-    display: none;
-  }
+.none {
+  display: none;
 }
 
 .delete {
