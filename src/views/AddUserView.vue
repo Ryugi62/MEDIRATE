@@ -93,6 +93,9 @@ export default {
 
       this.$axios
         .post("/api/auth/register", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
           username: this.user_id,
           realname: this.user_name,
           password: this.password,
@@ -116,7 +119,11 @@ export default {
 
       this.$axios
         // /api/auth/:username
-        .get(`/api/auth/${this.user_id}`)
+        .get(`/api/auth/${this.user_id}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
+        })
         .then(() => {
           this.isDuplicate = false;
           this.isAvailable = true;

@@ -4,6 +4,8 @@ const db = require("../db"); // 데이터베이스 설정 확인
 const jwt = require("jsonwebtoken");
 require("dotenv").config(); // 환경 변수 로드
 
+const authenticateToken = require("../jwt");
+
 /**
  * 제공된 비밀번호와 저장된 해시를 비교합니다.
  * 실제 프로덕션 사용을 위해 이 부분을 실제 비밀번호 검증 로직으로 교체해야 합니다.
@@ -77,7 +79,7 @@ router.get("/logout", (req, res) => {
 });
 
 // checkDuplicate
-router.get("/:username", async (req, res) => {
+router.get("/:username", authenticateToken, async (req, res) => {
   const username = req.params.username;
 
   try {
@@ -94,7 +96,7 @@ router.get("/:username", async (req, res) => {
 });
 
 // 회원가입
-router.post("/register", async (req, res) => {
+router.post("/register", authenticateToken, async (req, res) => {
   const { username, password, realname, role } = req.body;
 
   try {
