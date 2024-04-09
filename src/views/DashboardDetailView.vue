@@ -260,6 +260,8 @@ export default {
         for (let i = 1; i <= this.data.length; i++) {
           columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
         }
+
+        columns.push({ header: "Json", key: "json", width: 15 });
       }
 
       worksheet.columns = columns;
@@ -276,6 +278,16 @@ export default {
           for (let i = 1; i <= this.data.length; i++) {
             row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
           }
+
+          row["json"] = JSON.stringify({
+            filename: questionImageFileName,
+            annotation: this.tempSquares
+              .filter((s) => s.questionIndex === question.questionId)
+              .map((s) => ({
+                category_id: 2,
+                bbox: [s.x, s.y, 20, 20],
+              })),
+          });
         }
 
         worksheet.addRow(row);
