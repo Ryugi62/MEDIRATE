@@ -22,6 +22,7 @@
           <button class="edit-button" @click="moveToAssignmentManagement">
             수정
           </button>
+          <button class="delete" @click="deleteAssignment">삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
         </div>
         <div class="table-body">
@@ -178,6 +179,31 @@ export default {
 
     moveToAssignmentManagement() {
       this.$router.push(`/edit-assignment/${this.assignmentId}`);
+    },
+
+    deleteAssignment() {
+      if (
+        !confirm(
+          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
+        )
+      )
+        return;
+
+      this.$axios
+        .delete(`/api/assignments/${this.$route.params.id}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((response) => {
+          console.log("과제 삭제 완료:", response.data);
+
+          // 과제 평가 리스트 페이지로 이동
+          this.$router.push({ name: "dashboard" });
+        })
+        .catch((error) => {
+          console.error("과제 삭제 중 오류 발생:", error);
+        });
     },
 
     updateSquares(squares) {
@@ -435,5 +461,9 @@ tfoot th {
   .none {
     display: none;
   }
+}
+
+.delete {
+  background-color: var(--pink);
 }
 </style>

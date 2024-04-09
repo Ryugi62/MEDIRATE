@@ -501,6 +501,13 @@ async function createCanvasForUsers(assignmentId, users) {
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // question_responses 먼저 삭제
+    await db.query(
+      `DELETE FROM question_responses WHERE question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+      [id]
+    );
+
     await db.query(`DELETE FROM assignments WHERE id = ?`, [id]);
     res.send("Assignment successfully deleted.");
   } catch (error) {
