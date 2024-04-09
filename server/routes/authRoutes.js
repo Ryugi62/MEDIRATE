@@ -100,6 +100,10 @@ router.post("/register", authenticateToken, async (req, res) => {
   const { username, password, realname, role } = req.body;
 
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).send("Unauthorized user.");
+    }
+
     const query =
       "INSERT INTO users (username, password, realname, organization, role) VALUES (?, ?, ?, ?, ?)";
     await db.query(query, [username, password, realname, null, role]);
