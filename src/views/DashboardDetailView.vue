@@ -30,7 +30,8 @@
             <table class="assignment-table">
               <thead class="table-head">
                 <tr>
-                  <th>문제 번호</th>
+                  <th>이미지</th>
+                  <th>파일</th>
                   <th
                     v-for="(person, index) in data"
                     :key="person.name"
@@ -53,6 +54,7 @@
                   <td>
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
+                  <td>{{ item.questionImage.split("/").pop() }}</td>
                   <td v-for="person in data" :key="person.name">
                     {{ person.questions[index].questionSelection }}
                   </td>
