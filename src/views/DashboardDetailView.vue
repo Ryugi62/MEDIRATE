@@ -31,7 +31,11 @@
               <thead class="table-head">
                 <tr>
                   <th>문제 번호</th>
-                  <th v-for="person in data" :key="person.name">
+                  <th
+                    v-for="(person, index) in data"
+                    :key="person.name"
+                    :style="getStyleForPerson(index)"
+                  >
                     {{ person.name }}
                   </th>
                   <th v-for="(person, index) in data" :key="index">
@@ -71,8 +75,8 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.answeredCount }}
                   </th>
-                  <th class="none" v-for="person in data" :key="person.name">
-                    <i class="fas fa-times"></i>
+                  <th v-for="person in data" :key="person.name">
+                    <i class="fa-solid fa-xmark"></i>
                   </th>
                 </tr>
                 <tr>
@@ -80,8 +84,8 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.unansweredCount }}
                   </th>
-                  <th class="none" v-for="person in data" :key="person.name">
-                    <i class="fas fa-times"></i>
+                  <th v-for="person in data" :key="person.name">
+                    <i class="fa-solid fa-xmark"></i>
                   </th>
                 </tr>
               </tfoot>
@@ -211,7 +215,7 @@ export default {
         (s) => s.questionIndex === questionID
       );
 
-      console.log(overlapDeepest);
+      overlapDeepest;
 
       return squares.length;
     },
@@ -272,7 +276,8 @@ export default {
     },
 
     getStyleForPerson(index) {
-      const style = this.colorList[index % this.colorList.length];
+      const style = this.colorList[index];
+
       return this.assignmentMode === "BBox" ? style : {};
     },
   },
@@ -407,10 +412,6 @@ td > img {
 
 .export-button {
   background-color: var(--green);
-}
-
-.none {
-  display: none;
 }
 
 .delete {
