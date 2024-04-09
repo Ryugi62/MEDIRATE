@@ -105,9 +105,10 @@ function listFilesInFolder(req, res) {
   const { foldername } = req.params;
   const absolutePath = path.join(__dirname, "../assets", foldername);
   if (fs.existsSync(absolutePath)) {
-    const files = fs
-      .readdirSync(absolutePath)
-      .filter((file) => !file.startsWith("."));
+    const files = fs.readdirSync(absolutePath).filter((file) => {
+      const fileExtension = path.extname(file).toLowerCase();
+      return [".png", ".jpg", ".jpeg", ".gif"].includes(fileExtension);
+    });
     res.json(files);
   } else {
     res.status(404).send("Folder not found");
