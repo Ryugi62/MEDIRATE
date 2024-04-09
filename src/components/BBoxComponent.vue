@@ -335,7 +335,7 @@ export default {
 
       ctx.save(); // 현재 드로잉 상태 저장
       ctx.beginPath();
-      ctx.rect(0, 0, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기 (상단 좌측에 표출)
+      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기 (상단 좌측에 표출)
       ctx.closePath();
       ctx.clip(); // 클리핑 경로 설정
 
@@ -346,7 +346,7 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        0,
+        canvas.width - zoomWidth,
         0,
         zoomWidth,
         zoomHeight

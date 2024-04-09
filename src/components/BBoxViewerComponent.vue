@@ -346,18 +346,8 @@ export default {
 
     // 확대 화면 위치 결정 함수
     getEnlargePosition(mouseX, canvasWidth, zoomWidth) {
-      let positionX = 0;
+      let positionX = canvasWidth - zoomWidth;
       let positionY = 0;
-
-      if (mouseX < canvasWidth / 2) {
-        // 마우스가 화면의 좌측에 있을 경우 확대 화면은 우측에 위치
-        positionX = canvasWidth - zoomWidth;
-        positionY = 0;
-      } else {
-        // 마우스가 화면의 우측에 있을 경우 확대 화면은 좌측에 위치
-        positionX = 0;
-        positionY = 0;
-      }
 
       return { x: positionX, y: positionY };
     },
