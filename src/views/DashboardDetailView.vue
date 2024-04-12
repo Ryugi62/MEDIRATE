@@ -20,9 +20,9 @@
             <strong>{{ completionPercentage }}%</strong> / 100%
           </span>
           <button class="edit-button" @click="moveToAssignmentManagement">
-            수정
+            과제수정
           </button>
-          <button class="delete" @click="deleteAssignment">삭제</button>
+          <button class="delete" @click="deleteAssignment">과제삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
         </div>
         <div class="table-body">
