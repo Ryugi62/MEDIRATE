@@ -29,12 +29,7 @@ export default {
     return {
       links: [
         {
-          name: "게시판",
-          paths: ["/", "/board", "/post/:id", "/create-post"],
-          isAdmin: false,
-        },
-        {
-          name: "과제 평가",
+          name: "검수 작업",
           paths: ["/assignment", "/assignment/:id"],
           isAdmin: false,
         },
@@ -49,7 +44,12 @@ export default {
           isAdmin: true,
         },
         {
-          name: "회원추가",
+          name: "게시판",
+          paths: ["/", "/board", "/post/:id", "/create-post"],
+          isAdmin: false,
+        },
+        {
+          name: "회원 관리",
           paths: ["/add-user"],
           isAdmin: true,
         },

@@ -116,7 +116,7 @@ export default {
 
           // mutateion
           this.$store.commit("openSlideBar", true);
-          this.$router.push({ name: "home" });
+          this.$router.push({ name: "assignment" });
         })
         .catch((err) => {
           console.error(err);
