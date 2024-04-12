@@ -440,6 +440,8 @@ td > img {
 .table-footer {
   position: sticky;
   background-color: var(--white);
+  position: sticky;
+  bottom: 0;
 }
 
 .export-button {
