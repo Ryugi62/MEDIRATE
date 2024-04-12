@@ -6,7 +6,7 @@
         <div class="table-header">
           <span class="table-title">과제 이야기</span>
           <div class="slider-container" v-if="assignmentMode === 'BBox'">
-            <span id="sliderValue">+{{ sliderRange }}</span>
+            <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
               min="1"
@@ -31,7 +31,6 @@
               <thead class="table-head">
                 <tr>
                   <th>이미지</th>
-                  <th>파일</th>
                   <th
                     v-for="(person, index) in data"
                     :key="person.name"
@@ -40,7 +39,7 @@
                     {{ person.name }}
                   </th>
                   <th v-for="(person, index) in data" :key="index">
-                    +{{ index + 1 }}
+                    {{ !index ? "일치 없음" : `${index + 1}인 일치` }}
                   </th>
                 </tr>
               </thead>
@@ -54,7 +53,6 @@
                   <td>
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
-                  <td>{{ item.questionImage.split("/").pop() }}</td>
                   <td v-for="person in data" :key="person.name">
                     {{ person.questions[index].questionSelection }}
                   </td>
