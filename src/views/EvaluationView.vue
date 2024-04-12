@@ -57,7 +57,6 @@
         <div class="assignment-info">
           <div class="assignment-field mode-field">
             <span>
-              <label for="field-text-mode">TextBox</label>
               <input
                 type="radio"
                 id="field-text-mode"
@@ -65,9 +64,9 @@
                 value="TextBox"
                 v-model="assignmentDetails.mode"
               />
+              <label for="field-text-mode">TextBox</label>
             </span>
             <span>
-              <label for="field-bbox-mode">BBox</label>
               <input
                 type="radio"
                 id="field-bbox-mode"
@@ -75,6 +74,7 @@
                 value="BBox"
                 v-model="assignmentDetails.mode"
               />
+              <label for="field-bbox-mode">BBox</label>
             </span>
           </div>
 
