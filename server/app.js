@@ -1,6 +1,5 @@
-// External dependencies
 const express = require("express");
-require("dotenv").config({ path: "../.env" });
+const dotenv = require("dotenv");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const path = require("path");
@@ -8,14 +7,16 @@ const cors = require("cors");
 const multer = require("multer");
 const unzipper = require("unzipper");
 const fs = require("fs");
-
-// Internal dependencies
 const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
 const postRoutes = require("./routes/postRoutes");
 const assignmentRoutes = require("./routes/assignmentRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
+
+// External dependencies
+
+// Internal dependencies
 
 // Constants and configurations
 const app = express();
@@ -79,13 +80,8 @@ app.listen(port, () => {
 
 // Function to serve an uploaded file
 function serveUploadedFile(req, res) {
-  console.log("hello world");
-
-  // Decode the filename to handle spaces and special characters
   const filename = decodeURIComponent(req.params.filename);
   const absolutePath = path.join(__dirname, "../uploads", filename);
-
-  console.log(`filename : ${filename}`);
 
   res.download(absolutePath, errorHandler(res));
 }
@@ -93,10 +89,11 @@ function serveUploadedFile(req, res) {
 // Function to list folders in the assets directory
 function listAssetFolders(req, res) {
   const absolutePath = path.join(__dirname, "../assets");
-  const files = fs.readdirSync(absolutePath);
-  const folders = files.filter((file) =>
-    fs.lstatSync(path.join(absolutePath, file)).isDirectory()
-  );
+  const folders = fs
+    .readdirSync(absolutePath, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
+
   res.json(folders);
 }
 
@@ -104,11 +101,17 @@ function listAssetFolders(req, res) {
 function listFilesInFolder(req, res) {
   const { foldername } = req.params;
   const absolutePath = path.join(__dirname, "../assets", foldername);
+
   if (fs.existsSync(absolutePath)) {
-    const files = fs.readdirSync(absolutePath).filter((file) => {
-      const fileExtension = path.extname(file).toLowerCase();
-      return [".png", ".jpg", ".jpeg", ".gif"].includes(fileExtension);
-    });
+    const files = fs
+      .readdirSync(absolutePath, { withFileTypes: true })
+      .filter((dirent) => dirent.isFile())
+      .map((dirent) => dirent.name)
+      .filter((file) => {
+        const fileExtension = path.extname(file).toLowerCase();
+        return [".png", ".jpg", ".jpeg", ".gif"].includes(fileExtension);
+      });
+
     res.json(files);
   } else {
     res.status(404).send("Folder not found");
@@ -117,7 +120,6 @@ function listFilesInFolder(req, res) {
 
 // Function to serve a specific file from a folder
 function serveFileFromFolder(req, res) {
-  // Decode foldername and filename to handle spaces and special characters
   const foldername = decodeURIComponent(req.params.foldername);
   const filename = decodeURIComponent(req.params.filename);
   const absolutePath = path.join(__dirname, "../assets", foldername, filename);
@@ -140,34 +142,29 @@ async function handleTaskDataUpload(req, res) {
 
     const zipFilePath = req.file.path;
 
-    fs.createReadStream(zipFilePath)
-      .pipe(unzipper.Parse())
-      .on("entry", function (entry) {
-        const fileName = path.basename(entry.path);
-        // 'File' 타입이고, 지정된 확장자를 가진 파일만 처리
-        if (
-          entry.type === "File" &&
-          fileName.match(/\.(jpg|jpeg|png|gif|json)$/)
-        ) {
-          const fullPath = path.join(taskDir, fileName);
-          entry.pipe(fs.createWriteStream(fullPath)).on("finish", function () {
-            console.log(`File extracted: ${fullPath}`);
-          });
-        } else {
-          entry.autodrain();
-        }
-      })
-      .promise()
-      .then(
-        () => {
-          console.log("All files are extracted successfully.");
-          fs.unlinkSync(zipFilePath); // 압축 해제 후 원본 ZIP 파일 삭제
-          res.json({ code: "1", result: "OK" });
-        },
-        (err) => {
-          throw err; // 압축 해제 과정에서 오류 발생
-        }
-      );
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(zipFilePath)
+        .pipe(unzipper.Parse())
+        .on("entry", (entry) => {
+          const fileName = path.basename(entry.path);
+          if (
+            entry.type === "File" &&
+            fileName.match(/\.(jpg|jpeg|png|gif|json)$/)
+          ) {
+            const fullPath = path.join(taskDir, fileName);
+            entry.pipe(fs.createWriteStream(fullPath)).on("finish", () => {
+              console.log(`File extracted: ${fullPath}`);
+            });
+          } else {
+            entry.autodrain();
+          }
+        })
+        .on("finish", resolve)
+        .on("error", reject);
+    });
+
+    fs.unlinkSync(zipFilePath); // Delete the original ZIP file after extraction
+    res.json({ code: "1", result: "OK" });
   } catch (error) {
     console.error(error);
     res.status(500).send(`An error occurred: ${error.message}`);
