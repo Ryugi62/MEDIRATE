@@ -277,6 +277,7 @@ th {
   font-weight: bold;
   border-bottom: 1px solid var(--light-gray);
   cursor: pointer;
+  text-wrap: nowrap;
 }
 
 tr.completed {
