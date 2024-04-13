@@ -59,6 +59,7 @@
               <td>
                 <img :src="question.image" alt="Question" />
               </td>
+
               <td
                 v-for="(grade, index) in currentAssignmentDetails.selectionType"
                 :key="index"
@@ -161,10 +162,12 @@ export default {
         );
         this.currentAssignmentDetails = response.data;
 
+        console.log(this.currentAssignmentDetails);
+
         const score = this.currentAssignmentDetails.score || 0;
         this.currentAssignmentDetails.score = score;
 
-        if (this.isTextBoxMode) {
+        if (!this.isTextBoxMode) {
           this.currentAssignmentDetails.selectionType = [];
         }
 
