@@ -256,11 +256,44 @@ export default {
           ).length + 1;
 
         if (count === overlapDeepest) {
-          squares.push([square.x, square.y, 20, 20]);
+          const image = new Image();
+          image.src = this.activeImageUrl;
+          const { width, height } = image;
+
+          // BBoxViewerComponent에서 this.$el.querySelector("canvas");
+          const canvas = this.$el.querySelector("canvas");
+
+          const imagePosition = this.calculateImagePosition(
+            canvas.width,
+            canvas.height,
+            width,
+            height
+          );
+
+          const x = square.x - imagePosition.x;
+          const y = square.y - imagePosition.y;
+
+          squares.push([x, y, 20, 20]);
         }
       });
 
       return squares;
+    },
+
+    calculateImagePosition(
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    ) {
+      const scale = Math.min(
+        canvasWidth / originalWidth,
+        canvasHeight / originalHeight
+      );
+      const x = (canvasWidth - originalWidth * scale) / 2;
+      const y = (canvasHeight - originalHeight * scale) / 2;
+
+      return { x, y, scale };
     },
 
     async exportToExcel() {
@@ -299,13 +332,6 @@ export default {
           for (let i = 1; i <= this.data.length; i++) {
             row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
           }
-
-          console.log(
-            this.getAllOverlapSquares(
-              question.questionId,
-              Number(this.sliderValue)
-            )
-          );
 
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
