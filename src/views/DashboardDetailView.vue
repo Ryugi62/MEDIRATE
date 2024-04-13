@@ -480,6 +480,7 @@ td > img {
 .image-box {
   flex: 1;
   display: flex;
+  flex-direction: column;
   margin-right: 46px;
 }
 
