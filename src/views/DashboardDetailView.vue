@@ -521,4 +521,8 @@ td > img {
 .delete {
   background-color: var(--pink);
 }
+
+tfoot > tr > th {
+  border: 0;
+}
 </style>
