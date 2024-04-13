@@ -793,6 +793,7 @@ tbody tr.active {
 .student-response-image {
   flex: 1;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   max-height: 100%;

@@ -16,6 +16,9 @@
         @mousemove="handleCanvasMouseMove"
       ></canvas>
     </div>
+    <div class="bbox-component__footer">
+      <strong>{{ src.split("/").pop() }}</strong>
+    </div>
   </div>
 </template>
 
@@ -432,5 +435,13 @@ export default {
 
 canvas {
   background-color: rgb(0, 0, 0);
+}
+
+.bbox-component__footer {
+  padding: 5px;
+  color: white;
+  display: flex;
+  justify-content: center;
+  background-color: black;
 }
 </style>

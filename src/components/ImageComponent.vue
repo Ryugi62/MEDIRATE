@@ -10,6 +10,9 @@
   >
     <img :src="src" :alt="alt" :style="imageStyle" ref="image" class="image" />
   </div>
+  <footer>
+    <strong>{{ src.split("/").pop() }}</strong>
+  </footer>
 </template>
 
 <script>
@@ -138,6 +141,7 @@ export default {
   overflow: hidden;
   position: relative; /* 이미지의 부모를 상대 위치로 설정 */
   cursor: grab;
+  background-color: black;
 }
 
 .image-wrapper:active {
@@ -153,5 +157,14 @@ export default {
   top: 50%; /* 상단에서 50% 위치에 배치 */
   left: 50%; /* 좌측에서 50% 위치에 배치 */
   transform: translate(-50%, -50%) scale(1); /* 중앙 정렬 및 초기 스케일 설정 */
+}
+
+footer {
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  color: white;
+  padding: 5px;
+  background-color: black;
 }
 </style>
