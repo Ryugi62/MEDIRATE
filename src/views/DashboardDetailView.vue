@@ -168,14 +168,11 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
-        this.userSquaresList = this.data.map((person, index) => {
-          return {
-            beforeCanvas: person.beforeCanvas,
-            squares: person.squares,
-            color:
-              this.colorList[index % this.colorList.length].backgroundColor,
-          };
-        });
+        this.userSquaresList = this.data.map((person, index) => ({
+          beforeCanvas: person.beforeCanvas,
+          squares: person.squares,
+          color: this.colorList[index % this.colorList.length].backgroundColor,
+        }));
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -210,9 +207,9 @@ export default {
     },
 
     getOverlapSquares(questionID, overlapDeepest) {
-      const originalSquares = [
-        ...this.tempSquares.filter((s) => s.questionIndex === questionID),
-      ];
+      const originalSquares = this.tempSquares.filter(
+        (s) => s.questionIndex === questionID
+      );
       const squares = [];
 
       originalSquares.forEach((square) => {
@@ -241,9 +238,9 @@ export default {
     },
 
     getAllOverlapSquares(questionID, overlapDeepest) {
-      const originalSquares = [
-        ...this.tempSquares.filter((s) => s.questionIndex === questionID),
-      ];
+      const originalSquares = this.tempSquares.filter(
+        (s) => s.questionIndex === questionID
+      );
       const squares = [];
 
       originalSquares.forEach((square) => {
@@ -260,7 +257,6 @@ export default {
           image.src = this.activeImageUrl;
           const { width, height } = image;
 
-          // BBoxViewerComponent에서 this.$el.querySelector("canvas");
           const canvas = this.$el.querySelector("canvas");
 
           const imagePosition = this.calculateImagePosition(
@@ -362,52 +358,44 @@ export default {
     },
 
     getStyleForPerson(index) {
-      const style = this.colorList[index];
-
-      return this.assignmentMode === "BBox" ? style : {};
+      return this.assignmentMode === "BBox" ? this.colorList[index] : {};
     },
   },
   computed: {
     completionPercentage() {
-      // 모드 확인
       if (this.assignmentMode === "TextBox") {
-        // 데이터가 없으면 0 반환
-        if (!this.data.length) return 0;
+        if (!this.data.length) return "0%";
 
-        // 전체 질문 수 계산
         const totalAnswered = this.data.reduce(
           (acc, user) => acc + user.answeredCount,
           0
         );
-
-        // 전체 미답변 수 계산
         const totalUnanswered = this.data.reduce(
           (acc, user) => acc + user.unansweredCount,
           0
         );
-
-        // 전체 질문 수 계산
         const totalQuestions = totalAnswered + totalUnanswered;
+
         return totalQuestions
           ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
-          : 0 + "%";
+          : "0%";
       } else {
         const count = this.getAllOverlapSquares(
           this.activeQuestionIndex,
           Number(this.sliderValue)
         ).length;
 
-        return count;
+        return count.toString();
       }
     },
 
     totalPercentage() {
       if (this.assignmentMode === "TextBox") {
-        return 100 + "%";
+        return "100%";
       } else {
-        return this.tempSquares.filter(
-          (s) => s.questionIndex === this.activeQuestionIndex
-        ).length;
+        return this.tempSquares
+          .filter((s) => s.questionIndex === this.activeQuestionIndex)
+          .length.toString();
       }
     },
 
