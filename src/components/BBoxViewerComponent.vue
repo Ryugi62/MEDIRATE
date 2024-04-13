@@ -2,12 +2,13 @@
   <div class="bbox-component">
     <div class="bbox-component__body">
       <canvas
+        ref="canvas"
         @click="handleCanvasClick"
         @mousemove="handleCanvasMouseMove"
       ></canvas>
     </div>
     <div class="bbox-component__footer">
-      <strong>{{ src.split("/").pop() }}</strong>
+      <strong>{{ getFileNameFromSrc() }}</strong>
     </div>
   </div>
 </template>
@@ -22,25 +23,21 @@ export default {
       required: true,
       default: () => [],
     },
-
     src: {
       type: String,
       required: true,
       default: "",
     },
-
     questionIndex: {
       type: Number,
       required: true,
       default: 0,
     },
-
     sliderValue: {
       type: Number,
       required: true,
       default: 0,
     },
-
     updateSquares: {
       type: Function,
       required: true,
@@ -67,33 +64,25 @@ export default {
 
   methods: {
     async fetchLocalInfo() {
-      const { width, height } = this.$el
-        .querySelector(".bbox-component__body")
-        .getBoundingClientRect();
-
+      const { width, height } = this.$refs.canvas.getBoundingClientRect();
       const img = await this.createImage(this.src);
       this.setBackgroundImage(img);
-
       this.localBeforeCanvas = { width, height };
 
       this.userSquaresList.forEach(async (user) => {
         const beforePosition = this.calculateImagePosition(width, height);
-
         const userBeforePosition = this.calculateImagePosition(
           user.beforeCanvas.width,
           user.beforeCanvas.height
         );
-
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
         for (const square of user.squares) {
           square.color = user.color;
-
           square.x =
             (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
           square.y =
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
-
           this.localSquares.push(square);
         }
       });
@@ -143,7 +132,7 @@ export default {
     },
 
     drawBackgroundImage() {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!this.backgroundImage || !canvas) return;
 
       const ctx = canvas.getContext("2d");
@@ -174,7 +163,7 @@ export default {
     },
 
     async resizeCanvas() {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!canvas) return;
 
       if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
@@ -185,15 +174,13 @@ export default {
       const beforePosition = this.calculateImagePosition(
         canvas.width,
         canvas.height
-      ); // 리사이징 이전 포지션 저장
-
+      );
       canvas.width = 0;
       canvas.height = 0;
 
       const bboxBody = this.$el
         .querySelector(".bbox-component__body")
         .getBoundingClientRect();
-
       canvas.width = bboxBody.width;
       canvas.height = bboxBody.height;
 
@@ -201,18 +188,17 @@ export default {
       this.localBeforeCanvas.height = canvas.height;
 
       this.drawBackgroundImage();
-      await this.setSquaresPosition(beforePosition); // 변경된 위치에 따라 사각형 포지션 조정
+      await this.setSquaresPosition(beforePosition);
 
       this.redrawSquares();
     },
 
     setSquaresPosition(beforePosition) {
-      const { width, height } = this.getCanvasElement();
+      const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
-      const scaleRatio = currentPosition.scale / beforePosition.scale; // 스케일 비율 계산
+      const scaleRatio = currentPosition.scale / beforePosition.scale;
 
       this.localSquares.forEach((square) => {
-        // 사각형의 위치를 조정합니다. 이미지의 위치 변화와 스케일 변화를 반영합니다.
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
@@ -235,11 +221,10 @@ export default {
 
     redrawSquares(event = null) {
       this.drawBackgroundImage();
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = square.color;
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
@@ -252,7 +237,7 @@ export default {
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!canvas) return {};
 
       const { left, top, width, height } = canvas.getBoundingClientRect();
@@ -262,12 +247,8 @@ export default {
       };
     },
 
-    getCanvasElement() {
-      return this.$el.querySelector("canvas");
-    },
-
     handleCanvasMouseMove(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const closestSquare = this.getClosestSquare(x, y);
@@ -290,32 +271,25 @@ export default {
     },
 
     activeEnlarge(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200; // 확대될 사각형의 너비
-      const zoomHeight = 200; // 확대될 사각형의 높이
-      const zoomLevel = 2.5; // 확대 비율
+      const zoomWidth = 200;
+      const zoomHeight = 200;
+      const zoomLevel = 2.5;
 
-      // 마우스 위치에 따라 확대 화면의 위치를 결정합니다.
       const enlargePosition = this.getEnlargePosition(
         x,
         canvas.width,
         zoomWidth
       );
-
-      // 이미지 위치 및 크기 계산
       const {
         x: imgX,
         y: imgY,
         scale,
       } = this.calculateImagePosition(canvas.width, canvas.height);
-
-      // 마우스 위치를 이미지 상의 좌표로 변환
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;
-
-      // 확대할 이미지 부분 계산 (이미지 상의 좌표를 사용)
       const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
       const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
       const sourceWidth = zoomWidth / zoomLevel;
@@ -325,13 +299,12 @@ export default {
 
       if (!this.backgroundImage) return;
 
-      ctx.save(); // 현재 드로잉 상태 저장
+      ctx.save();
       ctx.beginPath();
       ctx.rect(enlargePosition.x, enlargePosition.y, zoomWidth, zoomHeight);
       ctx.closePath();
       ctx.clip();
 
-      // 확대된 이미지 부분 그리기
       ctx.drawImage(
         this.backgroundImage,
         sourceX,
@@ -344,10 +317,9 @@ export default {
         zoomHeight
       );
 
-      ctx.restore(); // 드로잉 상태 복원 (클리핑 경로 제거)
+      ctx.restore();
     },
 
-    // 확대 화면 위치 결정 함수
     getEnlargePosition(mouseX, canvasWidth, zoomWidth) {
       let positionX = canvasWidth - zoomWidth;
       let positionY = 0;
@@ -356,26 +328,27 @@ export default {
     },
 
     activeSquareCursor(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const squareSize = 20;
 
+      const cursorX = x - squareSize / 2;
+      const cursorY = y - squareSize / 2;
+
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = "white";
-      ctx.strokeRect(
-        x - squareSize / 2,
-        y - squareSize / 2,
-        squareSize,
-        squareSize
-      );
+      ctx.strokeRect(cursorX, cursorY, squareSize, squareSize);
+    },
+
+    getFileNameFromSrc() {
+      return this.src.split("/").pop();
     },
   },
 
   async mounted() {
     await this.fetchLocalInfo();
     await this.filterSquares();
-
     await this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
   },
@@ -408,10 +381,9 @@ export default {
   flex-direction: column;
 }
 
-.bbox-component__header {
-  gap: 10px;
+.bbox-component__header,
+.bbox-component__footer {
   display: flex;
-  align-items: center;
   justify-content: center;
 }
 
@@ -438,8 +410,6 @@ canvas {
 .bbox-component__footer {
   padding: 5px;
   color: white;
-  display: flex;
-  justify-content: center;
   background-color: black;
 }
 </style>
