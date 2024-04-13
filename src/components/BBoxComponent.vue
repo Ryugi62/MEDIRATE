@@ -12,12 +12,13 @@
     </div>
     <div class="bbox-component__body">
       <canvas
+        ref="canvas"
         @click="handleCanvasClick"
         @mousemove="handleCanvasMouseMove"
       ></canvas>
     </div>
     <div class="bbox-component__footer">
-      <strong>{{ src.split("/").pop() }}</strong>
+      <strong>{{ fileName }}</strong>
     </div>
   </div>
 </template>
@@ -27,29 +28,10 @@ export default {
   name: "BBoxComponent",
 
   props: {
-    beforeCanvas: {
-      type: Object,
-      required: true,
-      default: () => ({ width: null, height: null }),
-    },
-
-    squares: {
-      type: Array,
-      required: true,
-      default: () => [],
-    },
-
-    src: {
-      type: String,
-      required: true,
-      default: "",
-    },
-
-    questionIndex: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
+    beforeCanvas: { type: Object, required: true, default: () => ({}) },
+    squares: { type: Array, required: true, default: () => [] },
+    src: { type: String, required: true, default: "" },
+    questionIndex: { type: Number, required: true, default: 0 },
   },
 
   data() {
@@ -60,8 +42,7 @@ export default {
         { name: "fa-circle-minus", active: false, explanation: "전체삭제" },
         { name: "fa-robot", active: false, explanation: "AI" },
       ],
-      localBeforeCanvas: { width: null, height: null },
-      beforeResizePosition: { x: 0, y: 0, questionIndex: null }, // 리사이징 이전의 이미지 포지션 저장
+      localBeforeCanvas: {},
       localSquares: [],
       backgroundImage: null,
       originalWidth: null,
@@ -75,33 +56,30 @@ export default {
         (icon) => icon.name === "fa-eraser" && icon.active
       );
     },
-
     isSliderActive() {
       return this.$store.getters.isSlideBarOpen;
+    },
+    fileName() {
+      return this.src.split("/").pop();
     },
   },
 
   methods: {
-    fetchLocalInfo() {
+    async fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
       this.localSquares = this.squares;
     },
 
     activateIcon(selectedIcon) {
       if (selectedIcon.name === "fa-circle-minus") {
-        // confirm 창을 띄워서 삭제 여부를 확인합니다.
-        const isConfirmed = confirm("정말로 모든 사각형을 삭제하시겠습니까?");
-        if (!isConfirmed) return;
+        if (!confirm("정말로 모든 사각형을 삭제하시겠습니까?")) return;
 
         this.localSquares = this.localSquares.filter(
           (square) => square.questionIndex !== this.questionIndex
         );
-
         this.$emit("update:squares", this.localSquares);
-
         this.redrawSquares();
 
-        // fa-square 아이콘을 활성화합니다.
         const squareIcon = this.iconList.find(
           (icon) => icon.name === "fa-square"
         );
@@ -134,7 +112,7 @@ export default {
     },
 
     drawBackgroundImage() {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!this.backgroundImage || !canvas) return;
 
       const ctx = canvas.getContext("2d");
@@ -160,12 +138,11 @@ export default {
       );
       const x = (canvasWidth - this.originalWidth * scale) / 2;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
-
       return { x, y, scale };
     },
 
     async resizeCanvas() {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!canvas) return;
 
       if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
@@ -176,7 +153,7 @@ export default {
       const beforePosition = this.calculateImagePosition(
         canvas.width,
         canvas.height
-      ); // 리사이징 이전 포지션 저장
+      );
       this.beforeResizePosition = beforePosition;
 
       canvas.width = 0;
@@ -185,7 +162,6 @@ export default {
       const bboxBody = this.$el
         .querySelector(".bbox-component__body")
         .getBoundingClientRect();
-
       canvas.width = bboxBody.width;
       canvas.height = bboxBody.height;
 
@@ -193,18 +169,16 @@ export default {
       this.localBeforeCanvas.height = canvas.height;
 
       this.drawBackgroundImage();
-      await this.setSquaresPosition(beforePosition); // 변경된 위치에 따라 사각형 포지션 조정
-
+      await this.setSquaresPosition(beforePosition);
       this.redrawSquares();
     },
 
     setSquaresPosition(beforePosition) {
-      const { width, height } = this.getCanvasElement();
+      const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
-      const scaleRatio = currentPosition.scale / beforePosition.scale; // 스케일 비율 계산
+      const scaleRatio = currentPosition.scale / beforePosition.scale;
 
       this.localSquares.forEach((square) => {
-        // 사각형의 위치를 조정합니다. 이미지의 위치 변화와 스케일 변화를 반영합니다.
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
@@ -247,11 +221,10 @@ export default {
 
     redrawSquares(event = null) {
       this.drawBackgroundImage();
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = "red";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
@@ -266,7 +239,7 @@ export default {
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       if (!canvas) return {};
 
       const { left, top, width, height } = canvas.getBoundingClientRect();
@@ -280,12 +253,8 @@ export default {
       return Math.abs(x - mouseX) <= 10 && Math.abs(y - mouseY) <= 10;
     },
 
-    getCanvasElement() {
-      return this.$el.querySelector("canvas");
-    },
-
     handleCanvasMouseMove(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const closestSquare = this.getClosestSquare(x, y);
@@ -308,25 +277,21 @@ export default {
     },
 
     activeEnlarge(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200; // 확대될 사각형의 너비
-      const zoomHeight = 200; // 확대될 사각형의 높이
-      const zoomLevel = 2.5; // 확대 비율
+      const zoomWidth = 200;
+      const zoomHeight = 200;
+      const zoomLevel = 2.5;
 
-      // 이미지 위치 및 크기 계산
       const {
         x: imgX,
         y: imgY,
         scale,
       } = this.calculateImagePosition(canvas.width, canvas.height);
-
-      // 마우스 위치를 이미지 상의 좌표로 변환
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;
 
-      // 확대할 이미지 부분 계산 (이미지 상의 좌표를 사용)
       const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
       const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
       const sourceWidth = zoomWidth / zoomLevel;
@@ -336,13 +301,12 @@ export default {
 
       if (!this.backgroundImage) return;
 
-      ctx.save(); // 현재 드로잉 상태 저장
+      ctx.save();
       ctx.beginPath();
-      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight); // 확대될 영역에 사각형 그리기 (상단 좌측에 표출)
+      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight);
       ctx.closePath();
-      ctx.clip(); // 클리핑 경로 설정
+      ctx.clip();
 
-      // 확대된 이미지 부분 그리기
       ctx.drawImage(
         this.backgroundImage,
         sourceX,
@@ -355,11 +319,11 @@ export default {
         zoomHeight
       );
 
-      ctx.restore(); // 드로잉 상태 복원 (클리핑 경로 제거)
+      ctx.restore();
     },
 
     activeSquareCursor(event) {
-      const canvas = this.getCanvasElement();
+      const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const squareSize = 20;
@@ -377,7 +341,6 @@ export default {
 
   mounted() {
     this.fetchLocalInfo();
-
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
   },
