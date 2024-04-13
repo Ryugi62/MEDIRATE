@@ -7,26 +7,21 @@
         <h2 class="metadata-assignment-title">
           {{ currentAssignmentDetails.FileName }}
         </h2>
-        <span class="metadata-student-name">{{
-          currentAssignmentDetails.studentName
-        }}</span>
-        <span class="metadata-due-date"
-          >마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}</span
-        >
+        <span class="metadata-student-name">
+          {{ currentAssignmentDetails.studentName }}
+        </span>
+        <span class="metadata-due-date">
+          마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}
+        </span>
       </div>
 
       <div class="evaluation-actions">
         <span class="evaluation-score">
-          <strong v-if="currentAssignmentDetails.assignmentMode === 'TextBox'">
+          <strong v-if="isTextBoxMode">
             {{ currentAssignmentDetails.score }}
           </strong>
           <strong v-else>
-            {{
-              currentAssignmentDetails.squares
-                .map((square) => square.questionIndex)
-                .filter((value, index, self) => self.indexOf(value) === index)
-                .length
-            }}
+            {{ uniqueQuestionCount }}
           </strong>
           / {{ currentAssignmentDetails.totalScore }}
         </span>
@@ -84,7 +79,7 @@
       </div>
 
       <div
-        v-if="currentAssignmentDetails.assignmentMode === 'TextBox'"
+        v-if="isTextBoxMode"
         class="student-response-image"
         :class="{ 'full-screen': isFullScreenImage }"
       >
@@ -119,15 +114,9 @@ export default {
   data() {
     return {
       currentAssignmentDetails: null,
-      draftAssignmentDetails: {},
       isEditEnabled: false,
       activeQuestionId: 1,
       activeQuestionImageUrl: "https://via.placeholder.com/1050",
-      gradingScale: {
-        ungraded: ["Unknown", "Negative", "Positive"],
-        grades: ["Unknown", "Grade1", "Grade2", "Grade3", "Grade4"],
-      },
-      gradingType: "grades",
       isFullScreenImage: false,
       isSaving: false,
     };
@@ -148,6 +137,17 @@ export default {
     BBoxComponent,
   },
 
+  computed: {
+    isTextBoxMode() {
+      return this.currentAssignmentDetails.assignmentMode === "TextBox";
+    },
+    uniqueQuestionCount() {
+      return this.currentAssignmentDetails.squares
+        .map((square) => square.questionIndex)
+        .filter((value, index, self) => self.indexOf(value) === index).length;
+    },
+  },
+
   methods: {
     async loadAssignmentDetails(assignmentId) {
       try {
@@ -164,7 +164,7 @@ export default {
         const score = this.currentAssignmentDetails.score || 0;
         this.currentAssignmentDetails.score = score;
 
-        if (this.currentAssignmentDetails.assignmentMode === "BBox") {
+        if (this.isTextBoxMode) {
           this.currentAssignmentDetails.selectionType = [];
         }
 
@@ -400,6 +400,7 @@ td {
 .grades-table table tbody tr.active {
   background-color: var(--blue);
 }
+
 .student-response-image {
   flex: 1;
   display: flex;
