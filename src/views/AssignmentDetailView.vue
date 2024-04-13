@@ -7,30 +7,29 @@
         <h2 class="metadata-assignment-title">
           {{ currentAssignmentDetails.FileName }}
         </h2>
-        <span class="metadata-student-name">
-          {{ currentAssignmentDetails.studentName }}
-        </span>
-        <span class="metadata-due-date">
-          마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}
-        </span>
+        <span class="metadata-student-name">{{
+          currentAssignmentDetails.studentName
+        }}</span>
+        <span class="metadata-due-date"
+          >마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}</span
+        >
       </div>
 
       <div class="evaluation-actions">
-        <!-- <span class="evaluation-score"><strong>20</strong> / 300</span> -->
         <span class="evaluation-score">
-          <strong
-            v-if="currentAssignmentDetails.assignmentMode === 'TextBox'"
-            >{{ currentAssignmentDetails.score }}</strong
-          >
-          <strong v-else>{{
-            currentAssignmentDetails.squares
-              .map((square) => square.questionIndex)
-              .filter((value, index, self) => self.indexOf(value) === index)
-              .length
-          }}</strong>
-          /
-          {{ currentAssignmentDetails.totalScore }}</span
-        >
+          <strong v-if="currentAssignmentDetails.assignmentMode === 'TextBox'">
+            {{ currentAssignmentDetails.score }}
+          </strong>
+          <strong v-else>
+            {{
+              currentAssignmentDetails.squares
+                .map((square) => square.questionIndex)
+                .filter((value, index, self) => self.indexOf(value) === index)
+                .length
+            }}
+          </strong>
+          / {{ currentAssignmentDetails.totalScore }}
+        </span>
         <button
           type="button"
           class="save-button"
@@ -91,8 +90,7 @@
       >
         <ImageComponent
           :src="activeQuestionImageUrl"
-          ref="studentResponseImage
-        "
+          ref="studentResponseImage"
           alt="Student Response"
         />
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
@@ -163,36 +161,31 @@ export default {
         );
         this.currentAssignmentDetails = response.data;
 
-        // this.currentAssignmentDetails.score 이 null이 아니고 0 이상일 때만 score를 업데이트합니다.
         const score = this.currentAssignmentDetails.score || 0;
-
         this.currentAssignmentDetails.score = score;
 
         if (this.currentAssignmentDetails.assignmentMode === "BBox") {
           this.currentAssignmentDetails.selectionType = [];
         }
 
-        // Ensure the DOM is updated before making TDs clickable
         this.$nextTick(() => {
           this.makeTdClickable();
         });
 
-        // 현재 선택된 질문의 이미지 URL을 업데이트합니다.
         this.activeQuestionImageUrl =
           this.currentAssignmentDetails.questions[0].image;
-
-        // 현재 선택된 질문의 ID를 업데이트합니다.
         this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
     },
+
     async commitAssignmentChanges() {
-      // radio 버튼 비활성화
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
       );
       radioButtons.forEach((radio) => (radio.disabled = true));
+
       const dataToSubmit = {
         id: this.currentAssignmentDetails.id,
         questions: this.currentAssignmentDetails.questions.map((question) => ({
@@ -205,6 +198,7 @@ export default {
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
       };
+
       try {
         await this.$axios.put(
           "/api/assignments/" + this.currentAssignmentDetails.id,
@@ -220,9 +214,8 @@ export default {
         this.$router.push("/assignment");
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
-        // 오류 처리 로직
       }
-      // radio 버튼 활성화
+
       radioButtons.forEach((radio) => (radio.disabled = false));
     },
 
@@ -234,19 +227,17 @@ export default {
         );
       }
     },
+
     makeTdClickable() {
       const table = this.$el.querySelector(".grades-table table");
       if (table) {
         table.addEventListener("click", (event) => {
           let target = event.target;
 
-          // TD 내부의 라디오 버튼 또는 레이블을 클릭했을 경우를 처리
           if (target.tagName === "TD" || target.tagName === "LABEL") {
             if (target.tagName === "LABEL") {
-              // LABEL 클릭 시, 관련 라디오 버튼으로 타겟 변경
               target = document.getElementById(target.getAttribute("for"));
             } else {
-              // TD 클릭 시, 해당 TD 내부의 첫 번째 라디오 버튼을 타겟으로 설정
               target = target.querySelector('input[type="radio"]');
             }
             if (target) {
@@ -263,10 +254,8 @@ export default {
 
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
-
       this.activeQuestionImageUrl = question.image;
 
-      // 모든 행의 'active' 클래스 제거 후 현재 클릭된 행에만 'active' 클래스 추가
       this.$nextTick(() => {
         const rows = this.$el.querySelectorAll(".grades-table table tbody tr");
         rows.forEach((row) => row.classList.remove("active"));
@@ -280,16 +269,12 @@ export default {
 
     updateSelectedValue(questionIdx, value) {
       const selectedValue = parseInt(value);
-      // 지정된 질문의 selectedValue를 업데이트합니다.
       this.currentAssignmentDetails.questions[questionIdx].selectedValue =
         selectedValue;
-
-      // 전체 선택된 라디오 버튼의 개수를 재계산합니다.
       this.recalculateScore();
     },
 
     recalculateScore() {
-      // 선택된 라디오 버튼의 개수를 계산합니다.
       const score = this.currentAssignmentDetails.questions.reduce(
         (acc, question) => {
           return (
@@ -302,7 +287,6 @@ export default {
         0
       );
 
-      // 계산된 score를 currentAssignmentDetails 객체에 반영합니다.
       this.currentAssignmentDetails.score = score;
     },
 
@@ -311,9 +295,7 @@ export default {
     },
   },
 
-  // 페이지를 떠나기전 저장하실지 물어보는 기능
   beforeRouteLeave(to, from, next) {
-    // 저장 버튼을 누른거면 안물어보고 넘어가기
     if (this.isSaving) {
       next();
       return;
@@ -330,10 +312,6 @@ export default {
 </script>
 
 <style scoped>
-* {
-  /* border: 1px solid var(--pink); */
-}
-
 .header-title {
   margin: 0;
   font-size: 24px;
