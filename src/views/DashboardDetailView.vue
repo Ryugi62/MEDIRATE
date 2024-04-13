@@ -24,6 +24,7 @@
           </button>
           <button class="delete" @click="deleteAssignment">과제삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
+          <button @click="exportImage">이미지 다운로드</button>
         </div>
         <div class="table-body">
           <div class="table-section">
@@ -120,6 +121,7 @@
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
 import { saveAs } from "file-saver";
+import JSZip from "jszip";
 
 export default {
   name: "DashboardDetailView",
@@ -351,6 +353,56 @@ export default {
       saveAs(blob, "assignment_responses.xlsx");
     },
 
+    async exportImage() {
+      const questionList = [...this.data[0].questions];
+      const imgList = [];
+
+      await Promise.all(
+        questionList.map(async (question) => {
+          // 해당 문제에서 this.sliderValue만큼의 인원이 겹치는 사각형들을 imgList에 추가
+          const squares = await this.getAllOverlapSquares(
+            question.questionId,
+            Number(this.sliderValue)
+          );
+
+          if (squares.length) imgList.push(squares);
+        })
+      );
+
+      // 이미지 리스트에 있는 이미지들을 하나로 합쳐서 압축파일로 다운로드
+      const zip = new JSZip();
+
+      await Promise.all(
+        imgList.map(async (__squares, index) => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          const image = new Image();
+          image.crossOrigin = "Anonymous"; // Add this line to enable cross-origin access
+          image.src = this.activeImageUrl;
+
+          await new Promise((resolve) => {
+            image.onload = () => {
+              canvas.width = image.width;
+              canvas.height = image.height;
+
+              ctx.drawImage(image, 0, 0);
+
+              canvas.toBlob((blob) => {
+                zip.file(`image_${index + 1}.png`, blob);
+                resolve();
+              });
+            };
+          });
+        })
+      );
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "images.zip");
+
+      alert("이미지 다운로드가 완료되었습니다.");
+    },
+
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
@@ -411,9 +463,6 @@ export default {
 </script>
 
 <style scoped>
-.dashboard {
-}
-
 .title {
   font-size: 24px;
   height: 60px;
