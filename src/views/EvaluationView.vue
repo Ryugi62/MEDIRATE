@@ -409,6 +409,7 @@ export default {
           });
 
           this.assignmentDetails.questions = questions;
+          this.activeQuestionId = 0;
         })
         .catch((error) => {
           console.error(
