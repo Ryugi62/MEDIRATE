@@ -240,6 +240,29 @@ export default {
       return squares.length;
     },
 
+    getAllOverlapSquares(questionID, overlapDeepest) {
+      const originalSquares = [
+        ...this.tempSquares.filter((s) => s.questionIndex === questionID),
+      ];
+      const squares = [];
+
+      originalSquares.forEach((square) => {
+        const count =
+          originalSquares.filter(
+            (s) =>
+              Math.abs(s.x - square.x) <= 5 &&
+              Math.abs(s.y - square.y) <= 5 &&
+              s.user_id !== square.user_id
+          ).length + 1;
+
+        if (count === overlapDeepest) {
+          squares.push([square.x, square.y, 20, 20]);
+        }
+      });
+
+      return squares;
+    },
+
     async exportToExcel() {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
@@ -277,14 +300,19 @@ export default {
             row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
           }
 
+          console.log(
+            this.getAllOverlapSquares(
+              question.questionId,
+              Number(this.sliderValue)
+            )
+          );
+
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
-            annotation: this.tempSquares
-              .filter((s) => s.questionIndex === question.questionId)
-              .map((s) => ({
-                category_id: 2,
-                bbox: [s.x, s.y, 20, 20],
-              })),
+            annotation: this.getAllOverlapSquares(
+              question.questionId,
+              Number(this.sliderValue)
+            ),
           });
         }
 
