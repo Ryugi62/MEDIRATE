@@ -17,7 +17,7 @@
             />
           </div>
           <span class="completed-status">
-            <strong>{{ completionPercentage }}%</strong> / 100%
+            <strong>{{ completionPercentage }}</strong> / {{ totalPercentage }}
           </span>
           <button class="edit-button" @click="moveToAssignmentManagement">
             과제수정
@@ -369,19 +369,46 @@ export default {
   },
   computed: {
     completionPercentage() {
-      if (!this.data.length) return 0;
-      const totalAnswered = this.data.reduce(
-        (acc, user) => acc + user.answeredCount,
-        0
-      );
-      const totalUnanswered = this.data.reduce(
-        (acc, user) => acc + user.unansweredCount,
-        0
-      );
-      const totalQuestions = totalAnswered + totalUnanswered;
-      return totalQuestions
-        ? ((totalAnswered / totalQuestions) * 100).toFixed(2)
-        : 0;
+      // 모드 확인
+      if (this.assignmentMode === "TextBox") {
+        // 데이터가 없으면 0 반환
+        if (!this.data.length) return 0;
+
+        // 전체 질문 수 계산
+        const totalAnswered = this.data.reduce(
+          (acc, user) => acc + user.answeredCount,
+          0
+        );
+
+        // 전체 미답변 수 계산
+        const totalUnanswered = this.data.reduce(
+          (acc, user) => acc + user.unansweredCount,
+          0
+        );
+
+        // 전체 질문 수 계산
+        const totalQuestions = totalAnswered + totalUnanswered;
+        return totalQuestions
+          ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
+          : 0 + "%";
+      } else {
+        const count = this.getAllOverlapSquares(
+          this.activeQuestionIndex,
+          Number(this.sliderValue)
+        ).length;
+
+        return count;
+      }
+    },
+
+    totalPercentage() {
+      if (this.assignmentMode === "TextBox") {
+        return 100 + "%";
+      } else {
+        return this.tempSquares.filter(
+          (s) => s.questionIndex === this.activeQuestionIndex
+        ).length;
+      }
     },
 
     sliderRange() {
