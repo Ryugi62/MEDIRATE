@@ -5,6 +5,7 @@
         ref="canvas"
         @click="handleCanvasClick"
         @mousemove="handleCanvasMouseMove"
+        @resize="resizeCanvas"
       ></canvas>
     </div>
     <div class="bbox-component__footer">
