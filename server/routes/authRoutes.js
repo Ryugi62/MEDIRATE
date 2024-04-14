@@ -28,7 +28,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username.trim() },
+      { id: user.id, username: user.username.trim(), role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "2h" }
     );
@@ -64,6 +64,10 @@ router.get("/logout", (req, res) => {
 });
 
 router.post("/register", authenticateToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).send("Unauthorized user.");
+  }
+
   const { username, password, realname, role } = req.body;
 
   try {
@@ -83,7 +87,7 @@ router.post("/register", authenticateToken, async (req, res) => {
 
 router.get("/user-list", authenticateToken, async (__req, res) => {
   try {
-    const usersQuery = `SELECT id, username, realname FROM users`;
+    const usersQuery = `SELECT id, username, realname, organization, role FROM users`;
     const [users] = await db.query(usersQuery);
 
     res.status(200).json(users);
@@ -93,12 +97,15 @@ router.get("/user-list", authenticateToken, async (__req, res) => {
   }
 });
 
-router.get("/:username", authenticateToken, async (req, res) => {
+router.get("/check-user/:username", authenticateToken, async (req, res) => {
   const username = req.params.username;
 
   try {
     const query = "SELECT * FROM users WHERE username = TRIM(?)";
     const [rows] = await db.query(query, [username.trim()]);
+
+    console.log(rows);
+
     if (rows.length > 0) {
       return res.status(409).send("Duplicate username.");
     }
@@ -106,6 +113,41 @@ router.get("/:username", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Server error during checkDuplicate:", error);
     res.status(500).send("Server error during checkDuplicate.");
+  }
+});
+
+router.put("/edit-user/:id", authenticateToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).send("Unauthorized user.");
+  }
+
+  const id = req.params.id;
+  const { realname, role } = req.body.userList;
+
+  try {
+    const query = "UPDATE users SET realname = ?, role = ? WHERE id = ?";
+    await db.query(query, [realname, role, id]);
+    res.status(200).send("success");
+  } catch (error) {
+    console.error("Server error during update user:", error);
+    res.status(500).send("Server error during update user.");
+  }
+});
+
+router.delete("/delete-user/:id", authenticateToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).send("Unauthorized user.");
+  }
+
+  const id = req.params.id;
+
+  try {
+    const query = "DELETE FROM users WHERE id = ?";
+    await db.query(query, [id]);
+    res.status(200).send("success");
+  } catch (error) {
+    console.error("Server error during delete user:", error);
+    res.status(500).send("Server error during delete user.");
   }
 });
 
