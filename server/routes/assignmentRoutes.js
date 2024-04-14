@@ -522,15 +522,4 @@ router.delete("/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Get user list
-router.post("/user-list", async (__req, res) => {
-  try {
-    const usersQuery = `SELECT id, username, realname FROM users`;
-    const [users] = await db.query(usersQuery);
-    res.json(users);
-  } catch (error) {
-    handleError(res, "Unable to fetch user list due to server error.", error);
-  }
-});
-
 module.exports = router;

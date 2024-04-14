@@ -421,7 +421,11 @@ export default {
 
     fetchUserList() {
       this.$axios
-        .post("/api/assignments/user-list")
+        .get("/api/auth/user-list/", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
         .then((response) => {
           this.userList = response.data;
         })

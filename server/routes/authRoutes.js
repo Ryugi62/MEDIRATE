@@ -1,23 +1,16 @@
 const express = require("express");
-const router = express.Router();
-const db = require("../db"); // 데이터베이스 설정 확인
+const db = require("../db");
 const jwt = require("jsonwebtoken");
-require("dotenv").config(); // 환경 변수 로드
-
 const authenticateToken = require("../jwt");
 
-/**
- * 제공된 비밀번호와 저장된 해시를 비교합니다.
- * 실제 프로덕션 사용을 위해 이 부분을 실제 비밀번호 검증 로직으로 교체해야 합니다.
- */
+const router = express.Router();
+require("dotenv").config();
+
 function verifyPassword(inputPassword, storedHash) {
-  // 실제 비밀번호 검증 로직을 여기에 구현
+  // Replace this with your actual password verification logic
   return inputPassword === storedHash;
 }
 
-/**
- * 로그인 시도를 처리합니다.
- */
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -34,23 +27,19 @@ router.post("/login", async (req, res) => {
       return res.status(401).send("Invalid username or password.");
     }
 
-    // JWT 생성
     const token = jwt.sign(
       { id: user.id, username: user.username.trim() },
       process.env.JWT_SECRET,
-      // 만료 5초로 설정
-      // { expiresIn: "1h" }
       { expiresIn: "2h" }
     );
 
-    // 사용자 정보와 JWT 함께 반환
     const userWithoutPassword = {
       username: user.username.trim(),
       realname: user.realname,
       organization: user.organization,
       role: user.role,
-      token: token, // JWT 추가
-      isAdministrator: user.role === "admin" ? true : false,
+      token: token,
+      isAdministrator: user.role === "admin",
     };
 
     res.status(200).json(userWithoutPassword);
@@ -60,16 +49,12 @@ router.post("/login", async (req, res) => {
   }
 });
 
-/**
- * 로그아웃을 처리하고 로그인 페이지로 리다이렉트합니다.
- */
 router.get("/logout", (req, res) => {
-  // 세션 사용자가 있는 경우 세션을 파괴하고 로그인 페이지로 리다이렉트
   if (req.session.user) {
     req.session.destroy((err) => {
       if (err) {
-        console.error("로그아웃 오류:", err);
-        return res.status(500).send("로그아웃 오류.");
+        console.error("Logout error:", err);
+        return res.status(500).send("Logout error.");
       }
       res.redirect("/login");
     });
@@ -78,24 +63,6 @@ router.get("/logout", (req, res) => {
   }
 });
 
-// checkDuplicate
-router.get("/:username", authenticateToken, async (req, res) => {
-  const username = req.params.username;
-
-  try {
-    const query = "SELECT * FROM users WHERE username = TRIM(?)";
-    const [rows] = await db.query(query, [username.trim()]);
-    if (rows.length > 0) {
-      return res.status(409).send("Duplicate username.");
-    }
-    res.status(200).send("success");
-  } catch (error) {
-    console.error("Server error during checkDuplicate:", error);
-    res.status(500).send("Server error during checkDuplicate.");
-  }
-});
-
-// 회원가입
 router.post("/register", authenticateToken, async (req, res) => {
   const { username, password, realname, role } = req.body;
 
@@ -111,6 +78,34 @@ router.post("/register", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Server error during register:", error);
     res.status(500).send("Server error during register.");
+  }
+});
+
+router.get("/user-list", authenticateToken, async (__req, res) => {
+  try {
+    const usersQuery = `SELECT id, username, realname FROM users`;
+    const [users] = await db.query(usersQuery);
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Unable to fetch user list due to server error:", error);
+    res.status(500).send("Unable to fetch user list due to server error.");
+  }
+});
+
+router.get("/:username", authenticateToken, async (req, res) => {
+  const username = req.params.username;
+
+  try {
+    const query = "SELECT * FROM users WHERE username = TRIM(?)";
+    const [rows] = await db.query(query, [username.trim()]);
+    if (rows.length > 0) {
+      return res.status(409).send("Duplicate username.");
+    }
+    res.status(200).send("success");
+  } catch (error) {
+    console.error("Server error during checkDuplicate:", error);
+    res.status(500).send("Server error during checkDuplicate.");
   }
 });
 
