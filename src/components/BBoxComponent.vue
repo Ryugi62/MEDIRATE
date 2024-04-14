@@ -109,14 +109,27 @@ export default {
           });
           this.aiSquares = response.data;
           this.aiFirst = true;
-          console.log(this.aiSquares);
         } catch (error) {
+          selectedIcon = this.iconList.find(
+            (icon) => icon.name === "fa-square"
+          );
+
+          this.aiSquares = [];
+          this.aiFirst = false;
+
+          alert(
+            "서버와의 통신에 실패했습니다.\n파일이 존재하는지 확인해주세요."
+          );
+
           console.error(error);
         }
       }
 
       this.resizeCanvas();
-      this.iconList.forEach((icon) => (icon.active = icon === selectedIcon));
+      this.iconList = this.iconList.map((icon) => {
+        icon.active = icon === selectedIcon;
+        return icon;
+      });
     },
 
     async loadBackgroundImage() {
@@ -417,6 +430,7 @@ export default {
   watch: {
     src(newVal, oldVal) {
       if (newVal !== oldVal) this.loadBackgroundImage();
+      if (this.AIActive) this.activateIcon(this.iconList[3]);
     },
 
     isSliderActive() {
