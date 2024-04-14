@@ -1,16 +1,15 @@
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
+const fs = require("fs");
 
 const router = express.Router();
 
-// Common error handling function
 const handleError = (res, message, error) => {
   console.error(message, error);
   res.status(500).send(message);
 };
 
-// Create assignment
 router.post("/", authenticateToken, async (req, res) => {
   const {
     title,
@@ -73,7 +72,28 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-// List assignments for a user
+router.get("/ai", authenticateToken, async (req, res) => {
+  try {
+    const { src, assignmentType, questionIndex } = req.query;
+
+    const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
+
+    const jsonContent = fs.readFileSync(
+      `./assets/${assignmentType}/${jsonSrc}`,
+      "utf8"
+    );
+
+    const AI_BBIX = JSON.parse(jsonContent).annotation.map((annotation) => {
+      const [x, y] = annotation.bbox;
+      return { x, y, questionIndex: Number(questionIndex) };
+    });
+
+    res.json(AI_BBIX);
+  } catch (error) {
+    handleError(res, "Error fetching AI assignment", error);
+  }
+});
+
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -110,7 +130,7 @@ router.get("/", authenticateToken, async (req, res) => {
             FROM squares_info 
             WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?)`;
           const [squares] = await db.query(squaresQuery, [id, userId]);
-          assignment.completed = assignment.completed + squares.length;
+          assignment.completed += squares.length;
         }
       })
     );
@@ -125,11 +145,12 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Assignment details
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const userId = req.user.id;
+
+    console.log("assignmentId", assignmentId);
 
     const assignmentQuery = `
       SELECT 
@@ -138,7 +159,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         u.realname AS studentName,
         a.deadline AS Deadline,
         a.selection_type AS selectionType,
-        a.assignment_mode AS assignmentMode
+        a.assignment_mode AS assignmentMode,
+        a.assignment_type AS assignmentType
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
@@ -405,14 +427,16 @@ const createCanvasForUsers = async (assignmentId, users) => {
   );
 };
 
-const updateAssignment = async ({
-  assignmentId,
-  title,
-  deadline,
-  assignment_type,
-  selection_type,
-  mode,
-}) => {
+const updateAssignment = async (params) => {
+  const {
+    assignmentId,
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    mode,
+  } = params;
+
   const updateQuery = `
     UPDATE assignments
     SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?

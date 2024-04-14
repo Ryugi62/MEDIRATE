@@ -32,6 +32,8 @@ export default {
     squares: { type: Array, required: true, default: () => [] },
     src: { type: String, required: true, default: "" },
     questionIndex: { type: Number, required: true, default: 0 },
+    assignmentType: { type: String, required: true, default: "" },
+    assignmentIndex: { type: Number, required: true, default: 0 },
   },
 
   data() {
@@ -44,6 +46,8 @@ export default {
       ],
       localBeforeCanvas: {},
       localSquares: [],
+      aiSquares: [],
+      aiFirst: true,
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -54,6 +58,11 @@ export default {
     eraserActive() {
       return this.iconList.some(
         (icon) => icon.name === "fa-eraser" && icon.active
+      );
+    },
+    AIActive() {
+      return this.iconList.some(
+        (icon) => icon.name === "fa-robot" && icon.active
       );
     },
     isSliderActive() {
@@ -70,7 +79,7 @@ export default {
       this.localSquares = this.squares;
     },
 
-    activateIcon(selectedIcon) {
+    async activateIcon(selectedIcon) {
       if (selectedIcon.name === "fa-circle-minus") {
         if (!confirm("정말로 모든 사각형을 삭제하시겠습니까?")) return;
 
@@ -86,8 +95,28 @@ export default {
         this.activateIcon(squareIcon);
 
         return;
+      } else if (selectedIcon.name === "fa-robot") {
+        const AI_DATA = await this.$axios
+          .get("/api/assignments/ai/", {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+            params: {
+              src: this.src.split("/").pop(),
+              assignmentType: this.assignmentType,
+              questionIndex: this.questionIndex,
+            },
+          })
+          .then((res) => res.data)
+          .catch((err) => console.error(err));
+
+        this.aiSquares = AI_DATA;
+        this.aiFirst = true;
+
+        console.log(this.aiSquares);
       }
 
+      this.resizeCanvas();
       this.iconList.forEach((icon) => (icon.active = icon === selectedIcon));
     },
 
@@ -170,10 +199,13 @@ export default {
 
       this.drawBackgroundImage();
       await this.setSquaresPosition(beforePosition);
+      await this.setAiSquarePosition(beforePosition);
       this.redrawSquares();
     },
 
     setSquaresPosition(beforePosition) {
+      if (!this.localSquares.length) return;
+
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
@@ -184,6 +216,27 @@ export default {
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
       });
+    },
+
+    setAiSquarePosition(beforePosition) {
+      if (!this.aiSquares.length) return;
+
+      if (this.aiFirst)
+        beforePosition = this.calculateImagePosition(
+          this.originalWidth,
+          this.originalHeight
+        );
+
+      const { width, height } = this.$refs.canvas;
+      const currentPosition = this.calculateImagePosition(width, height);
+      const scaleRatio = currentPosition.scale / beforePosition.scale;
+      this.aiSquares.forEach((square) => {
+        square.x =
+          (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
+        square.y =
+          (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
+      });
+      this.aiFirst = false;
     },
 
     handleCanvasClick(event) {
@@ -223,10 +276,18 @@ export default {
       this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
+      if (this.AIActive) {
+        this.aiSquares.forEach((square) => {
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#00FF00";
+          ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+        });
+      }
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "red";
+        // 밝은 빨간색
+        ctx.strokeStyle = "#FF0000";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
 

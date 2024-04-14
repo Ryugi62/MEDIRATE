@@ -98,6 +98,8 @@
         :questionIndex="activeQuestionId"
         :squares="currentAssignmentDetails.squares"
         :beforeCanvas="currentAssignmentDetails.beforeCanvas"
+        :assignmentType="currentAssignmentDetails.assignmentType"
+        :assignmentIndex="currentAssignmentDetails.id"
         @update:squares="currentAssignmentDetails.squares = $event"
       />
     </div>
@@ -161,8 +163,6 @@ export default {
           }
         );
         this.currentAssignmentDetails = response.data;
-
-        console.log(this.currentAssignmentDetails);
 
         const score = this.currentAssignmentDetails.score || 0;
         this.currentAssignmentDetails.score = score;
