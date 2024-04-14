@@ -96,8 +96,8 @@ export default {
 
         return;
       } else if (selectedIcon.name === "fa-robot") {
-        const AI_DATA = await this.$axios
-          .get("/api/assignments/ai/", {
+        try {
+          const response = await this.$axios.get("/api/assignments/ai/", {
             headers: {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
             },
@@ -106,14 +106,13 @@ export default {
               assignmentType: this.assignmentType,
               questionIndex: this.questionIndex,
             },
-          })
-          .then((res) => res.data)
-          .catch((err) => console.error(err));
-
-        this.aiSquares = AI_DATA;
-        this.aiFirst = true;
-
-        console.log(this.aiSquares);
+          });
+          this.aiSquares = response.data;
+          this.aiFirst = true;
+          console.log(this.aiSquares);
+        } catch (error) {
+          console.error(error);
+        }
       }
 
       this.resizeCanvas();
@@ -121,15 +120,20 @@ export default {
     },
 
     async loadBackgroundImage() {
-      const img = await this.createImage(this.src);
-      this.setBackgroundImage(img);
-      this.resizeCanvas();
+      try {
+        const img = await this.createImage(this.src);
+        this.setBackgroundImage(img);
+        this.resizeCanvas();
+      } catch (error) {
+        console.error(error);
+      }
     },
 
     createImage(src) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
+        img.onerror = (error) => reject(error);
         img.src = src;
       });
     },
@@ -221,21 +225,24 @@ export default {
     setAiSquarePosition(beforePosition) {
       if (!this.aiSquares.length) return;
 
-      if (this.aiFirst)
+      if (this.aiFirst) {
         beforePosition = this.calculateImagePosition(
           this.originalWidth,
           this.originalHeight
         );
+      }
 
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
+
       this.aiSquares.forEach((square) => {
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
       });
+
       this.aiFirst = false;
     },
 
@@ -276,6 +283,7 @@ export default {
       this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
+
       if (this.AIActive) {
         this.aiSquares.forEach((square) => {
           ctx.lineWidth = 3;
@@ -283,10 +291,10 @@ export default {
           ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
         });
       }
+
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2.5;
-        // 밝은 빨간색
         ctx.strokeStyle = "#FF0000";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
@@ -308,10 +316,6 @@ export default {
         x: (clientX - left) * (canvas.width / width),
         y: (clientY - top) * (canvas.height / height),
       };
-    },
-
-    isSquareClicked({ x, y }, mouseX, mouseY) {
-      return Math.abs(x - mouseX) <= 10 && Math.abs(y - mouseY) <= 10;
     },
 
     handleCanvasMouseMove(event) {
