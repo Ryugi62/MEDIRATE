@@ -50,7 +50,7 @@ export default {
         },
         {
           name: "회원 관리",
-          paths: ["/add-user"],
+          paths: ["/user-management"],
           isAdmin: true,
         },
       ],

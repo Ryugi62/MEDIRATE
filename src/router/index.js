@@ -11,7 +11,7 @@ import EvaluationView from "../views/EvaluationView.vue";
 import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
-import AddUserView from "../views/AddUserView.vue";
+import UserManagementView from "../views/UserManagementView.vue";
 
 const routes = [
   {
@@ -86,9 +86,9 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: "/add-user",
-    name: "add-user",
-    component: AddUserView,
+    path: "/user-management",
+    name: "user-management",
+    component: UserManagementView,
     meta: { requiresAuth: true },
   },
   {
