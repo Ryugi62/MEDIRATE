@@ -117,9 +117,7 @@ export default {
           this.aiSquares = [];
           this.aiFirst = false;
 
-          alert(
-            "서버와의 통신에 실패했습니다.\n파일이 존재하는지 확인해주세요."
-          );
+          alert("AI 데이터 파일이 존재하는지 확인해주세요.");
 
           console.error(error);
         }
