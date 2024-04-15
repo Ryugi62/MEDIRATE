@@ -15,6 +15,10 @@
         ref="canvas"
         @click="handleCanvasClick"
         @mousemove="handleCanvasMouseMove"
+        @mouseleave="handleCanvasMouseLeave"
+        @mouseenter="redrawSquares"
+        @contextmenu.prevent
+        @contextmenu="redrawSquares"
       ></canvas>
     </div>
     <div class="bbox-component__footer">
@@ -350,6 +354,14 @@ export default {
         ctx.strokeStyle = "blue";
         ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 20, 20);
       }
+    },
+
+    handleCanvasMouseLeave() {
+      const canvas = this.$refs.canvas;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      this.redrawSquares();
     },
 
     activeEnlarge(event) {
