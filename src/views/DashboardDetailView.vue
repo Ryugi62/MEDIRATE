@@ -62,10 +62,10 @@
                     :key="person.name"
                   >
                     {{
-                      getOverlapSquares(
+                      getAllOverlapSquares(
                         person.questions[index].questionId,
                         overlapDeepest + 1
-                      )
+                      ).length
                     }}
                   </td>
                 </tr>
@@ -92,7 +92,6 @@
               </tfoot>
             </table>
           </div>
-
           <div class="image-box">
             <component
               :is="
@@ -111,7 +110,6 @@
       </div>
     </div>
   </div>
-
   <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
@@ -125,10 +123,12 @@ import JSZip from "jszip";
 
 export default {
   name: "DashboardDetailView",
+
   components: {
     ImageComponent,
     BBoxViewerComponent,
   },
+
   data() {
     return {
       data: [],
@@ -164,12 +164,10 @@ export default {
             },
           }
         );
-
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
-
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
           squares: person.squares,
@@ -191,7 +189,6 @@ export default {
         )
       )
         return;
-
       try {
         await this.$axios.delete(`/api/assignments/${this.assignmentId}`, {
           headers: {
@@ -213,16 +210,19 @@ export default {
         (s) => s.questionIndex === questionID
       );
       const squares = [];
-
       originalSquares.forEach((square) => {
         const count =
-          originalSquares.filter(
-            (s) =>
-              Math.abs(s.x - square.x) <= 5 &&
-              Math.abs(s.y - square.y) <= 5 &&
-              s.user_id !== square.user_id
-          ).length + 1;
-
+          originalSquares
+            .filter(
+              (s) =>
+                Math.abs(s.x - square.x) <= 5 &&
+                Math.abs(s.y - square.y) <= 5 &&
+                s.user_id !== square.user_id
+            )
+            .filter(
+              (s, index, self) =>
+                index === self.findIndex((ss) => ss.user_id === s.user_id)
+            ).length + 1;
         if (
           count === overlapDeepest &&
           !squares.some(
@@ -235,7 +235,6 @@ export default {
           squares.push(square);
         }
       });
-
       return squares.length;
     },
 
@@ -244,38 +243,42 @@ export default {
         (s) => s.questionIndex === questionID
       );
       const squares = [];
-
       originalSquares.forEach((square) => {
         const count =
-          originalSquares.filter(
-            (s) =>
-              Math.abs(s.x - square.x) <= 5 &&
-              Math.abs(s.y - square.y) <= 5 &&
-              s.user_id !== square.user_id
-          ).length + 1;
-
+          originalSquares
+            .filter(
+              (s) =>
+                Math.abs(s.x - square.x) <= 5 &&
+                Math.abs(s.y - square.y) <= 5 &&
+                s.user_id !== square.user_id
+            )
+            .filter(
+              (s, index, self) =>
+                index === self.findIndex((ss) => ss.user_id === s.user_id)
+            ).length + 1;
         if (count === overlapDeepest) {
-          const image = new Image();
-          image.src = this.activeImageUrl;
-          const { width, height } = image;
-
-          const canvas = this.$el.querySelector("canvas");
-
-          const imagePosition = this.calculateImagePosition(
-            canvas.width,
-            canvas.height,
-            width,
-            height
-          );
-
-          const x = square.x - imagePosition.x;
-          const y = square.y - imagePosition.y;
-
-          squares.push([x, y, 20, 20]);
+          squares.push([square.x, square.y, 20, 20, square.user_id]);
         }
       });
-
       return squares;
+    },
+
+    AiTest(aiData = [], questionID, overlapDeepest) {
+      const originalSquares = this.tempSquares.filter(
+        (s) => s.questionIndex === questionID
+      );
+      const matchedSquares = originalSquares.filter((square) => {
+        return aiData.filter(
+          (ai) =>
+            Math.abs(ai.x - square.x) <= 5 && Math.abs(ai.y - square.y) <= 5
+        );
+      });
+      matchedSquares.forEach((square) => {
+        const count =
+          matchedSquares.filter((s) => s.user_id !== square.user_id).length + 1;
+        return count === overlapDeepest;
+      });
+      return matchedSquares;
     },
 
     calculateImagePosition(
@@ -290,15 +293,40 @@ export default {
       );
       const x = (canvasWidth - originalWidth * scale) / 2;
       const y = (canvasHeight - originalHeight * scale) / 2;
-
       return { x, y, scale };
     },
 
     async exportToExcel() {
+      const aiData = await this.$axios
+        .get(`/api/assignments/${this.assignmentId}/ai/`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((res) => res.data);
+      this.data[0].questions.forEach((q) => {
+        const filterAiData = aiData.filter(
+          (ai) => ai.questionIndex === q.questionId
+        );
+        if (!filterAiData.length) return;
+        const img = new Image();
+        img.src = q.questionImage;
+        const { width, height } = document.querySelector("canvas");
+        const currentPosition = this.calculateImagePosition(
+          width,
+          height,
+          img.width,
+          img.height
+        );
+        const scaleRatio = currentPosition.scale / 1;
+        aiData.forEach((square) => {
+          square.x = (square.x - 0) * scaleRatio + currentPosition.x;
+          square.y = (square.y - 0) * scaleRatio + currentPosition.y;
+        });
+      });
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
-
       const columns = [
         { header: "문제 번호", key: "questionNumber", width: 10 },
         ...this.data.map((user) => ({
@@ -307,30 +335,49 @@ export default {
           width: 15,
         })),
       ];
-
       if (this.assignmentMode === "BBox") {
-        for (let i = 1; i <= this.data.length; i++) {
-          columns.push({ header: `+${i}`, key: `overlap${i}`, width: 10 });
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({ header: `+${i}인`, key: `overlap${i}`, width: 10 });
         }
-
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({ header: `${i}일치`, key: `matched${i}`, width: 10 });
+        }
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({
+            header: `+${i}불일치`,
+            key: `unmatched${i}`,
+            width: 10,
+          });
+        }
         columns.push({ header: "Json", key: "json", width: 15 });
       }
-
       worksheet.columns = columns;
-
       this.data[0].questions.forEach((question, qIndex) => {
         const questionImageFileName = question.questionImage.split("/").pop();
         const row = { questionNumber: questionImageFileName };
-
         this.data.forEach((user) => {
           row[user.name] = user.questions[qIndex].questionSelection;
         });
-
         if (this.assignmentMode === "BBox") {
           for (let i = 1; i <= this.data.length; i++) {
             row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
           }
-
+          for (let i = 1; i <= this.data.length; i++) {
+            row[`matched${i}`] = this.AiTest(
+              aiData,
+              question.questionId,
+              i,
+              true
+            ).length;
+          }
+          for (let i = 1; i <= this.data.length; i++) {
+            row[`unmatched${i}`] = this.AiTest(
+              aiData,
+              question.questionId,
+              i,
+              false
+            ).length;
+          }
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
             annotation: this.getAllOverlapSquares(
@@ -339,24 +386,19 @@ export default {
             ),
           });
         }
-
         worksheet.addRow(row);
       });
-
       worksheet.getRow(1).font = { bold: true };
-
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-
       saveAs(blob, "assignment_responses.xlsx");
     },
 
     async exportImage() {
       const questionList = [...this.data[0].questions];
       const imgList = [];
-
       await Promise.all(
         questionList.map(async (question) => {
           // 해당 문제에서 this.sliderValue만큼의 인원이 겹치는 사각형들을 imgList에 추가
@@ -364,30 +406,23 @@ export default {
             question.questionId,
             Number(this.sliderValue)
           );
-
           if (squares.length) imgList.push(squares);
         })
       );
-
       // 이미지 리스트에 있는 이미지들을 하나로 합쳐서 압축파일로 다운로드
       const zip = new JSZip();
-
       await Promise.all(
         imgList.map(async (__squares, index) => {
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
-
           const image = new Image();
           image.crossOrigin = "Anonymous"; // Add this line to enable cross-origin access
           image.src = this.activeImageUrl;
-
           await new Promise((resolve) => {
             image.onload = () => {
               canvas.width = image.width;
               canvas.height = image.height;
-
               ctx.drawImage(image, 0, 0);
-
               canvas.toBlob((blob) => {
                 zip.file(`image_${index + 1}.png`, blob);
                 resolve();
@@ -396,10 +431,8 @@ export default {
           });
         })
       );
-
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, "images.zip");
-
       alert("이미지 다운로드가 완료되었습니다.");
     },
 
@@ -413,11 +446,11 @@ export default {
       return this.assignmentMode === "BBox" ? this.colorList[index] : {};
     },
   },
+
   computed: {
     completionPercentage() {
       if (this.assignmentMode === "TextBox") {
         if (!this.data.length) return "0%";
-
         const totalAnswered = this.data.reduce(
           (acc, user) => acc + user.answeredCount,
           0
@@ -427,7 +460,6 @@ export default {
           0
         );
         const totalQuestions = totalAnswered + totalUnanswered;
-
         return totalQuestions
           ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
           : "0%";
@@ -436,7 +468,6 @@ export default {
           this.activeQuestionIndex,
           Number(this.sliderValue)
         ).length;
-
         return count.toString();
       }
     },
