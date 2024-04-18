@@ -373,7 +373,7 @@ export default {
         }
         for (let i = this.data.length; i >= 1; i--) {
           columns.push({
-            header: `+${i}불일치`,
+            header: `${i}불일치`,
             key: `unmatched${i}`,
             width: 10,
           });
