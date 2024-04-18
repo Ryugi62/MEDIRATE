@@ -3,7 +3,6 @@
     <div class="bbox-component__body">
       <canvas
         ref="canvas"
-        @click="handleCanvasClick"
         @mousemove="handleCanvasMouseMove"
         @resize="resizeCanvas"
       ></canvas>
@@ -70,7 +69,7 @@ export default {
       this.setBackgroundImage(img);
       this.localBeforeCanvas = { width, height };
 
-      this.userSquaresList.forEach(async (user) => {
+      for (const user of this.userSquaresList) {
         const beforePosition = this.calculateImagePosition(width, height);
         const userBeforePosition = this.calculateImagePosition(
           user.beforeCanvas.width,
@@ -86,7 +85,7 @@ export default {
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
           this.localSquares.push(square);
         }
-      });
+      }
 
       this.originalLocalSquares = [...this.localSquares];
       this.updateSquares([...this.localSquares]);
@@ -96,7 +95,7 @@ export default {
       this.localSquares = [...this.originalLocalSquares];
       const squares = [];
 
-      this.localSquares.forEach((square) => {
+      for (const square of this.localSquares) {
         const overlap = this.localSquares.filter((s) => {
           return (
             Math.abs(s.x - square.x) < 5 &&
@@ -106,7 +105,7 @@ export default {
         });
 
         if (overlap.length + 1 >= this.sliderValue) squares.push(square);
-      });
+      }
 
       this.localSquares = [...squares];
       this.redrawSquares();
@@ -163,7 +162,7 @@ export default {
       return { x, y, scale };
     },
 
-    async resizeCanvas() {
+    resizeCanvas() {
       const canvas = this.$refs.canvas;
       if (!canvas) return;
 
@@ -189,7 +188,7 @@ export default {
       this.localBeforeCanvas.height = canvas.height;
 
       this.drawBackgroundImage();
-      await this.setSquaresPosition(beforePosition);
+      this.setSquaresPosition(beforePosition);
 
       this.redrawSquares();
     },
@@ -199,37 +198,24 @@ export default {
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
 
-      this.localSquares.forEach((square) => {
+      for (const square of this.localSquares) {
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
-      });
-    },
-
-    getClosestSquare(x, y) {
-      return this.localSquares.reduce(
-        (closest, square) => {
-          const distance = Math.hypot(square.x - x, square.y - y);
-          if (distance <= 50 && square.questionIndex === this.questionIndex) {
-            return distance < closest.distance ? { square, distance } : closest;
-          }
-          return closest;
-        },
-        { square: null, distance: Infinity }
-      ).square;
+      }
     },
 
     redrawSquares(event = null) {
       this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
-      this.localSquares.forEach((square) => {
-        if (square.questionIndex !== this.questionIndex) return;
+      for (const square of this.localSquares) {
+        if (square.questionIndex !== this.questionIndex) continue;
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = square.color;
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
-      });
+      }
 
       if (event) {
         this.activeEnlarge(event);
@@ -249,26 +235,7 @@ export default {
     },
 
     handleCanvasMouseMove(event) {
-      const canvas = this.$refs.canvas;
-      const ctx = canvas.getContext("2d");
-      const { x, y } = this.getCanvasCoordinates(event);
-      const closestSquare = this.getClosestSquare(x, y);
-
       this.redrawSquares(event);
-
-      if (closestSquare && this.eraserActive) {
-        this.localSquares.forEach((square) => {
-          if (square.questionIndex === this.questionIndex) {
-            ctx.lineWidth = 2.5;
-            ctx.strokeStyle = "red";
-            ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
-          }
-        });
-
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 20, 20);
-      }
     },
 
     activeEnlarge(event) {
