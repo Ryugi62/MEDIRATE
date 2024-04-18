@@ -212,13 +212,15 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     let squares = [];
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id as questionIndex FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
       const [squaresResult] = await db.query(squaresQuery, [
         canvas[0].id,
         userId,
       ]);
       squares = squaresResult;
     }
+
+    console.log(squares);
 
     const squareQuestionIndex = squares.map((square) => square.questionIndex);
     const uniqueSquareQuestionIndex = [...new Set(squareQuestionIndex)];
@@ -345,14 +347,18 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       await Promise.all(
         squares.map(async (square) => {
           const insertSquareQuery = `
-              INSERT INTO squares_info (canvas_id, x, y, question_id, user_id)
-              VALUES (?, ?, ?, ?, ?)`;
+              INSERT INTO squares_info (canvas_id, x, y, question_id, user_id, isAI)
+              VALUES (?, ?, ?, ?, ?, ?)`;
+
+          console.log("square", square.isAI ? 1 : 0);
+
           await db.query(insertSquareQuery, [
             beforeCanvas.id,
             square.x,
             square.y,
             square.questionIndex,
             req.user.id,
+            square.isAI ? 1 : 0,
           ]);
         })
       );
