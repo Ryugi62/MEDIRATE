@@ -64,11 +64,7 @@ export default {
         (icon) => icon.name === "fa-eraser" && icon.active
       );
     },
-    AIActive() {
-      return this.iconList.some(
-        (icon) => icon.name === "fa-robot" && icon.active
-      );
-    },
+
     isSliderActive() {
       return this.$store.getters.isSlideBarOpen;
     },
@@ -111,12 +107,10 @@ export default {
               questionIndex: this.questionIndex,
             },
           });
-          this.aiSquares = response.data;
-          console.log(this.aiSquares);
+
+          this.aiSquares = response.data.map((e) => ({ ...e, isAI: true }));
 
           this.setAiSquarePosition();
-          console.log(this.localSquares);
-
           this.localSquares = this.localSquares.concat(this.aiSquares);
           this.$emit("update:squares", this.localSquares);
           this.redrawSquares();
@@ -135,10 +129,10 @@ export default {
       }
 
       this.resizeCanvas();
-      this.iconList = this.iconList.map((icon) => {
-        icon.active = icon === selectedIcon;
-        return icon;
-      });
+      this.iconList = this.iconList.map((icon) => ({
+        ...icon,
+        active: icon === selectedIcon,
+      }));
     },
 
     async loadBackgroundImage() {
@@ -303,18 +297,10 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
-      if (this.AIActive) {
-        this.aiSquares.forEach((square) => {
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = "#00FF00";
-          ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
-        });
-      }
-
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "#FF0000";
+        ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
       });
 
@@ -349,7 +335,7 @@ export default {
         this.localSquares.forEach((square) => {
           if (square.questionIndex === this.questionIndex) {
             ctx.lineWidth = 2.5;
-            ctx.strokeStyle = "red";
+            ctx.strokeStyle = square.isAI ? "yellow" : "red";
             ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
           }
         });
@@ -444,7 +430,6 @@ export default {
   watch: {
     src(newVal, oldVal) {
       if (newVal !== oldVal) this.loadBackgroundImage();
-      if (this.AIActive) this.activateIcon(this.iconList[3]);
     },
 
     isSliderActive() {
