@@ -108,6 +108,7 @@ const createTablesSQL = {
         x INT NOT NULL,
         y INT NOT NULL,
         user_id INT,
+        isAI TINYINT(1) DEFAULT 0,
         FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
         FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
