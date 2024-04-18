@@ -245,6 +245,8 @@ export default {
         this.originalHeight
       );
 
+      console.log(beforePosition);
+
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;

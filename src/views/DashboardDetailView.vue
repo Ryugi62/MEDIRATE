@@ -62,10 +62,10 @@
                     :key="person.name"
                   >
                     {{
-                      getAllOverlapSquares(
-                        person.questions[index].questionId,
-                        overlapDeepest + 1
-                      ).length
+                      getOverlapSquares(
+                        item.questionId,
+                        Number(overlapDeepest) + 1
+                      )
                     }}
                   </td>
                 </tr>
@@ -263,22 +263,51 @@ export default {
       return squares;
     },
 
-    AiTest(aiData = [], questionID, overlapDeepest) {
+    AiTest(aiData = [], questionID, overlapDeepest, isMatched = true) {
+      if (!aiData.length) return [];
+
+      aiData = aiData.filter((ai) => ai.questionIndex === questionID);
+
       const originalSquares = this.tempSquares.filter(
         (s) => s.questionIndex === questionID
       );
-      const matchedSquares = originalSquares.filter((square) => {
-        return aiData.filter(
-          (ai) =>
+
+      const potentialMatches = originalSquares.reduce((acc, square) => {
+        const hasMatch = aiData.some((ai) => {
+          return (
             Math.abs(ai.x - square.x) <= 5 && Math.abs(ai.y - square.y) <= 5
-        );
-      });
-      matchedSquares.forEach((square) => {
+          );
+        });
+
+        if (hasMatch === isMatched) {
+          acc.push(square);
+        }
+
+        return acc;
+      }, []);
+
+      const squares = [];
+      potentialMatches.forEach((square) => {
         const count =
-          matchedSquares.filter((s) => s.user_id !== square.user_id).length + 1;
-        return count === overlapDeepest;
+          potentialMatches
+            .filter((s) => {
+              return (
+                Math.abs(s.x - square.x) <= 5 &&
+                Math.abs(s.y - square.y) <= 5 &&
+                s.user_id !== square.user_id
+              );
+            })
+            .filter(
+              (s, index, self) =>
+                index === self.findIndex((ss) => ss.user_id === s.user_id)
+            ).length + 1; // Include the current square in the count
+
+        if (count === overlapDeepest) {
+          squares.push(square);
+        }
       });
-      return matchedSquares;
+
+      return squares;
     },
 
     calculateImagePosition(

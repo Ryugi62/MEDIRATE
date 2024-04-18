@@ -83,12 +83,55 @@ router.get("/ai", authenticateToken, async (req, res) => {
       "utf8"
     );
 
-    const AI_BBIX = JSON.parse(jsonContent).annotation.map((annotation) => {
+    const AI_BBOX = JSON.parse(jsonContent).annotation.map((annotation) => {
       const [x, y] = annotation.bbox;
       return { x, y, questionIndex: Number(questionIndex) };
     });
 
-    res.json(AI_BBIX);
+    res.json(AI_BBOX);
+  } catch (error) {
+    handleError(res, "Error fetching AI assignment", error);
+  }
+});
+
+router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
+  try {
+    const { assigmentId } = req.params;
+
+    console.log("assigmentId", assigmentId);
+
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+    const [questions] = await db.query(questionsQuery, [assigmentId]);
+
+    const assignmentType = questions[0].image.split("/").slice(-2)[0];
+    console.log("assignmentType", assignmentType);
+
+    const AI_BBOX = [];
+
+    questions.forEach((question) => {
+      const jsonSrc = question.image
+        .split("/")
+        .pop()
+        .replace(/\.(jpg|png)/, ".json");
+
+      try {
+        const jsonContent = fs.readFileSync(
+          `./assets/${assignmentType}/${jsonSrc}`,
+          "utf8"
+        );
+
+        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+          const [x, y] = annotation.bbox;
+          return { x, y, questionIndex: question.id };
+        });
+
+        AI_BBOX.push(...bbox);
+      } catch (error) {
+        console.error("Error reading JSON file:", error);
+      }
+    });
+
+    res.json(AI_BBOX || []);
   } catch (error) {
     handleError(res, "Error fetching AI assignment", error);
   }

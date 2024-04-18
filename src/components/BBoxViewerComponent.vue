@@ -96,13 +96,20 @@ export default {
       const squares = [];
 
       for (const square of this.localSquares) {
-        const overlap = this.localSquares.filter((s) => {
-          return (
-            Math.abs(s.x - square.x) < 5 &&
-            Math.abs(s.y - square.y) < 5 &&
-            s.color !== square.color
+        const overlap = this.localSquares
+          .filter((s) => {
+            return (
+              Math.abs(s.x - square.x) < 5 &&
+              Math.abs(s.y - square.y) < 5 &&
+              s.color !== square.color
+            );
+          })
+          .filter(
+            (s, index, self) =>
+              index === self.findIndex((t) => t.color === s.color)
           );
-        });
+
+        console.log(overlap);
 
         if (overlap.length + 1 >= this.sliderValue) squares.push(square);
       }
