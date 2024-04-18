@@ -214,7 +214,10 @@ export default {
         if (square.questionIndex !== this.questionIndex) continue;
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = square.color;
+        ctx.globalAlpha = 0.8;
+        if (square.isAI) ctx.strokeStyle = "yellow";
         ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+        ctx.globalAlpha = 1; // Reset the globalAlpha value
       }
 
       if (event) {
