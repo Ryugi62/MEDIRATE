@@ -112,7 +112,14 @@ export default {
             },
           });
           this.aiSquares = response.data;
-          this.aiFirst = true;
+          console.log(this.aiSquares);
+
+          this.setAiSquarePosition();
+          console.log(this.localSquares);
+
+          this.localSquares = this.localSquares.concat(this.aiSquares);
+          this.$emit("update:squares", this.localSquares);
+          this.redrawSquares();
         } catch (error) {
           selectedIcon = this.iconList.find(
             (icon) => icon.name === "fa-square"
@@ -218,7 +225,6 @@ export default {
 
       this.drawBackgroundImage();
       await this.setSquaresPosition(beforePosition);
-      await this.setAiSquarePosition(beforePosition);
       this.redrawSquares();
     },
 
@@ -237,15 +243,13 @@ export default {
       });
     },
 
-    setAiSquarePosition(beforePosition) {
+    setAiSquarePosition() {
       if (!this.aiSquares.length) return;
 
-      if (this.aiFirst) {
-        beforePosition = this.calculateImagePosition(
-          this.originalWidth,
-          this.originalHeight
-        );
-      }
+      const beforePosition = this.calculateImagePosition(
+        this.originalWidth,
+        this.originalHeight
+      );
 
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
