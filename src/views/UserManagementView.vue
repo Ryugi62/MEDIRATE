@@ -43,10 +43,10 @@
         v-model="newUser.confirmPassword"
         placeholder="비밀번호를 다시 입력하세요."
       />
-      <span v-if="isPasswordMatch === false" class="error-message"
+      <span v-if="isPasswordMatch" class="error-message"
         >비밀번호가 일치하지 않습니다.</span
       >
-      <span v-else-if="isPasswordMatch" class="success-message"
+      <span v-else-if="isPasswordMatch === false" class="success-message"
         >비밀번호가 일치합니다.</span
       >
       <div class="button-container">
