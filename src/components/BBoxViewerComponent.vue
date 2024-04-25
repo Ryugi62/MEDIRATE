@@ -219,6 +219,7 @@ export default {
       const ctx = canvas.getContext("2d");
       for (const square of this.localSquares) {
         if (square.questionIndex !== this.questionIndex) continue;
+        if (square.isAI) continue;
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.8;
