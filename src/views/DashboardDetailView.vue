@@ -493,10 +493,11 @@ export default {
           ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
           : "0%";
       } else {
-        const count = this.getAllOverlapSquares(
+        const count = this.getOverlapSquares(
           this.activeQuestionIndex,
           Number(this.sliderValue)
-        ).length;
+        );
+
         return count.toString();
       }
     },
