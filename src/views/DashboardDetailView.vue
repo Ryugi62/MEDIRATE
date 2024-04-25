@@ -140,7 +140,7 @@ export default {
       activeIndex: 0,
       assignmentMode: "",
       colorList: [
-        { backgroundColor: "#FF6384", color: "white" },
+        { backgroundColor: "#F70101", color: "white" },
         { backgroundColor: "#36A2EB", color: "white" },
         { backgroundColor: "#FF9F40", color: "white" },
         { backgroundColor: "#B2F302", color: "black" },
