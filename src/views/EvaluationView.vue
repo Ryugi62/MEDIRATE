@@ -64,7 +64,7 @@
                 value="TextBox"
                 v-model="assignmentDetails.mode"
               />
-              <label for="field-text-mode">TextBox</label>
+              <label for="field-text-mode">택일형</label>
             </span>
             <span>
               <input

@@ -57,7 +57,7 @@
         <div class="assignment-info">
           <div class="assignment-field mode-field">
             <span>
-              <label for="field-text-mode">TextBox</label>
+              <label for="field-text-mode">택일형</label>
               <input
                 type="radio"
                 id="field-text-mode"
