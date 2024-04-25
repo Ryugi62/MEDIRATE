@@ -130,6 +130,14 @@
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
+
+              <button
+                class="delete-question-button"
+                v-if="activeQuestionId !== null"
+                @click="handlerDeleteQuestion(activeQuestionId)"
+              >
+                삭제
+              </button>
             </div>
           </div>
           <div class="assignment-preview-content">
@@ -173,7 +181,11 @@
             <div class="student-response-image">
               <ImageComponent
                 v-if="activeQuestionId !== null"
-                :src="assignmentDetails.questions[activeQuestionId]?.img"
+                :src="
+                  assignmentDetails.questions.find(
+                    (question) => question.id === activeQuestionId
+                  )?.img
+                "
               />
             </div>
           </div>
@@ -432,6 +444,43 @@ export default {
         .catch((error) => {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
         });
+    },
+
+    handlerDeleteQuestion(questionId) {
+      // Ensure there is a question ID to operate on
+      if (questionId !== null) {
+        // Find the index of the question to be deleted
+        const questionIndex = this.assignmentDetails.questions.findIndex(
+          (question) => question.id === questionId
+        );
+
+        if (questionIndex !== -1) {
+          // Remove the question
+          this.assignmentDetails.questions.splice(questionIndex, 1);
+
+          // Update activeQuestionId to the next question or to null if no more questions
+          if (this.assignmentDetails.questions.length > 0) {
+            if (questionIndex < this.assignmentDetails.questions.length) {
+              // If the deleted question was not the last one, set to next question
+              this.activeQuestionId =
+                this.assignmentDetails.questions[questionIndex].id;
+            } else {
+              // If the deleted question was the last one, set to the new last question
+              this.activeQuestionId =
+                this.assignmentDetails.questions[questionIndex - 1].id;
+            }
+          } else {
+            // If no more questions are left, reset activeQuestionId to null
+            this.activeQuestionId = null;
+          }
+
+          alert("문제가 성공적으로 삭제되었습니다.");
+        } else {
+          alert("삭제할 문제를 찾을 수 없습니다.");
+        }
+      } else {
+        alert("삭제할 문제가 선택되지 않았습니다.");
+      }
     },
   },
 
@@ -707,6 +756,7 @@ hr {
 
 /* 과제 메타데이터 */
 .assignment-metadata {
+  width: 100%;
   display: flex;
   align-items: center;
   padding-left: 16px;
@@ -724,6 +774,12 @@ hr {
 
 .metadata-due-date {
   font-size: 14px;
+}
+
+.delete-question-button {
+  margin-left: auto;
+  margin-right: 16px;
+  background-color: var(--pink);
 }
 
 /* 평가 액션 */

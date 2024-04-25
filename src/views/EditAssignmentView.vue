@@ -130,6 +130,13 @@
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
+              <button
+                class="delete-question-button"
+                v-if="activeQuestionId !== null"
+                @click="handlerDeleteQuestion(activeQuestionId)"
+              >
+                삭제
+              </button>
             </div>
           </div>
           <div class="assignment-preview-content">
@@ -176,7 +183,7 @@
           </div>
           <div class="assignment-save">
             <button @click="saveEditAssignment">저장</button>
-            <button class="delete" @click="deleteAssignment">삭제</button>
+            <!-- <button class="delete" @click="deleteAssignment">삭제</button> -->
           </div>
         </div>
       </div>
@@ -432,13 +439,47 @@ export default {
 
     fetchUserList() {
       this.$axios
-        .post("/api/assignments/user-list")
+        .get("/api/auth/user-list/", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
         .then((response) => {
           this.userList = response.data;
         })
         .catch((error) => {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
         });
+    },
+
+    handlerDeleteQuestion(questionIndex) {
+      // Ensure there is a question ID to operate on
+      if (questionIndex !== null) {
+        if (questionIndex !== -1) {
+          // Remove the question
+          this.assignmentDetails.questions.splice(questionIndex, 1);
+
+          // Update activeQuestionId to the next question or to null if no more questions
+          if (this.assignmentDetails.questions.length > 0) {
+            if (questionIndex < this.assignmentDetails.questions.length) {
+              // If the deleted question was not the last one, set to next question
+              this.activeQuestionId = questionIndex;
+            } else {
+              // If the deleted question was the last one, set to the new last question
+              this.activeQuestionId = questionIndex - 1;
+            }
+          } else {
+            // If no more questions are left, reset activeQuestionId to null
+            this.activeQuestionId = null;
+          }
+
+          alert("문제가 성공적으로 삭제되었습니다.");
+        } else {
+          alert("삭제할 문제를 찾을 수 없습니다.");
+        }
+      } else {
+        alert("삭제할 문제가 선택되지 않았습니다.");
+      }
     },
 
     fetchAssignmentData() {
@@ -753,6 +794,7 @@ hr {
 /* 과제 메타데이터 */
 .assignment-metadata {
   display: flex;
+  width: 100%;
   align-items: center;
   padding-left: 16px;
   gap: 16px;
@@ -769,6 +811,12 @@ hr {
 
 .metadata-due-date {
   font-size: 14px;
+}
+
+.delete-question-button {
+  margin-left: auto;
+  margin-right: 16px;
+  background-color: var(--pink);
 }
 
 /* 평가 액션 */
