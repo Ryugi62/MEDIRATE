@@ -1,6 +1,6 @@
 <template>
   <div v-if="currentAssignmentDetails" class="assignment-detail-view">
-    <h1 class="header-title">과제 평가</h1>
+    <h1 class="header-title">검수 작업</h1>
 
     <div class="assignment-overview">
       <div class="assignment-metadata">
@@ -213,7 +213,7 @@ export default {
           }
         );
         this.isSaving = true;
-        alert("과제 평가가 성공적으로 저장되었습니다!");
+        alert("검수 작업가 성공적으로 저장되었습니다!");
         this.$router.push("/assignment");
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);

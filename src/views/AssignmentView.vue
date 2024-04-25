@@ -1,6 +1,6 @@
 <template>
-  <!-- 과제 평가 제목 -->
-  <h1 class="header-title">과제 평가</h1>
+  <!-- 검수 작업 제목 -->
+  <h1 class="header-title">검수 작업</h1>
 
   <!-- 과제 목록 테이블 -->
   <div class="assignments-table-container">

@@ -484,7 +484,7 @@ export default {
           },
         })
         .then(() => {
-          // 과제 평가 리스트 페이지로 이동
+          // 검수 작업 리스트 페이지로 이동
           this.$router.push({ name: "assignment" });
         })
         .catch((error) => {
