@@ -1,5 +1,8 @@
 <template>
   <div v-if="data.length" class="dashboard">
+    <div v-if="isExporting" class="exporting-message">
+      {{ exportingMessage }}
+    </div>
     <h1 class="title">대시보드</h1>
     <div class="dashboard-content">
       <div class="table-box">
@@ -146,11 +149,15 @@ export default {
       sliderValue: 1,
       userSquaresList: [],
       tempSquares: [],
+      exportingMessageIndex: 0,
+      isExporting: false,
     };
   },
 
   async created() {
     await this.loadData();
+
+    this.startExportingAnimation();
   },
 
   methods: {
@@ -425,43 +432,45 @@ export default {
       saveAs(blob, "assignment_responses.xlsx");
     },
 
+    startExportingAnimation() {
+      this.interval = setInterval(() => {
+        this.exportingMessageIndex++;
+      }, 500); // 0.5초마다 점의 개수 변경
+    },
+    stopExportingAnimation() {
+      clearInterval(this.interval);
+    },
+
     async exportImage() {
-      const questionList = [...this.data[0].questions];
-      const imgList = [];
-      await Promise.all(
-        questionList.map(async (question) => {
-          // 해당 문제에서 this.sliderValue만큼의 인원이 겹치는 사각형들을 imgList에 추가
-          const squares = await this.getAllOverlapSquares(
-            question.questionId,
-            Number(this.sliderValue)
-          );
-          if (squares.length) imgList.push(squares);
-        })
-      );
-      // 이미지 리스트에 있는 이미지들을 하나로 합쳐서 압축파일로 다운로드
+      this.isExporting = true;
+      this.startExportingAnimation();
+
       const zip = new JSZip();
-      await Promise.all(
-        imgList.map(async (__squares, index) => {
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          const image = new Image();
-          image.crossOrigin = "Anonymous"; // Add this line to enable cross-origin access
-          image.src = this.activeImageUrl;
-          await new Promise((resolve) => {
-            image.onload = () => {
-              canvas.width = image.width;
-              canvas.height = image.height;
-              ctx.drawImage(image, 0, 0);
-              canvas.toBlob((blob) => {
-                zip.file(`image_${index + 1}.png`, blob);
-                resolve();
-              });
-            };
-          });
-        })
-      );
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+        image.src = question.questionImage;
+        await new Promise((resolve) => {
+          image.onload = () => {
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+            canvas.toBlob((blob) => {
+              zip.file(`image_${index + 1}.png`, blob);
+              resolve();
+            });
+          };
+        });
+      }
+
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, "images.zip");
+
+      this.isExporting = false;
+      this.stopExportingAnimation();
       alert("이미지 다운로드가 완료되었습니다.");
     },
 
@@ -518,6 +527,13 @@ export default {
         (_, i) => i + 1
       );
       return rangeValues[this.sliderValue - 1] || "";
+    },
+
+    exportingMessage() {
+      // 파일 생성 메시지에 점을 순환적으로 추가
+      const baseMessage = "파일을 생성 중입니다";
+      const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
+      return `${baseMessage}${dots}`;
     },
   },
 };
@@ -634,5 +650,21 @@ td > img {
 
 tfoot > tr > th {
   border: 0;
+}
+
+.exporting-message {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--white);
+  font-size: 24px;
+
+  z-index: 100;
 }
 </style>
