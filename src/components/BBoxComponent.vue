@@ -341,13 +341,13 @@ export default {
           if (square.questionIndex === this.questionIndex) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = square.isAI ? "yellow" : "red";
-            ctx.strokeRect(square.x - 10, square.y - 10, 25, 25);
+            ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
           }
         });
 
         ctx.lineWidth = 2;
         ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 25, 25);
+        ctx.strokeRect(closestSquare.x - 12.5, closestSquare.y - 12.5, 25, 25);
       }
     },
 
