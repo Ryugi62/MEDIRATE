@@ -224,7 +224,7 @@ export default {
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.8;
         if (square.isAI) ctx.strokeStyle = "yellow";
-        ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+        ctx.strokeRect(square.x - 10, square.y - 10, 25, 25);
         ctx.globalAlpha = 1; // Reset the globalAlpha value
       }
 
@@ -310,7 +310,7 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 20;
+      const squareSize = 25;
 
       const cursorX = x - squareSize / 2;
       const cursorY = y - squareSize / 2;

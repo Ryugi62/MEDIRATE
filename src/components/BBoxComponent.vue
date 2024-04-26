@@ -108,7 +108,14 @@ export default {
             },
           });
 
-          this.aiSquares = response.data.map((e) => ({ ...e, isAI: true }));
+          console.log(response.data);
+
+          this.aiSquares = response.data.map((e) => ({
+            x: e.x + 12.5,
+            y: e.y + 12.5,
+            questionIndex: this.questionIndex,
+            isAI: true,
+          }));
 
           this.setAiSquarePosition();
           this.localSquares = this.localSquares.concat(this.aiSquares);
@@ -301,9 +308,9 @@ export default {
 
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
-        ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
       });
 
       if (event) {
@@ -336,15 +343,15 @@ export default {
       if (closestSquare && this.eraserActive) {
         this.localSquares.forEach((square) => {
           if (square.questionIndex === this.questionIndex) {
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 2;
             ctx.strokeStyle = square.isAI ? "yellow" : "red";
-            ctx.strokeRect(square.x - 10, square.y - 10, 20, 20);
+            ctx.strokeRect(square.x - 10, square.y - 10, 25, 25);
           }
         });
 
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 20, 20);
+        ctx.strokeRect(closestSquare.x - 10, closestSquare.y - 10, 25, 25);
       }
     },
 
@@ -406,9 +413,9 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 20;
+      const squareSize = 25;
 
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2;
       ctx.strokeStyle = "orange";
       ctx.strokeRect(
         x - squareSize / 2,
