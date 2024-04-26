@@ -122,6 +122,7 @@ export default {
       activeQuestionImageUrl: "https://via.placeholder.com/1050",
       isFullScreenImage: false,
       isSaving: false,
+      isOut: false,
     };
   },
 
@@ -214,7 +215,7 @@ export default {
         );
         this.isSaving = true;
         alert("검수 작업가 성공적으로 저장되었습니다!");
-        this.$router.push("/assignment");
+        if (!this.isOut) this.$router.push("/assignment");
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
       }
@@ -304,6 +305,7 @@ export default {
       return;
     } else {
       if (confirm("저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?")) {
+        this.isOut = true;
         this.commitAssignmentChanges();
         next();
       } else {
