@@ -336,7 +336,10 @@ export default {
 
   watch: {
     src(newVal, oldVal) {
-      if (newVal !== oldVal) this.loadBackgroundImage();
+      if (newVal !== oldVal) {
+        this.loadBackgroundImage();
+        this.updateSquares([...this.localSquares]);
+      }
     },
 
     isSliderActive() {
