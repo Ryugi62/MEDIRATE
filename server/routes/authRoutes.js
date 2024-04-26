@@ -104,8 +104,6 @@ router.get("/check-user/:username", authenticateToken, async (req, res) => {
     const query = "SELECT * FROM users WHERE username = TRIM(?)";
     const [rows] = await db.query(query, [username.trim()]);
 
-    console.log(rows);
-
     if (rows.length > 0) {
       return res.status(409).send("Duplicate username.");
     }

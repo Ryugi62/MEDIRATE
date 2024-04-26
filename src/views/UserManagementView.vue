@@ -192,8 +192,6 @@ export default {
     },
     saveUser(index) {
       try {
-        console.log(`Bearer ${this.$store.getters.getJwtToken}`);
-
         this.$axios
           .put(
             `/api/auth/edit-user/${this.userList[index].id}`,

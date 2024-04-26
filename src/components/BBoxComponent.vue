@@ -108,8 +108,6 @@ export default {
             },
           });
 
-          console.log(response.data);
-
           this.aiSquares = response.data.map((e) => ({
             x: e.x + 12.5,
             y: e.y + 12.5,
@@ -251,8 +249,6 @@ export default {
         this.originalWidth,
         this.originalHeight
       );
-
-      console.log(beforePosition);
 
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);

@@ -109,8 +109,6 @@ export default {
               index === self.findIndex((t) => t.color === s.color)
           );
 
-        console.log(overlap);
-
         if (overlap.length + 1 >= this.sliderValue) squares.push(square);
       }
 

@@ -98,13 +98,10 @@ router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assigmentId } = req.params;
 
-    console.log("assigmentId", assigmentId);
-
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
     const [questions] = await db.query(questionsQuery, [assigmentId]);
 
     const assignmentType = questions[0].image.split("/").slice(-2)[0];
-    console.log("assignmentType", assignmentType);
 
     const AI_BBOX = [];
 
@@ -193,8 +190,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const { assignmentId } = req.params;
     const userId = req.user.id;
 
-    console.log("assignmentId", assignmentId);
-
     const assignmentQuery = `
       SELECT 
         a.id, 
@@ -262,8 +257,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       ]);
       squares = squaresResult;
     }
-
-    console.log(squares);
 
     const squareQuestionIndex = squares.map((square) => square.questionIndex);
     const uniqueSquareQuestionIndex = [...new Set(squareQuestionIndex)];
@@ -392,8 +385,6 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           const insertSquareQuery = `
               INSERT INTO squares_info (canvas_id, x, y, question_id, user_id, isAI)
               VALUES (?, ?, ?, ?, ?, ?)`;
-
-          console.log("square", square.isAI ? 1 : 0);
 
           await db.query(insertSquareQuery, [
             beforeCanvas.id,
