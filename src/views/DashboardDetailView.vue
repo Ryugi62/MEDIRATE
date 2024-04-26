@@ -536,12 +536,6 @@ export default {
       return `${baseMessage}${dots}`;
     },
   },
-
-  watch: {
-    activeImageUrl() {
-      this.sliderValue = 1;
-    },
-  },
 };
 </script>
 
