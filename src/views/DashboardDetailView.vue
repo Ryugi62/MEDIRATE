@@ -459,7 +459,7 @@ export default {
             canvas.height = image.height;
             ctx.drawImage(image, 0, 0);
             canvas.toBlob((blob) => {
-              zip.file(`image_${index + 1}.png`, blob);
+              zip.file(`${question.questionImage.split("/").pop()}`, blob);
               resolve();
             });
           };
