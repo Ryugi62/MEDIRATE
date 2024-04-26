@@ -114,6 +114,7 @@ export default {
 
       this.localSquares = [...squares];
       this.redrawSquares();
+      this.updateSquares([...this.localSquares]);
     },
 
     async loadBackgroundImage() {
