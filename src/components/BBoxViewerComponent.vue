@@ -5,6 +5,7 @@
         ref="canvas"
         @mousemove="handleCanvasMouseMove"
         @resize="resizeCanvas"
+        @mouseleave="redrawSquares"
       ></canvas>
     </div>
     <div class="bbox-component__footer">
@@ -227,6 +228,9 @@ export default {
       }
 
       if (event) {
+        if (event.type === "mouseleave") {
+          return; // Exit the method without drawing zoom and cursor parts
+        }
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
