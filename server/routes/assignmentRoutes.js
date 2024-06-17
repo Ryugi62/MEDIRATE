@@ -245,7 +245,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       .split(",")
       .map((s) => s.trim());
 
-    const canvasQuery = `SELECT id, width, height FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
+    const canvasQuery = `SELECT id, width, height, lastQuestionIndex FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = [];
@@ -340,7 +340,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
 
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId;
-  const { questions, beforeCanvas, squares } = req.body;
+  const { questions, beforeCanvas, squares, lastQuestionIndex } = req.body;
 
   try {
     await Promise.all(
@@ -366,11 +366,12 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     if (beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
       const updateCanvasQuery = `
         UPDATE canvas_info
-        SET width = ?, height = ?
+        SET width = ?, height = ?, lastQuestionIndex = ?
         WHERE assignment_id = ? AND user_id = ?`;
       await db.query(updateCanvasQuery, [
         beforeCanvas.width,
         beforeCanvas.height,
+        lastQuestionIndex,
         assignmentId,
         req.user.id,
       ]);

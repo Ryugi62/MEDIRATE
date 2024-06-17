@@ -96,6 +96,7 @@ const createTablesSQL = {
         assignment_id INT,
         width INT NOT NULL,
         height INT NOT NULL,
+        lastQuestionIndex INT NOT NULL DEFAULT 1,
         user_id INT,
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

@@ -178,7 +178,8 @@ export default {
 
         this.activeQuestionImageUrl =
           this.currentAssignmentDetails.questions[0].image;
-        this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
+        this.activeQuestionId =
+          this.currentAssignmentDetails.beforeCanvas.lastQuestionIndex;
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
@@ -201,6 +202,7 @@ export default {
         })),
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
+        lastQuestionIndex: this.activeQuestionId,
       };
 
       try {
