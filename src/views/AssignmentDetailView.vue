@@ -54,7 +54,10 @@
               v-for="(question, idx) in currentAssignmentDetails.questions"
               :key="question.id"
               @click="onRowClick(question, idx)"
-              :class="{ active: question.id === activeQuestionId }"
+              :class="{
+                active: question.id === activeQuestionId,
+                isInspected: question.isInspected,
+              }"
             >
               <td>
                 <img :src="question.image" alt="Question" />
@@ -455,5 +458,12 @@ td {
 .full-screen img {
   max-width: 100%;
   max-height: 100%;
+}
+
+.isInspected {
+  background-color: black;
+}
+.isInspected:hover {
+  background-color: #333;
 }
 </style>

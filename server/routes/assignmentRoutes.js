@@ -221,6 +221,19 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       userId,
     ]);
 
+    // 만약 squares_info안에 해당 유저와 일치하고, question_id가 일치하는 사각형이 있는지 확인
+    // 있으면 isInpsected를 true로 바꿔준다.
+    const isInpsectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?`;
+    await Promise.all(
+      questions.map(async (question) => {
+        const [isInspected] = await db.query(isInpsectedQuery, [
+          userId,
+          question.id,
+        ]);
+        question.isInspected = isInspected.length > 0;
+      })
+    );
+
     let score = 0;
     const questionsWithResponses = questions.map((question) => {
       const response = responses.find(
@@ -233,10 +246,12 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       ) {
         score++;
       }
+
       return {
         id: question.id,
         image: question.image,
         selectedValue: response ? response.selectedValue : null,
+        isInspected: question.isInspected,
       };
     });
 
