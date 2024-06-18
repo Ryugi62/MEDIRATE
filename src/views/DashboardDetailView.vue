@@ -149,6 +149,7 @@ export default {
       sliderValue: 1,
       userSquaresList: [],
       tempSquares: [],
+      flatSquares: [],
       exportingMessageIndex: 0,
       isExporting: false,
     };
@@ -175,6 +176,7 @@ export default {
         this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
+        this.flatSquares = this.data.map((person) => person.squares).flat();
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
           squares: person.squares,
@@ -210,6 +212,7 @@ export default {
 
     updateSquares(squares) {
       this.tempSquares = squares;
+      this.flatSquares = this.data.map((person) => person.squares).flat();
     },
 
     getOverlapSquares(questionID, overlapDeepest) {
@@ -515,9 +518,9 @@ export default {
       if (this.assignmentMode === "TextBox") {
         return "100%";
       } else {
-        return this.tempSquares
-          .filter((s) => s.questionIndex === this.activeQuestionIndex)
-          .length.toString();
+        return this.flatSquares.filter(
+          (s) => s.questionIndex === this.activeQuestionIndex
+        ).length;
       }
     },
 

@@ -181,7 +181,18 @@ export default {
 
         this.activeQuestionImageUrl =
           this.currentAssignmentDetails.questions[0].image;
-        this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
+        this.activeQuestionId =
+          this.currentAssignmentDetails.beforeCanvas.lastQuestionIndex;
+
+        // Find the active row and ensure it is visible by scrolling it into view
+        this.$nextTick(() => {
+          const activeRow = this.$el.querySelector("tbody tr.active");
+          if (activeRow) {
+            activeRow.scrollIntoView({ block: "start", behavior: "smooth" });
+          } else {
+            console.warn("Active row not found!");
+          }
+        });
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
@@ -204,6 +215,7 @@ export default {
         })),
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
+        lastQuestionIndex: this.activeQuestionId,
       };
 
       try {
