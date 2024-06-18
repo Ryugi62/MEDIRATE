@@ -188,7 +188,7 @@ export default {
         this.$nextTick(() => {
           const activeRow = this.$el.querySelector("tbody tr.active");
           if (activeRow) {
-            activeRow.scrollIntoView({ block: "start", behavior: "smooth" });
+            activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
           } else {
             console.warn("Active row not found!");
           }
