@@ -20,7 +20,7 @@
 
       <div class="bbox-component__actions">
         <button @click="applyMitosis">Apply</button>
-        <button @click="commitAssignmentChanges">Save</button>
+        <button @click="commitAssignmentChanges('bbox')">Save</button>
       </div>
     </div>
     <div class="bbox-component__body">
@@ -96,7 +96,7 @@ export default {
         this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 브라우저 기본 동작 방지
-        this.commitAssignmentChanges();
+        this.commitAssignmentChanges("bbox");
       }
     },
 

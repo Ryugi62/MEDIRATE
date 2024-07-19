@@ -26,6 +26,7 @@
           / {{ currentAssignmentDetails.totalScore }}
         </span>
         <button
+          v-if="isTextBoxMode"
           type="button"
           class="save-button"
           @click="commitAssignmentChanges"
@@ -209,7 +210,7 @@ export default {
       }
     },
 
-    async commitAssignmentChanges() {
+    async commitAssignmentChanges(mode = "textbox") {
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
       );
@@ -241,7 +242,7 @@ export default {
         );
         this.isSaving = true;
         alert("검수 작업가 성공적으로 저장되었습니다!");
-        if (!this.isOut) this.$router.push("/assignment");
+        if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
       }
