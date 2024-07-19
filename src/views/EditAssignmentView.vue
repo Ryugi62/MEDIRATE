@@ -586,6 +586,10 @@ hr {
   font-weight: bold;
 }
 
+#user-search {
+  width: 100%;
+}
+
 /* 유저 검색 박스 */
 .user-search-box {
   display: flex;
