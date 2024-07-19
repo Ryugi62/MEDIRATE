@@ -1,14 +1,27 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__header">
-      <i
-        v-for="icon in iconList"
-        :key="icon.name"
-        :class="['fas', icon.name, { active: icon.active }]"
-        @click="activateIcon(icon)"
-      >
-        <span>({{ icon.explanation }})</span>
-      </i>
+      <label>
+        <input type="checkbox" v-model="showAiAlert" />
+        알림 표시
+      </label>
+
+      <div class="icon-list">
+        <i
+          v-for="icon in iconList"
+          :key="icon.name"
+          :class="['fas', icon.name, { active: icon.active }]"
+          @click="activateIcon(icon)"
+          :aria-label="icon.explanation"
+        >
+          <span>({{ icon.explanation }})</span>
+        </i>
+      </div>
+
+      <div class="bbox-component__actions">
+        <button @click="applyMitosis">Apply</button>
+        <button @click="commitAssignmentChanges">Save</button>
+      </div>
     </div>
     <div class="bbox-component__body">
       <canvas
@@ -23,16 +36,6 @@
     </div>
     <div class="bbox-component__footer">
       <strong>{{ fileName }}</strong>
-    </div>
-    <div class="bbox-component__actions">
-      <button @click="applyMitosis">Apply</button>
-      <button @click="commitAssignmentChanges">Save</button>
-    </div>
-    <div class="bbox-component__settings">
-      <label>
-        <input type="checkbox" v-model="showAiAlert" />
-        AI가 0일 때 알림 표시
-      </label>
     </div>
   </div>
 </template>
@@ -66,7 +69,8 @@ export default {
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
-      showAiAlert: true, // 새로운 데이터 속성
+      showAiAlert: true,
+      temporaryAiSquares: [],
     };
   },
 
@@ -88,13 +92,10 @@ export default {
   methods: {
     handleHotkeys(event) {
       if (event.ctrlKey && event.key === "a") {
-        event.preventDefault();
-        const squareIcon = this.iconList.find(
-          (icon) => icon.name === "fa-square"
-        );
-        this.activateIcon(squareIcon);
+        event.preventDefault(); // 브라우저 기본 동작 방지
+        this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
-        event.preventDefault();
+        event.preventDefault(); // 브라우저 기본 동작 방지
         this.commitAssignmentChanges();
       }
     },
@@ -141,19 +142,17 @@ export default {
             x: e.x + 12.5,
             y: e.y + 12.5,
             questionIndex: this.questionIndex,
-            isAI: true,
-            originalX: e.x + 12.5, // 원본 좌표 저장
-            originalY: e.y + 12.5, // 원본 좌표 저장
+            isTemporaryAI: true,
+            originalX: e.x + 12.5,
+            originalY: e.y + 12.5,
           }));
 
-          // 원본 이미지 좌표계로 변환된 기존 사각형들
           const originalLocalSquares = this.localSquares.map((square) => ({
             ...square,
             originalX: this.convertToOriginalCoordinate(square.x, "x"),
             originalY: this.convertToOriginalCoordinate(square.y, "y"),
           }));
 
-          // 기존의 모든 사각형과 비교하여 중복 제거 (원본 좌표 기준)
           newAiSquares = newAiSquares.filter(
             (aiSquare) =>
               !originalLocalSquares.some(
@@ -164,7 +163,6 @@ export default {
               )
           );
 
-          // 새로운 AI 사각형들끼리도 중복 체크 (원본 좌표 기준)
           for (let i = 0; i < newAiSquares.length; i++) {
             for (let j = i + 1; j < newAiSquares.length; j++) {
               if (
@@ -182,8 +180,7 @@ export default {
           }
 
           this.setAiSquarePosition(newAiSquares);
-          this.localSquares = this.localSquares.concat(newAiSquares);
-          this.$emit("update:squares", this.localSquares);
+          this.temporaryAiSquares = newAiSquares;
           this.redrawSquares();
         } catch (error) {
           selectedIcon = this.iconList.find(
@@ -348,14 +345,24 @@ export default {
       const closestSquare = this.getClosestSquare(mouseX, mouseY);
 
       if (closestSquare) {
-        const index = this.localSquares.indexOf(closestSquare);
-        this.localSquares.splice(index, 1);
+        if (closestSquare.isTemporaryAI) {
+          const index = this.temporaryAiSquares.indexOf(closestSquare);
+          if (index !== -1) {
+            this.temporaryAiSquares.splice(index, 1);
+          }
+        } else {
+          const index = this.localSquares.indexOf(closestSquare);
+          if (index !== -1) {
+            this.localSquares.splice(index, 1);
+          }
+        }
         this.redrawSquares();
       }
     },
 
     getClosestSquare(x, y) {
-      return this.localSquares.reduce(
+      const allSquares = [...this.localSquares, ...this.temporaryAiSquares];
+      return allSquares.reduce(
         (closest, square) => {
           const distance = Math.hypot(square.x - x, square.y - y);
           if (distance <= 50 && square.questionIndex === this.questionIndex) {
@@ -376,6 +383,13 @@ export default {
         if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+      });
+
+      this.temporaryAiSquares.forEach((square) => {
+        if (square.questionIndex !== this.questionIndex) return;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
       });
 
@@ -428,7 +442,6 @@ export default {
 
       this.redrawSquares();
     },
-
     activeEnlarge(event) {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
@@ -491,13 +504,16 @@ export default {
       );
     },
 
-    async applyMitosis() {
-      // Apply 버튼 핸들러
-      // AI가 찾은 사각형을 짙은 사각형으로 변경
-      this.localSquares = this.localSquares.map((square) => ({
-        ...square,
-        isAI: false,
-      }));
+    applyMitosis() {
+      this.localSquares = [
+        ...this.localSquares,
+        ...this.temporaryAiSquares.map((square) => ({
+          ...square,
+          isTemporaryAI: false,
+          isAI: true,
+        })),
+      ];
+      this.temporaryAiSquares = [];
       this.redrawSquares();
     },
   },
@@ -506,15 +522,11 @@ export default {
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
-
-    // 핫키 이벤트 리스너 추가
     window.addEventListener("keydown", this.handleHotkeys);
   },
 
   beforeUnmount() {
     window.removeEventListener("resize", this.resizeCanvas);
-
-    // 핫키 이벤트 리스너 제거
     window.removeEventListener("keydown", this.handleHotkeys);
   },
 
@@ -522,7 +534,6 @@ export default {
     src(newVal, oldVal) {
       if (newVal !== oldVal) this.loadBackgroundImage();
 
-      // fas fa-square을 활성화 아이콘 변경
       const squareIcon = this.iconList.find(
         (icon) => icon.name === "fa-square"
       );
@@ -538,30 +549,48 @@ export default {
 
 <style scoped>
 .bbox-component {
+  display: flex;
   flex: 1;
-  display: flex;
-  padding-right: 22px;
   flex-direction: column;
-}
-
-.bbox-component__header {
-  gap: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bbox-component__header i {
-  cursor: pointer;
   padding: 10px;
 }
 
-.bbox-component__header i.active {
-  color: var(--blue);
+.bbox-component__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.bbox-component__header i span {
-  margin-left: 6px;
+.bbox-component__header label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.icon-list {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-list i {
+  cursor: pointer;
+  padding: 10px;
+  transition: color 0.3s;
+}
+
+.icon-list i.active {
+  color: var(--primary-color, #007bff);
+}
+
+.icon-list i:hover {
+  color: var(--hover-color, #0056b3);
+}
+
+.bbox-component__actions {
+  display: flex;
+  gap: 10px;
 }
 
 .bbox-component__body {
@@ -572,28 +601,20 @@ export default {
 }
 
 canvas {
-  background-color: rgb(0, 0, 0);
+  background-color: #000;
+  border: 1px solid #ccc;
+  transition: border 0.3s;
+}
+
+canvas:hover {
+  border: 1px solid var(--primary-color, #007bff);
 }
 
 .bbox-component__footer {
   padding: 5px;
-  color: white;
-  display: flex;
-  justify-content: center;
-  background-color: black;
-}
-
-.bbox-component__actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  padding: 10px;
-}
-
-.bbox-component__settings {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  padding: 10px;
+  color: #fff;
+  text-align: center;
+  background-color: #000;
+  margin-top: 10px;
 }
 </style>
