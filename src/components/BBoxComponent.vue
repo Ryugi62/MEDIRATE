@@ -137,24 +137,58 @@ export default {
             alert("AI 데이터가 없습니다.");
           }
 
-          this.aiSquares = response.data.map((e) => ({
+          let newAiSquares = response.data.map((e) => ({
             x: e.x + 12.5,
             y: e.y + 12.5,
             questionIndex: this.questionIndex,
             isAI: true,
+            originalX: e.x + 12.5, // 원본 좌표 저장
+            originalY: e.y + 12.5, // 원본 좌표 저장
           }));
 
-          this.setAiSquarePosition();
-          this.localSquares = this.localSquares.concat(this.aiSquares);
+          // 원본 이미지 좌표계로 변환된 기존 사각형들
+          const originalLocalSquares = this.localSquares.map((square) => ({
+            ...square,
+            originalX: this.convertToOriginalCoordinate(square.x, "x"),
+            originalY: this.convertToOriginalCoordinate(square.y, "y"),
+          }));
+
+          // 기존의 모든 사각형과 비교하여 중복 제거 (원본 좌표 기준)
+          newAiSquares = newAiSquares.filter(
+            (aiSquare) =>
+              !originalLocalSquares.some(
+                (square) =>
+                  Math.abs(square.originalX - aiSquare.originalX) <= 5 &&
+                  Math.abs(square.originalY - aiSquare.originalY) <= 5 &&
+                  square.questionIndex === this.questionIndex
+              )
+          );
+
+          // 새로운 AI 사각형들끼리도 중복 체크 (원본 좌표 기준)
+          for (let i = 0; i < newAiSquares.length; i++) {
+            for (let j = i + 1; j < newAiSquares.length; j++) {
+              if (
+                Math.abs(
+                  newAiSquares[i].originalX - newAiSquares[j].originalX
+                ) <= 5 &&
+                Math.abs(
+                  newAiSquares[i].originalY - newAiSquares[j].originalY
+                ) <= 5
+              ) {
+                newAiSquares.splice(j, 1);
+                j--;
+              }
+            }
+          }
+
+          this.setAiSquarePosition(newAiSquares);
+          this.localSquares = this.localSquares.concat(newAiSquares);
           this.$emit("update:squares", this.localSquares);
           this.redrawSquares();
         } catch (error) {
           selectedIcon = this.iconList.find(
             (icon) => icon.name === "fa-square"
           );
-
-          this.aiSquares = [];
-          this.aiFirst = false;
 
           if (this.showAiAlert) {
             alert("AI 데이터 파일이 존재하는지 확인해주세요.");
@@ -163,7 +197,6 @@ export default {
           console.error(error);
         }
       }
-
       this.resizeCanvas();
       this.iconList = this.iconList.map((icon) => ({
         ...icon,
@@ -273,23 +306,29 @@ export default {
       });
     },
 
-    setAiSquarePosition() {
-      if (!this.aiSquares.length) return;
-
-      const beforePosition = this.calculateImagePosition(
-        this.originalWidth,
-        this.originalHeight
+    convertToOriginalCoordinate(coord, axis) {
+      const canvas = this.$refs.canvas;
+      const { x, y, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
       );
+      if (axis === "x") {
+        return (coord - x) / scale;
+      } else if (axis === "y") {
+        return (coord - y) / scale;
+      }
+      return coord;
+    },
+
+    setAiSquarePosition(aiSquares) {
+      if (!aiSquares || !aiSquares.length) return;
 
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
-      const scaleRatio = currentPosition.scale / beforePosition.scale;
 
-      this.aiSquares.forEach((square) => {
-        square.x =
-          (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
-        square.y =
-          (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
+      aiSquares.forEach((square) => {
+        square.x = square.originalX * currentPosition.scale + currentPosition.x;
+        square.y = square.originalY * currentPosition.scale + currentPosition.y;
       });
 
       this.aiFirst = false;
