@@ -28,6 +28,12 @@
       <button @click="applyMitosis">Apply</button>
       <button @click="commitAssignmentChanges">Save</button>
     </div>
+    <div class="bbox-component__settings">
+      <label>
+        <input type="checkbox" v-model="showAiAlert" />
+        AI가 0일 때 알림 표시
+      </label>
+    </div>
   </div>
 </template>
 
@@ -60,6 +66,7 @@ export default {
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
+      showAiAlert: true, // 새로운 데이터 속성
     };
   },
 
@@ -80,7 +87,6 @@ export default {
 
   methods: {
     handleHotkeys(event) {
-      // 기본 ctrl + a, ctrl + s 핫키를 사용하던 부분을 변경
       if (event.ctrlKey && event.key === "a") {
         event.preventDefault();
         const squareIcon = this.iconList.find(
@@ -127,6 +133,10 @@ export default {
             },
           });
 
+          if (response.data.length === 0 && this.showAiAlert) {
+            alert("AI 데이터가 없습니다.");
+          }
+
           this.aiSquares = response.data.map((e) => ({
             x: e.x + 12.5,
             y: e.y + 12.5,
@@ -146,7 +156,9 @@ export default {
           this.aiSquares = [];
           this.aiFirst = false;
 
-          alert("AI 데이터 파일이 존재하는지 확인해주세요.");
+          if (this.showAiAlert) {
+            alert("AI 데이터 파일이 존재하는지 확인해주세요.");
+          }
 
           console.error(error);
         }
@@ -470,6 +482,12 @@ export default {
   watch: {
     src(newVal, oldVal) {
       if (newVal !== oldVal) this.loadBackgroundImage();
+
+      // fas fa-square을 활성화 아이콘 변경
+      const squareIcon = this.iconList.find(
+        (icon) => icon.name === "fa-square"
+      );
+      this.activateIcon(squareIcon);
     },
 
     isSliderActive() {
@@ -527,6 +545,13 @@ canvas {
 }
 
 .bbox-component__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px;
+}
+
+.bbox-component__settings {
   display: flex;
   gap: 10px;
   justify-content: center;
