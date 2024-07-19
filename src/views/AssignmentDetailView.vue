@@ -219,7 +219,9 @@ export default {
       // 현재 활성화된 질문에 대한 박스가 없는 경우 더미 박스 추가
       const currentQuestionSquares =
         this.currentAssignmentDetails.squares.filter(
-          (square) => square.questionIndex === this.activeQuestionId
+          (square) =>
+            square.questionIndex === this.activeQuestionId &&
+            !square.isTemporary
         );
       if (currentQuestionSquares.length === 0) {
         this.currentAssignmentDetails.squares.push({
@@ -283,7 +285,6 @@ export default {
       radioButtons.forEach((radio) => (radio.disabled = false));
     },
 
-    // 새로운 메소드 추가
     updateQuestionStatus() {
       this.currentAssignmentDetails.questions =
         this.currentAssignmentDetails.questions.map((question) => {
@@ -296,7 +297,6 @@ export default {
           };
         });
 
-      // 점수 재계산
       this.recalculateScore();
     },
 

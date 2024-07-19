@@ -221,8 +221,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       userId,
     ]);
 
-    // 만약 squares_info안에 해당 유저와 일치하고, question_id가 일치하는 사각형이 있는지 확인
-    // 있으면 isInpsected를 true로 바꿔준다.
     const isInpsectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?`;
     await Promise.all(
       questions.map(async (question) => {
@@ -265,7 +263,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     let squares = [];
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
       const [squaresResult] = await db.query(squaresQuery, [
         canvas[0].id,
         userId,
@@ -273,9 +271,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       squares = squaresResult;
     }
 
-    const squareQuestionIndex = squares.map((square) => square.questionIndex);
-    const uniqueSquareQuestionIndex = [...new Set(squareQuestionIndex)];
-    score += uniqueSquareQuestionIndex.length;
+    // 모든 박스(임시 박스 포함)를 고려하여 점수 계산
+    const uniqueQuestionIndex = [
+      ...new Set(squares.map((square) => square.questionIndex)),
+    ];
+    score += uniqueQuestionIndex.length;
 
     const response = {
       ...assignment[0],
@@ -399,8 +399,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       await Promise.all(
         squares.map(async (square) => {
           const insertSquareQuery = `
-              INSERT INTO squares_info (canvas_id, x, y, question_id, user_id, isAI)
-              VALUES (?, ?, ?, ?, ?, ?)`;
+              INSERT INTO squares_info (canvas_id, x, y, question_id, user_id, isAI, isTemporary)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
           await db.query(insertSquareQuery, [
             beforeCanvas.id,
@@ -409,6 +409,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
             square.questionIndex,
             req.user.id,
             square.isAI ? 1 : 0,
+            square.isTemporary ? 1 : 0,
           ]);
         })
       );

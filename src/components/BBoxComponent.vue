@@ -363,7 +363,12 @@ export default {
     },
 
     drawSquare(x, y) {
-      this.localSquares.push({ x, y, questionIndex: this.questionIndex });
+      this.localSquares.push({
+        x,
+        y,
+        questionIndex: this.questionIndex,
+        isTemporary: false,
+      });
       this.redrawSquares();
     },
 
@@ -406,16 +411,15 @@ export default {
       const ctx = canvas.getContext("2d");
 
       this.localSquares.forEach((square) => {
-        if (square.questionIndex !== this.questionIndex || square.isTemporary)
-          return;
+        if (square.questionIndex !== this.questionIndex) return;
+        if (square.isTemporary) return; // 임시 박스는 그리지 않음
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
       });
 
       this.temporaryAiSquares.forEach((square) => {
-        if (square.questionIndex !== this.questionIndex || square.isTemporary)
-          return;
+        if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
