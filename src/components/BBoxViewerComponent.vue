@@ -216,23 +216,21 @@ export default {
       this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
-      for (const square of this.localSquares) {
-        if (square.questionIndex !== this.questionIndex) continue;
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = square.color;
-        ctx.globalAlpha = 0.8;
-        // if (square.isAI) ctx.strokeStyle = "yellow";
-        ctx.strokeRect(square.x - 10, square.y - 10, 25, 25);
-        ctx.globalAlpha = 1; // Reset the globalAlpha value
-      }
+
+      this.localSquares.forEach((square) => {
+        if (square.questionIndex !== this.questionIndex || square.isTemporary)
+          return;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = square.color || (square.isAI ? "#FFFF00" : "#FF0000");
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+      });
 
       if (event) {
-        if (event.type === "mouseleave") {
-          return; // Exit the method without drawing zoom and cursor parts
-        }
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
+
+      this.$emit("update:squares", this.localSquares);
     },
 
     getCanvasCoordinates({ clientX, clientY }) {

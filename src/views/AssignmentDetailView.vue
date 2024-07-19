@@ -216,6 +216,20 @@ export default {
       );
       radioButtons.forEach((radio) => (radio.disabled = true));
 
+      // 현재 활성화된 질문에 대한 박스가 없는 경우 더미 박스 추가
+      const currentQuestionSquares =
+        this.currentAssignmentDetails.squares.filter(
+          (square) => square.questionIndex === this.activeQuestionId
+        );
+      if (currentQuestionSquares.length === 0) {
+        this.currentAssignmentDetails.squares.push({
+          x: 0,
+          y: 0,
+          questionIndex: this.activeQuestionId,
+          isTemporary: true,
+        });
+      }
+
       const dataToSubmit = {
         id: this.currentAssignmentDetails.id,
         questions: this.currentAssignmentDetails.questions.map((question) => ({
@@ -259,11 +273,31 @@ export default {
 
           this.isSaving = false;
         }
+
+        // 저장 후 화면 갱신
+        this.updateQuestionStatus();
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
       }
 
       radioButtons.forEach((radio) => (radio.disabled = false));
+    },
+
+    // 새로운 메소드 추가
+    updateQuestionStatus() {
+      this.currentAssignmentDetails.questions =
+        this.currentAssignmentDetails.questions.map((question) => {
+          const hasSquare = this.currentAssignmentDetails.squares.some(
+            (square) => square.questionIndex === question.id
+          );
+          return {
+            ...question,
+            isInspected: hasSquare,
+          };
+        });
+
+      // 점수 재계산
+      this.recalculateScore();
     },
 
     toggleEditState() {
@@ -375,19 +409,14 @@ export default {
     },
 
     recalculateScore() {
-      const score = this.currentAssignmentDetails.questions.reduce(
-        (acc, question) => {
-          return (
-            acc +
-            (question.selectedValue !== null && question.selectedValue >= 0
-              ? 1
-              : 0)
-          );
-        },
-        0
-      );
-
-      this.currentAssignmentDetails.score = score;
+      const uniqueQuestionIndices = [
+        ...new Set(
+          this.currentAssignmentDetails.squares.map(
+            (square) => square.questionIndex
+          )
+        ),
+      ];
+      this.currentAssignmentDetails.score = uniqueQuestionIndices.length;
     },
 
     toggleFullScreenImage() {
