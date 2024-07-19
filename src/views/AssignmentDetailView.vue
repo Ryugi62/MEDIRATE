@@ -104,6 +104,7 @@
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
         @update:squares="currentAssignmentDetails.squares = $event"
+        :commitAssignmentChanges="commitAssignmentChanges"
       />
     </div>
   </div>

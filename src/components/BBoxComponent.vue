@@ -24,6 +24,10 @@
     <div class="bbox-component__footer">
       <strong>{{ fileName }}</strong>
     </div>
+    <div class="bbox-component__actions">
+      <button @click="applyMitosis">Apply</button>
+      <button @click="commitAssignmentChanges">Save</button>
+    </div>
   </div>
 </template>
 
@@ -38,6 +42,7 @@ export default {
     questionIndex: { type: Number, required: true, default: 0 },
     assignmentType: { type: String, required: true, default: "" },
     assignmentIndex: { type: Number, required: true, default: 0 },
+    commitAssignmentChanges: { type: Function, required: true },
   },
 
   data() {
@@ -74,6 +79,20 @@ export default {
   },
 
   methods: {
+    handleHotkeys(event) {
+      // 기본 ctrl + a, ctrl + s 핫키를 사용하던 부분을 변경
+      if (event.ctrlKey && event.key === "a") {
+        event.preventDefault();
+        const squareIcon = this.iconList.find(
+          (icon) => icon.name === "fa-square"
+        );
+        this.activateIcon(squareIcon);
+      } else if (event.ctrlKey && event.key === "s") {
+        event.preventDefault();
+        this.commitAssignmentChanges();
+      }
+    },
+
     async fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
       this.localSquares = this.squares;
@@ -420,16 +439,32 @@ export default {
         squareSize
       );
     },
+
+    async applyMitosis() {
+      // Apply 버튼 핸들러
+      // AI가 찾은 사각형을 짙은 사각형으로 변경
+      this.localSquares = this.localSquares.map((square) => ({
+        ...square,
+        isAI: false,
+      }));
+      this.redrawSquares();
+    },
   },
 
   mounted() {
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
+
+    // 핫키 이벤트 리스너 추가
+    window.addEventListener("keydown", this.handleHotkeys);
   },
 
   beforeUnmount() {
     window.removeEventListener("resize", this.resizeCanvas);
+
+    // 핫키 이벤트 리스너 제거
+    window.removeEventListener("keydown", this.handleHotkeys);
   },
 
   watch: {
@@ -489,5 +524,12 @@ canvas {
   display: flex;
   justify-content: center;
   background-color: black;
+}
+
+.bbox-component__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px;
 }
 </style>
