@@ -242,6 +242,23 @@ export default {
         );
         this.isSaving = true;
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
+        if (!this.isOut && mode == "bbox") {
+          // 다음 문제로 이동 만약 마지막 문제라면 이동하지 않음
+          const currentIndex =
+            this.currentAssignmentDetails.questions.findIndex(
+              (q) => q.id === this.activeQuestionId
+            );
+          if (
+            currentIndex <
+            this.currentAssignmentDetails.questions.length - 1
+          ) {
+            const nextQuestion =
+              this.currentAssignmentDetails.questions[currentIndex + 1];
+            this.onRowClick(nextQuestion, currentIndex + 1);
+          }
+
+          this.isSaving = false;
+        }
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
       }
