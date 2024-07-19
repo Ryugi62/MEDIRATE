@@ -241,7 +241,6 @@ export default {
           }
         );
         this.isSaving = true;
-        alert("검수 작업가 성공적으로 저장되었습니다!");
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
