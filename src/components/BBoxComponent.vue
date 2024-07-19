@@ -97,6 +97,32 @@ export default {
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         this.commitAssignmentChanges("bbox");
+      } else if (event.ctrlKey && event.key === "i") {
+        event.preventDefault(); // 브라우저 기본 동작 방지
+        // ai icon 활성화
+        const aiIcon = this.iconList.find((icon) => icon.name === "fa-robot");
+        this.activateIcon(aiIcon);
+      } else if (event.ctrlKey && event.key === "e") {
+        event.preventDefault(); // 브라우저 기본 동작 방지
+        // eraser icon 활성화
+        const eraserIcon = this.iconList.find(
+          (icon) => icon.name === "fa-eraser"
+        );
+        this.activateIcon(eraserIcon);
+      } else if (event.ctrlKey && event.key === "q") {
+        event.preventDefault(); // 브라우저 기본 동작 방지
+        // square icon 활성화
+        const squareIcon = this.iconList.find(
+          (icon) => icon.name === "fa-square"
+        );
+        this.activateIcon(squareIcon);
+      } else if (event.ctrlKey && event.key === "d") {
+        event.preventDefault(); // 브라우저 기본 동작 방지
+        // circle-minus icon 활성화
+        const circleMinusIcon = this.iconList.find(
+          (icon) => icon.name === "fa-circle-minus"
+        );
+        this.activateIcon(circleMinusIcon);
       }
     },
 
