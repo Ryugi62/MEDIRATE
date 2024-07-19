@@ -126,6 +126,8 @@ export default {
       isFullScreenImage: false,
       isSaving: false,
       isOut: false,
+      keyPressInterval: null,
+      keyRepeatDelay: 200, // 밀리초 단위, 필요에 따라 조정
     };
   },
 
@@ -136,7 +138,15 @@ export default {
   mounted() {
     this.$nextTick(() => {
       this.makeTdClickable();
+      window.addEventListener("keydown", this.handleKeyDown);
+      window.addEventListener("keyup", this.handleKeyUp);
     });
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("keydown", this.handleKeyDown);
+    window.removeEventListener("keyup", this.handleKeyUp);
+    this.clearKeyPressInterval();
   },
 
   components: {
@@ -271,6 +281,58 @@ export default {
       }
     },
 
+    handleKeyDown(event) {
+      if (event.repeat) return; // 키 반복 이벤트 무시
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        this.moveQuestion(event.key);
+        this.keyPressInterval = setInterval(() => {
+          this.moveQuestion(event.key);
+        }, this.keyRepeatDelay);
+      }
+    },
+
+    handleKeyUp() {
+      this.clearKeyPressInterval();
+    },
+
+    clearKeyPressInterval() {
+      if (this.keyPressInterval) {
+        clearInterval(this.keyPressInterval);
+        this.keyPressInterval = null;
+      }
+    },
+
+    moveQuestion(key) {
+      if (key === "ArrowDown") {
+        this.moveToNextQuestion();
+      } else if (key === "ArrowUp") {
+        this.moveToPreviousQuestion();
+      }
+    },
+
+    moveToNextQuestion() {
+      const currentIndex = this.currentAssignmentDetails.questions.findIndex(
+        (q) => q.id === this.activeQuestionId
+      );
+      if (currentIndex < this.currentAssignmentDetails.questions.length - 1) {
+        const nextQuestion =
+          this.currentAssignmentDetails.questions[currentIndex + 1];
+        this.onRowClick(nextQuestion, currentIndex + 1);
+      }
+    },
+
+    moveToPreviousQuestion() {
+      const currentIndex = this.currentAssignmentDetails.questions.findIndex(
+        (q) => q.id === this.activeQuestionId
+      );
+      if (currentIndex > 0) {
+        const previousQuestion =
+          this.currentAssignmentDetails.questions[currentIndex - 1];
+        this.onRowClick(previousQuestion, currentIndex - 1);
+      }
+    },
+
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
       this.activeQuestionImageUrl = question.image;
@@ -282,6 +344,7 @@ export default {
 
         if (activeRow) {
           activeRow.classList.add("active");
+          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       });
     },

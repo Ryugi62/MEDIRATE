@@ -152,6 +152,8 @@ export default {
       flatSquares: [],
       exportingMessageIndex: 0,
       isExporting: false,
+      keyPressInterval: null,
+      keyRepeatDelay: 200, // 밀리초 단위, 필요에 따라 조정
     };
   },
 
@@ -159,6 +161,20 @@ export default {
     await this.loadData();
 
     this.startExportingAnimation();
+  },
+
+  mounted() {
+    this.$nextTick(() => {
+      // ... 기존 코드 ...
+      window.addEventListener("keydown", this.handleKeyDown);
+      window.addEventListener("keyup", this.handleKeyUp);
+    });
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("keydown", this.handleKeyDown);
+    window.removeEventListener("keyup", this.handleKeyUp);
+    this.clearKeyPressInterval();
   },
 
   methods: {
@@ -185,6 +201,61 @@ export default {
       } catch (error) {
         console.error("Failed to load data:", error);
       }
+    },
+
+    handleKeyDown(event) {
+      if (event.repeat) return; // 키 반복 이벤트 무시
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        this.moveQuestion(event.key);
+        this.keyPressInterval = setInterval(() => {
+          this.moveQuestion(event.key);
+        }, this.keyRepeatDelay);
+      }
+    },
+
+    handleKeyUp() {
+      this.clearKeyPressInterval();
+    },
+
+    clearKeyPressInterval() {
+      if (this.keyPressInterval) {
+        clearInterval(this.keyPressInterval);
+        this.keyPressInterval = null;
+      }
+    },
+
+    moveQuestion(key) {
+      const currentIndex = this.activeIndex;
+      const questionsLength = this.data[0].questions.length;
+
+      if (key === "ArrowDown" && currentIndex < questionsLength - 1) {
+        this.setActiveImage(
+          this.data[0].questions[currentIndex + 1].questionImage,
+          currentIndex + 1
+        );
+      } else if (key === "ArrowUp" && currentIndex > 0) {
+        this.setActiveImage(
+          this.data[0].questions[currentIndex - 1].questionImage,
+          currentIndex - 1
+        );
+      }
+    },
+
+    setActiveImage(imageUrl, index) {
+      this.activeImageUrl = imageUrl;
+      this.activeIndex = index;
+      this.activeQuestionIndex = this.data[0].questions[index].questionId;
+
+      // 활성화된 행으로 스크롤
+      this.$nextTick(() => {
+        const activeRow = this.$el.querySelector(
+          ".assignment-table tbody tr.active"
+        );
+        if (activeRow) {
+          activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
     },
 
     moveToAssignmentManagement() {
@@ -475,12 +546,6 @@ export default {
       this.isExporting = false;
       this.stopExportingAnimation();
       alert("이미지 다운로드가 완료되었습니다.");
-    },
-
-    setActiveImage(imageUrl, index) {
-      this.activeImageUrl = imageUrl;
-      this.activeIndex = index;
-      this.activeQuestionIndex = this.data[0].questions[index].questionId;
     },
 
     getStyleForPerson(index) {
