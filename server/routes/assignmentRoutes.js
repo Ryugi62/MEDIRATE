@@ -263,7 +263,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
 
     let squares = [];
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT * as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
       const [squaresResult] = await db.query(squaresQuery, [
         canvas[0].id,
         userId,
