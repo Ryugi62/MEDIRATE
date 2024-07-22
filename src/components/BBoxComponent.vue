@@ -69,7 +69,7 @@ export default {
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
-      showAiAlert: true,
+      showAiAlert: false,
       temporaryAiSquares: [],
     };
   },
