@@ -58,7 +58,11 @@
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
                   <td v-for="person in data" :key="person.name">
-                    {{ person.questions[index].questionSelection }}
+                    {{
+                      assignmentMode === "TextBox"
+                        ? person.questions[index].questionSelection
+                        : getValidSquaresCount(person.squares, item.questionId)
+                    }}
                   </td>
                   <td
                     v-for="(person, overlapDeepest) in data"
@@ -212,6 +216,12 @@ export default {
           this.moveQuestion(event.key);
         }, this.keyRepeatDelay);
       }
+    },
+
+    getValidSquaresCount(squares, questionId) {
+      return squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      ).length;
     },
 
     handleKeyUp() {

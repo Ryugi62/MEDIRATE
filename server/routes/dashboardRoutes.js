@@ -89,11 +89,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const squaresData =
       assignment_mode === "BBox"
         ? await fetchData(
-            `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI
-       FROM squares_info si
-       JOIN questions q ON si.question_id = q.id
-       JOIN canvas_info ci ON si.canvas_id = ci.id
-       WHERE q.assignment_id = ?`,
+            `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
+             FROM squares_info si
+             JOIN questions q ON si.question_id = q.id
+             JOIN canvas_info ci ON si.canvas_id = ci.id
+             WHERE q.assignment_id = ?`,
             [assignmentId]
           )
         : [];
