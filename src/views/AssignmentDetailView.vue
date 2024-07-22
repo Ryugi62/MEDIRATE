@@ -42,6 +42,7 @@
           <thead>
             <tr>
               <th>문제</th>
+              <th v-if="!isTextBoxMode">BBox 개수</th>
               <th
                 v-for="grade in currentAssignmentDetails.selectionType"
                 :key="grade"
@@ -63,7 +64,7 @@
               <td>
                 <img :src="question.image" alt="Question" />
               </td>
-
+              <td v-if="!isTextBoxMode">{{ getBBoxCount(question.id) }}</td>
               <td
                 v-for="(grade, index) in currentAssignmentDetails.selectionType"
                 :key="index"
@@ -385,6 +386,13 @@ export default {
       }
     },
 
+    getBBoxCount(questionId) {
+      return this.currentAssignmentDetails.squares.filter(
+        (square) => square.questionIndex === questionId
+      ).length;
+    },
+
+    // 기존 onRowClick 메서드 업데이트
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
       this.activeQuestionImageUrl = question.image;
@@ -399,6 +407,9 @@ export default {
           activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       });
+
+      // BBox 개수 업데이트
+      this.$forceUpdate();
     },
 
     updateSelectedValue(questionIdx, value) {
@@ -422,21 +433,6 @@ export default {
     toggleFullScreenImage() {
       this.isFullScreenImage = !this.isFullScreenImage;
     },
-  },
-
-  beforeRouteLeave(to, from, next) {
-    if (this.isSaving) {
-      next();
-      return;
-    } else {
-      if (confirm("저장하지 않은 변경사항이 있습니다. 저장하시겠습니까?")) {
-        this.isOut = true;
-        this.commitAssignmentChanges();
-        next();
-      } else {
-        next();
-      }
-    }
   },
 };
 </script>
@@ -587,5 +583,11 @@ td {
 }
 .isInspected:hover {
   background-color: #333;
+}
+
+/* BBox 개수 셀에 대한 스타일 추가 */
+td:nth-child(2) {
+  font-weight: bold;
+  color: var(--blue);
 }
 </style>
