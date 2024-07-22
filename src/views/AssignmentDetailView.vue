@@ -589,5 +589,15 @@ td {
 td:nth-child(2) {
   font-weight: bold;
   color: var(--blue);
+
+  /* 만약 셀렉트와 active는 font-color 변경 */
+  &.active {
+    color: var(--white);
+  }
+}
+
+tr.isInspected > *,
+tr.active > * {
+  color: white;
 }
 </style>
