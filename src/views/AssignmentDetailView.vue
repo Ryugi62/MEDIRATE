@@ -211,7 +211,7 @@ export default {
       }
     },
 
-    async commitAssignmentChanges(mode = "textbox") {
+    async commitAssignmentChanges(mode = "textbox", goNext = true) {
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
       );
@@ -267,7 +267,7 @@ export default {
         );
         this.isSaving = true;
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
-        if (!this.isOut && mode == "bbox") {
+        if (!this.isOut && mode == "bbox" && goNext) {
           // 다음 문제로 이동 만약 마지막 문제라면 이동하지 않음
           const currentIndex =
             this.currentAssignmentDetails.questions.findIndex(

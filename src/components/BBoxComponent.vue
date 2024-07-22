@@ -1,10 +1,16 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__header">
-      <label>
-        <input type="checkbox" v-model="showAiAlert" />
-        알림 표시
-      </label>
+      <span class="bbox-component__header__left">
+        <label>
+          <input type="checkbox" v-model="showAiAlert" />
+          알림 표시
+        </label>
+        <label>
+          <input type="checkbox" v-model="goNext" />
+          Save시 Next
+        </label>
+      </span>
 
       <div class="icon-list">
         <i
@@ -20,7 +26,7 @@
 
       <div class="bbox-component__actions">
         <button @click="applyMitosis">Apply</button>
-        <button @click="commitAssignmentChanges('bbox')">Save</button>
+        <button @click="commitAssignmentChanges('bbox', goNext)">Save</button>
       </div>
     </div>
     <div class="bbox-component__body">
@@ -71,6 +77,7 @@ export default {
       originalHeight: null,
       showAiAlert: false,
       temporaryAiSquares: [],
+      goNext: true,
     };
   },
 
@@ -96,7 +103,7 @@ export default {
         this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 브라우저 기본 동작 방지
-        this.commitAssignmentChanges("bbox");
+        this.commitAssignmentChanges("bbox", this.goNext);
       } else if (event.ctrlKey && event.key === "i") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // ai icon 활성화
@@ -135,16 +142,16 @@ export default {
       if (selectedIcon.name === "fa-circle-minus") {
         if (!confirm("정말로 모든 사각형을 삭제하시겠습니까?")) return;
 
+        // 임시로 전체 삭제
         this.localSquares = this.localSquares.filter(
           (square) => square.questionIndex !== this.questionIndex
         );
-        this.$emit("update:squares", this.localSquares);
-        this.redrawSquares();
 
-        const squareIcon = this.iconList.find(
-          (icon) => icon.name === "fa-square"
+        this.temporaryAiSquares = this.temporaryAiSquares.filter(
+          (square) => square.questionIndex !== this.questionIndex
         );
-        this.activateIcon(squareIcon);
+
+        this.redrawSquares();
 
         return;
       } else if (selectedIcon.name === "fa-robot") {
@@ -648,5 +655,10 @@ canvas:hover {
   text-align: center;
   background-color: #000;
   margin-top: 10px;
+}
+
+.bbox-component__header__left {
+  display: flex;
+  gap: 8px;
 }
 </style>
