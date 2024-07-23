@@ -42,7 +42,7 @@
           <thead>
             <tr>
               <th>문제</th>
-              <th v-if="!isTextBoxMode">BBox 개수</th>
+              <th v-if="!isTextBoxMode">개수</th>
               <th
                 v-for="grade in currentAssignmentDetails.selectionType"
                 :key="grade"
@@ -162,9 +162,9 @@ export default {
       return this.currentAssignmentDetails.assignmentMode === "TextBox";
     },
     uniqueQuestionCount() {
-      return this.currentAssignmentDetails.squares
-        .map((square) => square.questionIndex)
-        .filter((value, index, self) => self.indexOf(value) === index).length;
+      return this.currentAssignmentDetails.questions.filter(
+        (question) => question.isInspected
+      ).length;
     },
   },
 
@@ -503,6 +503,7 @@ export default {
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--light-gray);
+  word-break: keep-all;
 }
 
 table {

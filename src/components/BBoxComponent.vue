@@ -25,7 +25,7 @@
       </div>
 
       <div class="bbox-component__actions">
-        <button @click="applyMitosis">Apply</button>
+        <button @click="applyMitosis">Ai Apply</button>
         <button @click="commitAssignmentChanges('bbox', goNext)">Save</button>
       </div>
     </div>
@@ -140,7 +140,12 @@ export default {
 
     async activateIcon(selectedIcon) {
       if (selectedIcon.name === "fa-circle-minus") {
-        if (!confirm("정말로 모든 사각형을 삭제하시겠습니까?")) return;
+        // 알람이 활성화 되었다면
+        if (
+          this.showAiAlert &&
+          !confirm("정말로 모든 사각형을 삭제하시겠습니까?")
+        )
+          return;
 
         // 임시로 전체 삭제
         this.localSquares = this.localSquares.filter(
