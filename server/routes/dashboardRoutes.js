@@ -69,10 +69,11 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     );
 
     const [usersData] = await db.query(
-      `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId,
+      `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId, a.title As FileName,
        COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
        FROM users u
        JOIN assignment_user au ON u.id = au.user_id
+       JOIN assignments a ON au.assignment_id = a.id
        LEFT JOIN questions q ON au.assignment_id = q.assignment_id
        LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
        LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
