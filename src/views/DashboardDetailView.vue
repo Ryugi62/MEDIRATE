@@ -7,7 +7,7 @@
     <div class="dashboard-content">
       <div class="table-box">
         <div class="table-header">
-          <span class="table-title">과제 이야기</span>
+          <span class="table-title">{{ assignmentTitle }}</span>
           <div class="slider-container" v-if="assignmentMode === 'BBox'">
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
@@ -192,6 +192,7 @@ export default {
             },
           }
         );
+        this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.activeImageUrl = this.data[0].questions[0].questionImage;
