@@ -179,7 +179,9 @@ export default {
             },
           }
         );
-        this.originalAssignmentDetails = response.data;
+        this.originalAssignmentDetails = JSON.parse(
+          JSON.stringify(response.data)
+        );
         this.currentAssignmentDetails = response.data;
 
         const score = this.currentAssignmentDetails.score || 0;
@@ -289,7 +291,6 @@ export default {
         this.originalAssignmentDetails = JSON.parse(
           JSON.stringify(this.currentAssignmentDetails)
         );
-        // 저장 후 화면 갱신
         this.updateQuestionStatus();
       } catch (error) {
         console.error("과제 저장 중 오류 발생:", error);
