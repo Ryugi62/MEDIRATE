@@ -104,6 +104,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
             [assignmentId]
           )
         : [];
+
+    let fileName = ""; // FileName을 저장할 변수
     const structuredData = usersData.reduce((acc, user) => {
       const {
         name,
@@ -114,13 +116,17 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         originalSelection,
         squareCount,
       } = user;
+
+      if (!fileName) {
+        fileName = FileName; // FileName 저장 (모든 사용자에 대해 동일하므로 한 번만 저장)
+      }
+
       const selection =
         assignment_mode === "BBox" ? squareCount : originalSelection;
       if (!acc[name]) {
         acc[name] = {
           name,
           userId,
-          FileName, // 여기에 FileName 추가
           questions: [],
           answeredCount: 0,
           unansweredCount: 0,
@@ -148,6 +154,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     res.status(200).json({
       assignment: Object.values(structuredData),
       assignmentMode: assignment_mode,
+      FileName: fileName, // 여기에 FileName 추가
     });
   } catch (error) {
     console.error("Error fetching data:", error);
