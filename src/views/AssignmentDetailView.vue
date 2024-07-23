@@ -179,6 +179,7 @@ export default {
             },
           }
         );
+        this.originalAssignmentDetails = response.data;
         this.currentAssignmentDetails = response.data;
 
         const score = this.currentAssignmentDetails.score || 0;
@@ -285,6 +286,9 @@ export default {
           this.isSaving = false;
         }
 
+        this.originalAssignmentDetails = JSON.parse(
+          JSON.stringify(this.currentAssignmentDetails)
+        );
         // 저장 후 화면 갱신
         this.updateQuestionStatus();
       } catch (error) {
@@ -395,9 +399,11 @@ export default {
     },
 
     getBBoxCount(questionId) {
-      return this.currentAssignmentDetails.squares.filter(
-        (square) => square.questionIndex === questionId && !square.isTemporary
-      ).length;
+      if (this.originalAssignmentDetails) {
+        return this.originalAssignmentDetails.squares.filter(
+          (square) => square.questionIndex === questionId
+        ).length;
+      }
     },
 
     // 기존 onRowClick 메서드 업데이트
