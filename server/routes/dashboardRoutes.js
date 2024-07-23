@@ -67,7 +67,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       `SELECT assignment_mode FROM assignments WHERE id = ?`,
       [assignmentId]
     );
-
     const [usersData] = await db.query(
       `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId, a.title As FileName,
        COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
@@ -81,12 +80,10 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
        GROUP BY u.id, q.id`,
       [assignmentId]
     );
-
     const fetchData = async (query, params) => {
       const [data] = await db.query(query, params);
       return data;
     };
-
     const squaresData =
       assignment_mode === "BBox"
         ? await fetchData(
@@ -98,33 +95,32 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
             [assignmentId]
           )
         : [];
-
     const canvasData =
       assignment_mode === "BBox"
         ? await fetchData(
             `SELECT ci.id, ci.width, ci.height, ci.user_id
-       FROM canvas_info ci
-       WHERE ci.assignment_id = ?`,
+             FROM canvas_info ci
+             WHERE ci.assignment_id = ?`,
             [assignmentId]
           )
         : [];
-
     const structuredData = usersData.reduce((acc, user) => {
       const {
         name,
         questionId,
         questionImage,
         userId,
+        FileName,
         originalSelection,
         squareCount,
       } = user;
       const selection =
         assignment_mode === "BBox" ? squareCount : originalSelection;
-
       if (!acc[name]) {
         acc[name] = {
           name,
           userId,
+          FileName, // 여기에 FileName 추가
           questions: [],
           answeredCount: 0,
           unansweredCount: 0,
@@ -138,21 +134,17 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
           );
         }
       }
-
       acc[name].questions.push({
         questionId,
         questionImage,
         questionSelection: selection,
       });
       selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
-
       return acc;
     }, {});
-
     Object.values(structuredData).forEach((user) =>
       user.questions.sort((a, b) => a.questionId - b.questionId)
     );
-
     res.status(200).json({
       assignment: Object.values(structuredData),
       assignmentMode: assignment_mode,
