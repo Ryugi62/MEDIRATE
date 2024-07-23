@@ -26,7 +26,7 @@
 
       <div class="bbox-component__actions">
         <button @click="applyMitosis">Ai Apply</button>
-        <button @click="commitAssignmentChanges('bbox', goNext)">Save</button>
+        <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
     <div class="bbox-component__body">
@@ -76,7 +76,7 @@ export default {
       originalWidth: null,
       originalHeight: null,
       showAiAlert: false,
-      temporaryAiSquares: [],
+      temporarySquares: [], // 임시 사각형 배열 추가
       goNext: true,
     };
   },
@@ -103,7 +103,7 @@ export default {
         this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 브라우저 기본 동작 방지
-        this.commitAssignmentChanges("bbox", this.goNext);
+        this.commitChanges("bbox", this.goNext);
       } else if (event.ctrlKey && event.key === "i") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // ai icon 활성화
@@ -135,7 +135,8 @@ export default {
 
     async fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
-      this.localSquares = this.squares;
+      this.localSquares = [...this.squares];
+      this.temporarySquares = [...this.squares]; // 임시 사각형 배열 초기화
     },
 
     async activateIcon(selectedIcon) {
@@ -148,11 +149,7 @@ export default {
           return;
 
         // 임시로 전체 삭제
-        this.localSquares = this.localSquares.filter(
-          (square) => square.questionIndex !== this.questionIndex
-        );
-
-        this.temporaryAiSquares = this.temporaryAiSquares.filter(
+        this.temporarySquares = this.temporarySquares.filter(
           (square) => square.questionIndex !== this.questionIndex
         );
 
@@ -218,7 +215,7 @@ export default {
           }
 
           this.setAiSquarePosition(newAiSquares);
-          this.temporaryAiSquares = newAiSquares;
+          this.temporarySquares = [...this.temporarySquares, ...newAiSquares]; // AI 사각형을 임시 배열에 추가
           this.redrawSquares();
         } catch (error) {
           selectedIcon = this.iconList.find(
@@ -327,13 +324,13 @@ export default {
     },
 
     setSquaresPosition(beforePosition) {
-      if (!this.localSquares.length) return;
+      if (!this.temporarySquares.length) return;
 
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
 
-      this.localSquares.forEach((square) => {
+      this.temporarySquares.forEach((square) => {
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
@@ -375,7 +372,7 @@ export default {
     },
 
     drawSquare(x, y) {
-      this.localSquares.push({
+      this.temporarySquares.push({
         x,
         y,
         questionIndex: this.questionIndex,
@@ -388,24 +385,16 @@ export default {
       const closestSquare = this.getClosestSquare(mouseX, mouseY);
 
       if (closestSquare) {
-        if (closestSquare.isTemporaryAI) {
-          const index = this.temporaryAiSquares.indexOf(closestSquare);
-          if (index !== -1) {
-            this.temporaryAiSquares.splice(index, 1);
-          }
-        } else {
-          const index = this.localSquares.indexOf(closestSquare);
-          if (index !== -1) {
-            this.localSquares.splice(index, 1);
-          }
+        const index = this.temporarySquares.indexOf(closestSquare);
+        if (index !== -1) {
+          this.temporarySquares.splice(index, 1);
         }
         this.redrawSquares();
       }
     },
 
     getClosestSquare(x, y) {
-      const allSquares = [...this.localSquares, ...this.temporaryAiSquares];
-      return allSquares.reduce(
+      return this.temporarySquares.reduce(
         (closest, square) => {
           const distance = Math.hypot(square.x - x, square.y - y);
           if (distance <= 50 && square.questionIndex === this.questionIndex) {
@@ -422,18 +411,11 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
-      this.localSquares.forEach((square) => {
+      this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary) return; // 임시 박스는 그리지 않음
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
-      });
-
-      this.temporaryAiSquares.forEach((square) => {
-        if (square.questionIndex !== this.questionIndex) return;
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(255, 255, 0, 0.7)";
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
       });
 
@@ -442,7 +424,7 @@ export default {
         this.activeSquareCursor(event);
       }
 
-      this.$emit("update:squares", this.localSquares);
+      this.$emit("update:squares", this.temporarySquares);
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -465,14 +447,6 @@ export default {
       this.redrawSquares(event);
 
       if (closestSquare && this.eraserActive) {
-        this.localSquares.forEach((square) => {
-          if (square.questionIndex === this.questionIndex) {
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = square.isAI ? "yellow" : "red";
-            ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
-          }
-        });
-
         ctx.lineWidth = 2;
         ctx.strokeStyle = "blue";
         ctx.strokeRect(closestSquare.x - 12.5, closestSquare.y - 12.5, 25, 25);
@@ -549,16 +523,20 @@ export default {
     },
 
     applyMitosis() {
-      this.localSquares = [
-        ...this.localSquares,
-        ...this.temporaryAiSquares.map((square) => ({
+      this.temporarySquares = [
+        ...this.temporarySquares,
+        ...this.aiSquares.map((square) => ({
           ...square,
           isTemporaryAI: false,
           isAI: true,
         })),
       ];
-      this.temporaryAiSquares = [];
       this.redrawSquares();
+    },
+
+    commitChanges(type, goNext) {
+      this.localSquares = [...this.temporarySquares];
+      this.commitAssignmentChanges(type, goNext);
     },
   },
 
