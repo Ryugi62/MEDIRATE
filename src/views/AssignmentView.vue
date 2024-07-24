@@ -127,13 +127,8 @@ export default {
     },
     // 표시되는 페이지 수 계산
     visiblePages() {
-      const range = 2;
-      let start = Math.max(this.current - range, 1);
-      let end = Math.min(start + range * 2, this.total);
-      if (this.current + range > this.total) {
-        start = Math.max(this.total - range * 2, 1);
-        end = this.total;
-      }
+      const start = Math.max(1, this.current - 2);
+      const end = Math.min(this.total, start + 4);
       return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     },
   },
