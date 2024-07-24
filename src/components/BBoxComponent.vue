@@ -180,9 +180,10 @@ export default {
             isTemporaryAI: true,
             originalX: e.x + 12.5,
             originalY: e.y + 12.5,
+            isAI: true,
           }));
 
-          const originalLocalSquares = this.localSquares.map((square) => ({
+          const originalLocalSquares = this.temporarySquares.map((square) => ({
             ...square,
             originalX: this.convertToOriginalCoordinate(square.x, "x"),
             originalY: this.convertToOriginalCoordinate(square.y, "y"),
@@ -194,7 +195,8 @@ export default {
                 (square) =>
                   Math.abs(square.originalX - aiSquare.originalX) <= 5 &&
                   Math.abs(square.originalY - aiSquare.originalY) <= 5 &&
-                  square.questionIndex === this.questionIndex
+                  square.questionIndex === this.questionIndex &&
+                  square.isAI // 이 조건을 추가하여 isAI가 true인 경우만 필터링
               )
           );
 
@@ -215,7 +217,7 @@ export default {
           }
 
           this.setAiSquarePosition(newAiSquares);
-          this.temporarySquares = [...this.temporarySquares, ...newAiSquares]; // AI 사각형을 임시 배열에 추가
+          this.temporarySquares = [...this.temporarySquares, ...newAiSquares];
           this.redrawSquares();
         } catch (error) {
           selectedIcon = this.iconList.find(
