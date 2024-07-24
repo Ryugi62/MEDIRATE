@@ -559,6 +559,10 @@ export default {
       const squareIcon = this.iconList.find(
         (icon) => icon.name === "fa-square"
       );
+
+      // 임시 사각형 배열 오리지널 사각형 배열로 초기화
+      this.temporarySquares = JSON.parse(JSON.stringify(this.localSquares));
+
       this.activateIcon(squareIcon);
     },
 
