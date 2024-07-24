@@ -25,7 +25,7 @@
       </div>
 
       <div class="bbox-component__actions">
-        <button @click="applyMitosis">Ai Apply</button>
+        <button @click="applyMitosis">AI Apply</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
