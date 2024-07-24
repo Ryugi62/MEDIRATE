@@ -527,19 +527,26 @@ export default {
     },
 
     applyMitosis() {
-      this.temporarySquares = [
-        ...this.temporarySquares,
-        ...this.aiSquares.map((square) => ({
-          ...square,
-          isTemporaryAI: false,
-          isAI: true,
-        })),
-      ];
+      // 만약 isTemporaryAI가 true인 경우는 false로 변경
+      this.temporarySquares = this.temporarySquares.map((square) => {
+        if (square.isTemporaryAI) {
+          return {
+            ...square,
+            isTemporaryAI: false,
+          };
+        }
+        return square;
+      });
+
       this.redrawSquares();
     },
 
     commitChanges(type, goNext) {
       this.localSquares = [...this.temporarySquares];
+
+      // update
+      this.$emit("update:squares", this.localSquares);
+
       this.commitAssignmentChanges(type, goNext);
     },
   },
@@ -563,6 +570,8 @@ export default {
       const squareIcon = this.iconList.find(
         (icon) => icon.name === "fa-square"
       );
+
+      this.fetchLocalInfo();
 
       this.activateIcon(squareIcon);
     },

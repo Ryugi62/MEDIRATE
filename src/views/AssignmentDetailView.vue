@@ -223,6 +223,8 @@ export default {
       );
       radioButtons.forEach((radio) => (radio.disabled = true));
 
+      console.log(this.currentAssignmentDetails.squares);
+
       // 현재 활성화된 질문에 대한 박스가 없는 경우 더미 박스 추가
       const currentQuestionSquares =
         this.currentAssignmentDetails.squares.filter(
@@ -230,6 +232,17 @@ export default {
             square.questionIndex === this.activeQuestionId &&
             !square.isTemporary
         );
+
+      // currentQuestionSquares에서 isTemporaryAi가 true이면 제거
+      currentQuestionSquares.forEach((square) => {
+        if (square.isTemporaryAI) {
+          this.currentAssignmentDetails.squares.splice(
+            this.currentAssignmentDetails.squares.indexOf(square),
+            1
+          );
+        }
+      });
+
       if (currentQuestionSquares.length === 0) {
         if (
           !this.currentAssignmentDetails.squares.some(
