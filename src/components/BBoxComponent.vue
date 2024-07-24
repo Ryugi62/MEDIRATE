@@ -418,7 +418,9 @@ export default {
         if (square.isTemporary) return; // 임시 박스는 그리지 않음
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
+        ctx.globalAlpha = square.isTemporaryAI ? 0.7 : 1;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.globalAlpha = 1;
       });
 
       if (event) {
