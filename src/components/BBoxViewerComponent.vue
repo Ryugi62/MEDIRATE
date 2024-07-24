@@ -99,9 +99,9 @@ export default {
       for (const square of this.localSquares) {
         const overlap = this.localSquares
           .filter((s) => {
-            // 여기서 겹침 기준을 변경합니다.
-            const overlapX = Math.abs(s.x - square.x) < 12.5; // 박스 너비의 50%
-            const overlapY = Math.abs(s.y - square.y) < 12.5; // 박스 높이의 50%
+            const overlapX = Math.abs(s.x - square.x) < 25; // 박스 너비의 100%
+            const overlapY = Math.abs(s.y - square.y) < 25; // 박스 높이의 100%
+
             return overlapX && overlapY && s.color !== square.color;
           })
           .filter(
