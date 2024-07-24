@@ -402,7 +402,7 @@ export default {
     getBBoxCount(questionId) {
       if (this.originalAssignmentDetails) {
         return this.originalAssignmentDetails.squares.filter(
-          (square) => square.questionIndex === questionId
+          (square) => square.questionIndex === questionId && !square.isTemporary
         ).length;
       }
     },
