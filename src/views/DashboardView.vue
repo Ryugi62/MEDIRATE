@@ -105,24 +105,21 @@ export default {
 
   data() {
     return {
-      // 정렬 열 및 방향
       sortColumn: "id",
       sortDirection: "up",
-      // 테이블 데이터
-      data: null,
-      // 페이지 관련 데이터
+      data: [],
       current: 1,
-      total: null,
+      total: 0,
       itemsPerPage: 14,
     };
   },
 
   computed: {
-    // 현재 페이지의 데이터
     paginatedData() {
-      return this.data;
+      const start = (this.current - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.data.slice(start, end);
     },
-    // 보여줄 페이지 수
     visiblePages() {
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
       const startPage = Math.max(1, Math.min(this.current - 2, totalPages - 4));
@@ -178,29 +175,27 @@ export default {
 
   methods: {
     async getData() {
-      this.$axios
-        .get("/api/dashboard", {
+      try {
+        const response = await this.$axios.get("/api/dashboard", {
           headers: {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
-        })
-        .then((res) => {
-          this.data = res.data; // 서버 응답 데이터를 직접 할당
-          this.total = res.data.length; // 데이터 총 개수 설정
-        })
-        .catch((err) => {
-          console.error(err);
         });
+        this.data = response.data;
+        this.total = this.data.length;
+        this.sortBy(this.sortColumn); // 초기 정렬 적용
+      } catch (error) {
+        console.error(error);
+      }
     },
 
-    // 페이지 변경
     changePage(page) {
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
       if (page >= 1 && page <= totalPages) {
         this.current = page;
       }
     },
-    // 열 정렬
+
     sortBy(columnKey) {
       if (this.sortColumn === columnKey) {
         this.sortDirection = this.sortDirection === "up" ? "down" : "up";
@@ -209,16 +204,13 @@ export default {
         this.sortDirection = "up";
       }
 
-      // 원본 데이터를 정렬하는 로직 추가
       this.data.sort((a, b) => {
         let aValue = a[columnKey];
         let bValue = b[columnKey];
 
-        // '%' 제거
         if (typeof aValue === "string" && aValue.includes("%")) {
           aValue = parseFloat(aValue.replace("%", ""));
         }
-
         if (typeof bValue === "string" && bValue.includes("%")) {
           bValue = parseFloat(bValue.replace("%", ""));
         }
@@ -230,13 +222,12 @@ export default {
           comparison = -1;
         }
 
-        this.current = 1;
-
         return this.sortDirection === "up" ? comparison : -comparison;
       });
+
+      this.current = 1; // 정렬 후 첫 페이지로 이동
     },
 
-    // 상세 페이지로 이동
     goToDetail(id) {
       this.$router.push({ name: "dashboardDetail", params: { id } });
     },
