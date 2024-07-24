@@ -199,6 +199,9 @@ export default {
           this.currentAssignmentDetails.questions[0].image;
         this.activeQuestionId =
           this.currentAssignmentDetails.beforeCanvas.lastQuestionIndex;
+        if (this.activeQuestionId === 1) {
+          this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
+        }
 
         // Find the active row and ensure it is visible by scrolling it into view
         this.$nextTick(() => {
@@ -246,13 +249,16 @@ export default {
 
       const dataToSubmit = {
         id: this.currentAssignmentDetails.id,
-        questions: this.currentAssignmentDetails.questions.map((question) => ({
-          id: question.id,
-          selectedValue:
-            question.selectedValue !== undefined
-              ? question.selectedValue
-              : null,
-        })),
+        questions: this.currentAssignmentDetails.questions.map(
+          (question, index) => ({
+            id: question.id,
+            selectedValue:
+              question.selectedValue !== undefined
+                ? question.selectedValue
+                : null,
+            index: index,
+          })
+        ),
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
         lastQuestionIndex: this.activeQuestionId,
@@ -447,6 +453,20 @@ export default {
 
     toggleFullScreenImage() {
       this.isFullScreenImage = !this.isFullScreenImage;
+    },
+  },
+
+  watch: {
+    // index 변경 시, 해당 질문으로 스크롤
+    activeQuestionId() {
+      this.$nextTick(() => {
+        const activeRow = this.$el.querySelector("tbody tr.active");
+        if (activeRow) {
+          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+        } else {
+          console.warn("Active row not found!");
+        }
+      });
     },
   },
 };
