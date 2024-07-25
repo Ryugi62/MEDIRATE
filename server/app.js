@@ -136,17 +136,23 @@ async function handleTaskDataUpload(req, res) {
     const { taskid } = req.body;
     const taskDir = path.join(IF_DIRECTORY, taskid);
 
+    console.log(`Task ID: ${taskid}`);
+    console.log(`Task Directory: ${taskDir}`);
+
     if (!fs.existsSync(taskDir)) {
       fs.mkdirSync(taskDir, { recursive: true });
+      console.log(`Created directory: ${taskDir}`);
     }
 
     const zipFilePath = req.file.path;
+    console.log(`ZIP file path: ${zipFilePath}`);
 
     await new Promise((resolve, reject) => {
       fs.createReadStream(zipFilePath)
         .pipe(unzipper.Parse())
         .on("entry", (entry) => {
           const fileName = path.basename(entry.path);
+          console.log(`Extracting file: ${fileName}`);
           if (
             entry.type === "File" &&
             fileName.match(/\.(jpg|jpeg|png|gif|json)$/)
@@ -159,14 +165,21 @@ async function handleTaskDataUpload(req, res) {
             entry.autodrain();
           }
         })
-        .on("finish", resolve)
-        .on("error", reject);
+        .on("finish", () => {
+          console.log("Unzip completed");
+          resolve();
+        })
+        .on("error", (err) => {
+          console.error("Error during unzip:", err);
+          reject(err);
+        });
     });
 
     fs.unlinkSync(zipFilePath); // Delete the original ZIP file after extraction
+    console.log(`Deleted ZIP file: ${zipFilePath}`);
     res.json({ code: "1", result: "OK" });
   } catch (error) {
-    console.error(error);
+    console.error("Error handling task data upload:", error);
     res.status(500).send(`An error occurred: ${error.message}`);
   }
 }
