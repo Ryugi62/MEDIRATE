@@ -243,21 +243,18 @@ export default {
         }
       });
 
-      if (currentQuestionSquares.length === 0) {
-        if (
-          !this.currentAssignmentDetails.squares.some(
-            (square) =>
-              square.questionIndex === this.activeQuestionId &&
-              square.isTemporary
-          )
-        ) {
-          this.currentAssignmentDetails.squares.push({
-            x: 0,
-            y: 0,
-            questionIndex: this.activeQuestionId,
-            isTemporary: true,
-          });
-        }
+      if (
+        !this.currentAssignmentDetails.squares.some(
+          (square) =>
+            square.questionIndex === this.activeQuestionId && square.isTemporary
+        )
+      ) {
+        this.currentAssignmentDetails.squares.push({
+          x: 0,
+          y: 0,
+          questionIndex: this.activeQuestionId,
+          isTemporary: true,
+        });
       }
 
       const dataToSubmit = {
