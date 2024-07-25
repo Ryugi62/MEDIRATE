@@ -301,14 +301,22 @@ export default {
       const originalSquares = this.tempSquares.filter(
         (s) => s.questionIndex === questionID
       );
+
+      originalSquares.forEach((square) => {
+        if (square.isTemporary) {
+          const index = originalSquares.indexOf(square);
+          originalSquares.splice(index, 1);
+        }
+      });
+
       const squares = [];
       originalSquares.forEach((square) => {
         const count =
           originalSquares
             .filter(
               (s) =>
-                Math.abs(s.x - square.x) <= 5 &&
-                Math.abs(s.y - square.y) <= 5 &&
+                Math.abs(s.x - square.x) <= 25 && // 여기 수정
+                Math.abs(s.y - square.y) <= 25 && // 여기 수정
                 s.user_id !== square.user_id
             )
             .filter(
@@ -319,8 +327,8 @@ export default {
           count === overlapDeepest &&
           !squares.some(
             (s) =>
-              Math.abs(s.x - square.x) <= 5 &&
-              Math.abs(s.y - square.y) <= 5 &&
+              Math.abs(s.x - square.x) <= 25 && // 여기 수정
+              Math.abs(s.y - square.y) <= 25 && // 여기 수정
               s.user_id !== square.user_id
           )
         ) {
@@ -367,7 +375,8 @@ export default {
       const potentialMatches = originalSquares.reduce((acc, square) => {
         const hasMatch = aiData.some((ai) => {
           return (
-            Math.abs(ai.x - square.x) <= 5 && Math.abs(ai.y - square.y) <= 5
+            Math.abs(ai.x - square.x) <= 25 && // 여기 수정
+            Math.abs(ai.y - square.y) <= 25 // 여기 수정
           );
         });
 
@@ -384,15 +393,15 @@ export default {
           potentialMatches
             .filter((s) => {
               return (
-                Math.abs(s.x - square.x) <= 5 &&
-                Math.abs(s.y - square.y) <= 5 &&
+                Math.abs(s.x - square.x) <= 25 && // 여기 수정
+                Math.abs(s.y - square.y) <= 25 && // 여기 수정
                 s.user_id !== square.user_id
               );
             })
             .filter(
               (s, index, self) =>
                 index === self.findIndex((ss) => ss.user_id === s.user_id)
-            ).length + 1; // Include the current square in the count
+            ).length + 1;
 
         if (count === overlapDeepest) {
           squares.push(square);
