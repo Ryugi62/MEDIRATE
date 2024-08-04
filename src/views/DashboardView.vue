@@ -52,10 +52,10 @@
   <nav class="pagination-nav" aria-label="Pagination">
     <ul class="pagination">
       <li>
-        <!-- fa-solid fa-angles-left pagination__button -->
+        <!-- 맨 처음으로 이동 아이콘 -->
         <i
-          class="fa-solid fa-angle-left pagination__button"
-          @click="changePage(current - 1)"
+          class="fa-solid fa-angles-left pagination__button"
+          @click="changePage(1)"
           :disabled="current === 1"
         ></i>
       </li>
@@ -90,8 +90,8 @@
 
       <li>
         <i
-          class="fa-solid fa-angle-right pagination__button"
-          @click="changePage(current + 1)"
+          class="fa-solid fa-angles-right pagination__button"
+          @click="changePage(lastPage)"
           :disabled="current === total"
         ></i>
       </li>
@@ -110,7 +110,8 @@ export default {
       data: [],
       current: 1,
       total: 0,
-      itemsPerPage: 14,
+      lastPage: 0,
+      itemsPerPage: 50,
     };
   },
 
@@ -183,6 +184,7 @@ export default {
         });
         this.data = response.data;
         this.total = this.data.length;
+        this.lastPage = Math.ceil(this.total / this.itemsPerPage);
         this.sortBy(this.sortColumn); // 초기 정렬 적용
       } catch (error) {
         console.error(error);
@@ -190,6 +192,8 @@ export default {
     },
 
     changePage(page) {
+      console.log(page);
+
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
       if (page >= 1 && page <= totalPages) {
         this.current = page;
