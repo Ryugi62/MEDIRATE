@@ -95,24 +95,46 @@ export default {
     async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
       const squares = [];
+      const groups = [];
+      const visited = new Set();
 
-      for (const square of this.localSquares) {
-        const overlap = this.localSquares
-          .filter((s) => {
-            const overlapX = Math.abs(s.x - square.x) < 25; // 박스 너비의 100%
-            const overlapY = Math.abs(s.y - square.y) < 25; // 박스 높이의 100%
+      const dfs = (square, group) => {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
 
-            return overlapX && overlapY && s.color !== square.color;
-          })
-          .filter(
-            (s, index, self) =>
-              index === self.findIndex((t) => t.color === s.color)
-          );
+        this.localSquares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      };
 
-        if (overlap.length + 1 >= this.sliderValue) squares.push(square);
-      }
+      this.localSquares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= this.sliderValue) {
+            groups.push(group);
+          }
+        }
+      });
 
-      this.localSquares = [...squares];
+      groups.forEach((group) => {
+        squares.push(...group);
+      });
+
+      // Remove duplicates
+      const uniqueSquares = squares.filter(
+        (square, index, self) =>
+          index === self.findIndex((s) => s.x === square.x && s.y === square.y)
+      );
+
+      this.localSquares = uniqueSquares;
       this.redrawSquares();
       this.updateSquares([...this.localSquares]);
     },
@@ -222,7 +244,10 @@ export default {
           return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.color || (square.isAI ? "#FFFF00" : "#FF0000");
+        // 투명도는 90%
+        ctx.globalAlpha = 0.7;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.globalAlpha = 1;
       });
 
       if (event) {
