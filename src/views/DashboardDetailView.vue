@@ -20,7 +20,7 @@
             />
           </div>
           <span class="completed-status">
-            <strong>{{ completionPercentage }}</strong> / {{ totalPercentage }}
+            <strong>{{ completionPercentage }}</strong>
           </span>
           <button class="edit-button" @click="moveToAssignmentManagement">
             과제수정
@@ -42,8 +42,11 @@
                   >
                     {{ person.name }}
                   </th>
-                  <th v-for="(person, index) in data" :key="index">
-                    {{ !index ? "일치 없음" : `${index + 1}인 일치` }}
+                  <th
+                    v-for="index in [null, ...Array(data.length - 1).keys()]"
+                    :key="index === null ? 'none' : index"
+                  >
+                    {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
                   </th>
                 </tr>
               </thead>
@@ -64,16 +67,12 @@
                         : getValidSquaresCount(person.squares, item.questionId)
                     }}
                   </td>
+                  <td>{{ getTotalBboxes(item.questionId) }}</td>
                   <td
-                    v-for="(person, overlapDeepest) in data"
-                    :key="person.name"
+                    v-for="overlapCount in Array(data.length - 1).keys()"
+                    :key="overlapCount"
                   >
-                    {{
-                      getOverlapSquares(
-                        item.questionId,
-                        Number(overlapDeepest) + 1
-                      )
-                    }}
+                    {{ getOverlaps(item.questionId, overlapCount + 2) }}
                   </td>
                 </tr>
               </tbody>
@@ -83,7 +82,7 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.answeredCount }}
                   </th>
-                  <th v-for="person in data" :key="person.name">
+                  <th v-for="i in data.length - 1" :key="i">
                     <i class="fa-solid fa-xmark"></i>
                   </th>
                 </tr>
@@ -92,7 +91,7 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.unansweredCount }}
                   </th>
-                  <th v-for="person in data" :key="person.name">
+                  <th v-for="i in data.length - 1" :key="i">
                     <i class="fa-solid fa-xmark"></i>
                   </th>
                 </tr>
@@ -169,7 +168,6 @@ export default {
 
   mounted() {
     this.$nextTick(() => {
-      // ... 기존 코드 ...
       window.addEventListener("keydown", this.handleKeyDown);
       window.addEventListener("keyup", this.handleKeyUp);
     });
@@ -179,6 +177,12 @@ export default {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("keyup", this.handleKeyUp);
     this.clearKeyPressInterval();
+  },
+
+  watch: {
+    sliderValue() {
+      this.updateActiveRowValues();
+    },
   },
 
   methods: {
@@ -267,6 +271,18 @@ export default {
           activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
         }
       });
+
+      this.sliderValue = null;
+      this.sliderValue = 1;
+    },
+
+    updateActiveRowValues() {
+      const currentRow = this.data[0].questions[this.activeIndex];
+
+      this.data.forEach((person) => {
+        person.questions[this.activeIndex].questionSelection =
+          this.getValidSquaresCount(person.squares, currentRow.questionId);
+      });
     },
 
     moveToAssignmentManagement() {
@@ -297,118 +313,107 @@ export default {
       this.flatSquares = this.data.map((person) => person.squares).flat();
     },
 
-    getOverlapSquares(questionID, overlapDeepest) {
-      const originalSquares = this.tempSquares.filter(
-        (s) => s.questionIndex === questionID
-      );
+    getTotalBboxes(questionId) {
+      return this.data.reduce((acc, person) => {
+        const count = person.squares.filter(
+          (square) => square.questionIndex === questionId && !square.isTemporary
+        ).length;
+        return acc + count;
+      }, 0);
+    },
 
-      originalSquares.forEach((square) => {
-        if (square.isTemporary) {
-          const index = originalSquares.indexOf(square);
-          originalSquares.splice(index, 1);
-        }
-      });
-
-      const squares = [];
-      originalSquares.forEach((square) => {
-        const count =
-          originalSquares
-            .filter(
-              (s) =>
-                Math.abs(s.x - square.x) <= 25 && // 여기 수정
-                Math.abs(s.y - square.y) <= 25 && // 여기 수정
-                s.user_id !== square.user_id
-            )
-            .filter(
-              (s, index, self) =>
-                index === self.findIndex((ss) => ss.user_id === s.user_id)
-            ).length + 1;
-        if (
-          count === overlapDeepest &&
-          !squares.some(
-            (s) =>
-              Math.abs(s.x - square.x) <= 25 && // 여기 수정
-              Math.abs(s.y - square.y) <= 25 && // 여기 수정
-              s.user_id !== square.user_id
+    getOverlaps(questionId, overlapCount) {
+      let squares = [];
+      this.data.forEach((person) => {
+        squares = squares.concat(
+          person.squares.filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
           )
-        ) {
-          squares.push(square);
-        }
+        );
       });
-      return squares.length;
-    },
 
-    getAllOverlapSquares(questionID, overlapDeepest) {
-      const originalSquares = this.tempSquares.filter(
-        (s) => s.questionIndex === questionID
-      );
-      const squares = [];
-      originalSquares.forEach((square) => {
-        const count =
-          originalSquares
-            .filter(
-              (s) =>
-                Math.abs(s.x - square.x) <= 5 &&
-                Math.abs(s.y - square.y) <= 5 &&
-                s.user_id !== square.user_id
-            )
-            .filter(
-              (s, index, self) =>
-                index === self.findIndex((ss) => ss.user_id === s.user_id)
-            ).length + 1;
-        if (count === overlapDeepest) {
-          squares.push([square.x, square.y, 20, 20, square.user_id]);
-        }
-      });
-      return squares;
-    },
+      if (overlapCount === 1) {
+        return squares.length; // 일치 없음 상태에서는 모든 사각형 개수 반환
+      }
 
-    AiTest(aiData = [], questionID, overlapDeepest, isMatched = true) {
-      if (!aiData.length) return [];
+      const groups = [];
+      const visited = new Set();
 
-      aiData = aiData.filter((ai) => ai.questionIndex === questionID);
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
 
-      const originalSquares = this.tempSquares.filter(
-        (s) => s.questionIndex === questionID
-      );
-
-      const potentialMatches = originalSquares.reduce((acc, square) => {
-        const hasMatch = aiData.some((ai) => {
-          return (
-            Math.abs(ai.x - square.x) <= 25 && // 여기 수정
-            Math.abs(ai.y - square.y) <= 25 // 여기 수정
-          );
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
         });
+      }
 
-        if (hasMatch === isMatched) {
-          acc.push(square);
-        }
-
-        return acc;
-      }, []);
-
-      const squares = [];
-      potentialMatches.forEach((square) => {
-        const count =
-          potentialMatches
-            .filter((s) => {
-              return (
-                Math.abs(s.x - square.x) <= 25 && // 여기 수정
-                Math.abs(s.y - square.y) <= 25 && // 여기 수정
-                s.user_id !== square.user_id
-              );
-            })
-            .filter(
-              (s, index, self) =>
-                index === self.findIndex((ss) => ss.user_id === s.user_id)
-            ).length + 1;
-
-        if (count === overlapDeepest) {
-          squares.push(square);
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
         }
       });
 
-      return squares;
+      return groups.length;
+    },
+
+    getOverlapsBBoxes(questionId, overlapCount) {
+      let squares = [];
+      this.data.forEach((person) => {
+        squares = squares.concat(
+          person.squares.filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
+          )
+        );
+      });
+
+      if (overlapCount === 1) {
+        return squares; // 일치 없음 상태에서는 모든 사각형 반환
+      }
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups.flat();
     },
 
     calculateImagePosition(
@@ -434,26 +439,7 @@ export default {
           },
         })
         .then((res) => res.data);
-      this.data[0].questions.forEach((q) => {
-        const filterAiData = aiData.filter(
-          (ai) => ai.questionIndex === q.questionId
-        );
-        if (!filterAiData.length) return;
-        const img = new Image();
-        img.src = q.questionImage;
-        const { width, height } = document.querySelector("canvas");
-        const currentPosition = this.calculateImagePosition(
-          width,
-          height,
-          img.width,
-          img.height
-        );
-        const scaleRatio = currentPosition.scale / 1;
-        aiData.forEach((square) => {
-          square.x = (square.x - 0) * scaleRatio + currentPosition.x;
-          square.y = (square.y - 0) * scaleRatio + currentPosition.y;
-        });
-      });
+
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -482,42 +468,49 @@ export default {
         columns.push({ header: "Json", key: "json", width: 15 });
       }
       worksheet.columns = columns;
+
       this.data[0].questions.forEach((question, qIndex) => {
         const questionImageFileName = question.questionImage.split("/").pop();
         const row = { questionNumber: questionImageFileName };
         this.data.forEach((user) => {
           row[user.name] = user.questions[qIndex].questionSelection;
         });
+
         if (this.assignmentMode === "BBox") {
           for (let i = 1; i <= this.data.length; i++) {
-            row[`overlap${i}`] = this.getOverlapSquares(question.questionId, i);
-          }
-          for (let i = 1; i <= this.data.length; i++) {
-            row[`matched${i}`] = this.AiTest(
-              aiData,
+            const overlapCount = this.getOverlaps(question.questionId, i);
+            const matchedCount = this.getOverlapsBBoxes(
               question.questionId,
-              i,
-              true
+              i
+            ).filter((bbox) =>
+              aiData.some(
+                (ai) =>
+                  Math.abs(bbox.x - ai.x) <= 12.5 &&
+                  Math.abs(bbox.y - ai.y) <= 12.5
+              )
             ).length;
+            const unmatchedCount = overlapCount - matchedCount;
+
+            row[`overlap${i}`] = overlapCount;
+            row[`matched${i}`] = matchedCount;
+            row[`unmatched${i}`] = unmatchedCount;
           }
-          for (let i = 1; i <= this.data.length; i++) {
-            row[`unmatched${i}`] = this.AiTest(
-              aiData,
-              question.questionId,
-              i,
-              false
-            ).length;
-          }
+
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
-            annotation: this.getAllOverlapSquares(
+            annotation: this.getOverlapsBBoxes(
               question.questionId,
               Number(this.sliderValue)
-            ),
+            ).map((bbox) => ({
+              category_id: bbox.category_id,
+              bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
+            })),
           });
         }
+
         worksheet.addRow(row);
       });
+
       worksheet.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
@@ -590,7 +583,7 @@ export default {
           ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
           : "0%";
       } else {
-        const count = this.getOverlapSquares(
+        const count = this.getOverlaps(
           this.activeQuestionIndex,
           Number(this.sliderValue)
         );
