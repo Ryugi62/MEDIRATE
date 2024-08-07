@@ -459,20 +459,24 @@ export default {
           width: 15,
         })),
       ];
+
       if (this.assignmentMode === "BBox") {
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({ header: `+${i}인`, key: `overlap${i}`, width: 10 });
-        }
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({ header: `${i}일치`, key: `matched${i}`, width: 10 });
-        }
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({
-            header: `${i}불일치`,
-            key: `unmatched${i}`,
-            width: 10,
-          });
-        }
+        const middleN = Math.ceil(this.data.length / 2);
+        columns.push({
+          header: `+${middleN}인`,
+          key: `overlap${middleN}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${middleN}일치`,
+          key: `matched${middleN}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${middleN}불일치`,
+          key: `unmatched${middleN}`,
+          width: 10,
+        });
         columns.push({ header: "Json", key: "json", width: 15 });
       }
       worksheet.columns = columns;
@@ -488,24 +492,23 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          for (let i = 1; i <= this.data.length; i++) {
-            const overlapCount = this.getOverlaps(question.questionId, i);
-            const matchedCount = this.getOverlapsBBoxes(
-              question.questionId,
-              i
-            ).filter((bbox) =>
-              aiData.some(
-                (ai) =>
-                  Math.abs(bbox.x - ai.x) <= 12.5 &&
-                  Math.abs(bbox.y - ai.y) <= 12.5
-              )
-            ).length;
-            const unmatchedCount = overlapCount - matchedCount;
+          const middleN = Math.ceil(this.data.length / 2);
+          const overlapCount = this.getOverlaps(question.questionId, middleN);
+          const matchedCount = this.getOverlapsBBoxes(
+            question.questionId,
+            middleN
+          ).filter((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          ).length;
+          const unmatchedCount = overlapCount - matchedCount;
 
-            row[`overlap${i}`] = overlapCount;
-            row[`matched${i}`] = matchedCount;
-            row[`unmatched${i}`] = unmatchedCount;
-          }
+          row[`overlap${middleN}`] = overlapCount;
+          row[`matched${middleN}`] = matchedCount;
+          row[`unmatched${middleN}`] = unmatchedCount;
 
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
@@ -529,7 +532,6 @@ export default {
       });
       saveAs(blob, "assignment_responses.xlsx");
     },
-
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
