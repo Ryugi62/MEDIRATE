@@ -9,6 +9,11 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
+            <i
+              class="fa-solid fa-robot"
+              :class="{ active: isRobotActive }"
+              @click="toggleRobot"
+            ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
@@ -109,6 +114,7 @@
             </table>
           </div>
           <div class="image-box">
+            <!-- 만약 isRobotActive가 true라면 :aiData="aiData" -->
             <component
               :is="
                 assignmentMode === 'TextBox'
@@ -120,6 +126,7 @@
               :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)"
               :updateSquares="updateSquares"
+              :aiData="isRobotActive ? aiData : []"
             />
           </div>
         </div>
@@ -167,11 +174,14 @@ export default {
       isExporting: false,
       keyPressInterval: null,
       keyRepeatDelay: 200,
+      isRobotActive: true,
+      aiData: [],
     };
   },
 
   async created() {
     await this.loadData();
+    await this.fetchAiData();
     this.startExportingAnimation();
   },
 
@@ -221,6 +231,22 @@ export default {
       }
     },
 
+    async fetchAiData() {
+      await this.$axios
+        .get(`/api/assignments/${this.assignmentId}/ai/`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((res) => {
+          res.data.forEach((ai) => {
+            ai.x += 12.5;
+            ai.y += 12.5;
+          });
+          this.aiData = res.data;
+        });
+    },
+
     handleKeyDown(event) {
       if (event.repeat) return;
 
@@ -232,14 +258,14 @@ export default {
       }
     },
 
+    handleKeyUp() {
+      this.clearKeyPressInterval();
+    },
+
     getValidSquaresCount(squares, questionId) {
       return squares.filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       ).length;
-    },
-
-    handleKeyUp() {
-      this.clearKeyPressInterval();
     },
 
     clearKeyPressInterval() {
@@ -247,6 +273,10 @@ export default {
         clearInterval(this.keyPressInterval);
         this.keyPressInterval = null;
       }
+    },
+
+    toggleRobot() {
+      this.isRobotActive = !this.isRobotActive;
     },
 
     moveQuestion(key) {
@@ -440,14 +470,7 @@ export default {
     },
 
     async exportToExcel() {
-      const aiData = await this.$axios
-        .get(`/api/assignments/${this.assignmentId}/ai/`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        })
-        .then((res) => res.data);
-
+      const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -666,8 +689,9 @@ export default {
 }
 
 .slider-container {
-  display: flex;
   gap: 8px;
+  display: flex;
+  align-items: center;
 }
 
 .completed-status {
@@ -758,5 +782,17 @@ tfoot > tr > th {
   color: var(--white);
   font-size: 24px;
   z-index: 100;
+}
+
+/* fa-robot에 active class가 있다면 색 변경 */
+.fa-robot.active {
+  color: var(--blue);
+}
+.fa-robot:hover {
+  cursor: pointer;
+  color: var(--blue-hover);
+}
+.fa-robot:active {
+  color: var(--blue-active);
 }
 </style>

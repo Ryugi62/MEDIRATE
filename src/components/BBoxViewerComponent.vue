@@ -44,6 +44,11 @@ export default {
       required: true,
       default: () => {},
     },
+    aiData: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
   },
 
   data() {
@@ -51,6 +56,7 @@ export default {
       localBeforeCanvas: { width: null, height: null },
       originalLocalSquares: [],
       localSquares: [],
+      localAiSquares: [], // 새로운 AI 데이터 저장 배열
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -70,6 +76,8 @@ export default {
       this.setBackgroundImage(img);
       this.localBeforeCanvas = { width, height };
 
+      this.localSquares = [];
+
       for (const user of this.userSquaresList) {
         const beforePosition = this.calculateImagePosition(width, height);
         const userBeforePosition = this.calculateImagePosition(
@@ -79,22 +87,49 @@ export default {
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
         for (const square of user.squares) {
-          square.color = user.color;
-          square.x =
-            (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
-          square.y =
-            (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
-          this.localSquares.push(square);
+          const adjustedSquare = {
+            ...square,
+            color: user.color,
+            x:
+              (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x,
+            y:
+              (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y,
+          };
+          this.localSquares.push(adjustedSquare);
         }
       }
+
+      this.processAiData();
 
       this.originalLocalSquares = [...this.localSquares];
       this.updateSquares([...this.localSquares]);
     },
 
+    processAiData() {
+      const { width, height } = this.$refs.canvas;
+      const { x, y, scale } = this.calculateImagePosition(width, height);
+
+      this.localAiSquares = this.aiData
+        .filter((aiSquare) => aiSquare.questionIndex === this.questionIndex)
+        .map((aiSquare) => ({
+          x: aiSquare.x * scale + x,
+          y: aiSquare.y * scale + y,
+          questionIndex: aiSquare.questionIndex,
+          isAI: true,
+        }));
+    },
+
     async filterSquares() {
-      this.localSquares = [...this.originalLocalSquares];
-      const squares = [];
+      // AI 데이터는 필터링하지 않습니다.
+      const filteredUserSquares = this.filterUserSquares([
+        ...this.originalLocalSquares,
+      ]);
+      this.localSquares = filteredUserSquares;
+      this.redrawSquares();
+      this.updateSquares([...this.localSquares]);
+    },
+
+    filterUserSquares(squares) {
       const groups = [];
       const visited = new Set();
 
@@ -103,7 +138,7 @@ export default {
         visited.add(square);
         group.push(square);
 
-        this.localSquares.forEach((otherSquare) => {
+        squares.forEach((otherSquare) => {
           if (
             !visited.has(otherSquare) &&
             Math.abs(square.x - otherSquare.x) <= 12.5 &&
@@ -114,7 +149,7 @@ export default {
         });
       };
 
-      this.localSquares.forEach((square) => {
+      squares.forEach((square) => {
         if (!visited.has(square)) {
           const group = [];
           dfs(square, group);
@@ -124,19 +159,7 @@ export default {
         }
       });
 
-      groups.forEach((group) => {
-        squares.push(...group);
-      });
-
-      // Remove duplicates
-      const uniqueSquares = squares.filter(
-        (square, index, self) =>
-          index === self.findIndex((s) => s.x === square.x && s.y === square.y)
-      );
-
-      this.localSquares = uniqueSquares;
-      this.redrawSquares();
-      this.updateSquares([...this.localSquares]);
+      return groups.flat();
     },
 
     async loadBackgroundImage() {
@@ -194,15 +217,11 @@ export default {
       const canvas = this.$refs.canvas;
       if (!canvas) return;
 
-      if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
-        canvas.width = this.localBeforeCanvas.width;
-        canvas.height = this.localBeforeCanvas.height;
-      }
-
       const beforePosition = this.calculateImagePosition(
         canvas.width,
         canvas.height
       );
+
       canvas.width = 0;
       canvas.height = 0;
 
@@ -217,6 +236,7 @@ export default {
 
       this.drawBackgroundImage();
       this.setSquaresPosition(beforePosition);
+      this.setAiSquaresPosition(beforePosition);
 
       this.redrawSquares();
     },
@@ -226,12 +246,28 @@ export default {
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
 
-      for (const square of this.localSquares) {
+      this.localSquares.forEach((square) => {
         square.x =
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
-      }
+      });
+    },
+
+    setAiSquaresPosition(beforePosition) {
+      const { width, height } = this.$refs.canvas;
+      const currentPosition = this.calculateImagePosition(width, height);
+
+      this.localAiSquares.forEach((square) => {
+        square.x =
+          ((square.x - beforePosition.x) / beforePosition.scale) *
+            currentPosition.scale +
+          currentPosition.x;
+        square.y =
+          ((square.y - beforePosition.y) / beforePosition.scale) *
+            currentPosition.scale +
+          currentPosition.y;
+      });
     },
 
     redrawSquares(event = null) {
@@ -239,12 +275,21 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
+      // 사용자 사각형 그리기
       this.localSquares.forEach((square) => {
-        if (square.questionIndex !== this.questionIndex || square.isTemporary)
-          return;
+        if (square.questionIndex !== this.questionIndex) return;
         ctx.lineWidth = 2;
-        ctx.strokeStyle = square.color || (square.isAI ? "#FFFF00" : "#FF0000");
-        // 투명도는 90%
+        ctx.strokeStyle = square.color || "#FF0000";
+        ctx.globalAlpha = 0.7;
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.globalAlpha = 1;
+      });
+
+      // AI 사각형 그리기
+      this.localAiSquares.forEach((square) => {
+        if (square.questionIndex !== this.questionIndex) return;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#FFFF00";
         ctx.globalAlpha = 0.7;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
@@ -365,6 +410,7 @@ export default {
       if (newVal !== oldVal) {
         this.loadBackgroundImage();
         this.updateSquares([...this.localSquares]);
+        this.processAiData();
       }
     },
 
@@ -374,6 +420,14 @@ export default {
 
     async sliderValue() {
       await this.filterSquares();
+    },
+
+    aiData: {
+      handler() {
+        this.processAiData();
+        this.redrawSquares();
+      },
+      deep: true,
     },
   },
 };
