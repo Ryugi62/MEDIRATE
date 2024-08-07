@@ -482,11 +482,14 @@ export default {
       }
       worksheet.columns = columns;
 
-      this.data[0].questions.forEach((question, qIndex) => {
+      this.data[0].questions.forEach((question) => {
         const questionImageFileName = question.questionImage.split("/").pop();
         const row = { questionNumber: questionImageFileName };
         this.data.forEach((user) => {
-          row[user.name] = user.questions[qIndex].questionSelection;
+          row[user.name] = this.getValidSquaresCount(
+            user.squares,
+            question.questionId
+          );
         });
 
         if (this.assignmentMode === "BBox") {
@@ -610,7 +613,7 @@ export default {
         return "100%";
       } else {
         return this.flatSquares.filter(
-          (s) => s.questionIndex === this.activeQuestionIndex
+          (s) => s.questionIndex === this.activeQuestionIndex && !s.isTemporary
         ).length;
       }
     },
