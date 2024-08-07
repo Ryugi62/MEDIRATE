@@ -94,7 +94,6 @@ export default {
 
     async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
-      const squares = [];
       const groups = [];
       const visited = new Set();
 
@@ -107,7 +106,9 @@ export default {
           if (
             !visited.has(otherSquare) &&
             Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
+            Math.abs(square.y - otherSquare.y) <= 12.5 &&
+            square.questionIndex === otherSquare.questionIndex &&
+            square.color !== otherSquare.color // 다른 유저의 박스인지 확인
           ) {
             dfs(otherSquare, group);
           }
@@ -118,23 +119,24 @@ export default {
         if (!visited.has(square)) {
           const group = [];
           dfs(square, group);
-          if (group.length >= this.sliderValue) {
-            groups.push(group);
-          }
+          groups.push(group);
         }
       });
 
-      groups.forEach((group) => {
-        squares.push(...group);
-      });
+      // Filter groups based on sliderValue
+      const filteredGroups = groups.filter(
+        (group) => group.length >= this.sliderValue
+      );
+
+      // Flatten filtered groups into a single array of squares
+      this.localSquares = filteredGroups.flat();
 
       // Remove duplicates
-      const uniqueSquares = squares.filter(
+      this.localSquares = this.localSquares.filter(
         (square, index, self) =>
           index === self.findIndex((s) => s.x === square.x && s.y === square.y)
       );
 
-      this.localSquares = uniqueSquares;
       this.redrawSquares();
       this.updateSquares([...this.localSquares]);
     },
@@ -254,6 +256,12 @@ export default {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
+
+      console.log(
+        this.localSquares.filter(
+          (s) => s.questionIndex === this.questionIndex && !s.isTemporary
+        )
+      );
 
       this.$emit("update:squares", this.localSquares);
     },
