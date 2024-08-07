@@ -5,8 +5,8 @@ const authenticateToken = require("../jwt");
 
 // 공통된 날짜 변환 및 비율 계산 함수
 const formatDate = (date) => date.toISOString().split("T")[0];
-const calculateRates = (answered, total, evaluatorCount) => {
-  const rate = (answered / (total * evaluatorCount)) * 100;
+const calculateRates = (answered, total) => {
+  const rate = (answered / total) * 100;
   return `${rate.toFixed(2)}%`;
 };
 
@@ -22,28 +22,29 @@ router.get("/", async (_req, res) => {
     `);
 
     for (const assignment of assignments) {
+      const totalPossibleAnswers =
+        assignment.totalQuestions * assignment.evaluatorCount;
+
       if (assignment.assignmentMode === "BBox") {
-        // BBox 모드일 경우 각 사용자별로 하나 이상의 사각형을 그린 문제 수 계산
+        // BBox 모드: 각 사용자가 각 문제에 대해 사각형을 하나라도 그렸는지 확인
         const [bboxAnswers] = await db.query(
           `
-          SELECT COUNT(DISTINCT user_id) AS answeredUserCount
+          SELECT COUNT(*) AS answeredQuestions
           FROM (
-            SELECT si.user_id, q.id
+            SELECT DISTINCT si.user_id, q.id
             FROM questions q
-            LEFT JOIN squares_info si ON q.id = si.question_id
+            JOIN squares_info si ON q.id = si.question_id
             WHERE q.assignment_id = ?
-            GROUP BY si.user_id, q.id
-            HAVING COUNT(si.id) > 0
-          ) AS user_questions
+          ) AS user_question_combinations
           `,
           [assignment.id]
         );
-        assignment.answeredQuestions = bboxAnswers[0].answeredUserCount;
+        assignment.answeredQuestions = bboxAnswers[0].answeredQuestions;
       } else {
-        // 기존 모드의 경우 이전 로직 유지
+        // TextBox 모드: 기존 로직 유지
         const [answeredQuestions] = await db.query(
           `
-          SELECT COUNT(DISTINCT qr.question_id) AS count
+          SELECT COUNT(*) AS count
           FROM question_responses qr
           JOIN questions q ON qr.question_id = q.id
           WHERE q.assignment_id = ? AND qr.selected_option >= 0
@@ -55,14 +56,13 @@ router.get("/", async (_req, res) => {
 
       assignment.answerRate = calculateRates(
         assignment.answeredQuestions,
-        assignment.totalQuestions,
-        assignment.evaluatorCount
+        totalPossibleAnswers,
+        1 // evaluatorCount는 이미 totalPossibleAnswers에 포함되어 있으므로 1로 설정
       );
       assignment.unansweredRate = calculateRates(
-        assignment.totalQuestions * assignment.evaluatorCount -
-          assignment.answeredQuestions,
-        assignment.totalQuestions,
-        assignment.evaluatorCount
+        totalPossibleAnswers - assignment.answeredQuestions,
+        totalPossibleAnswers,
+        1 // 마찬가지로 1로 설정
       );
       assignment.createdAt = formatDate(new Date(assignment.createdAt));
       assignment.endAt = formatDate(new Date(assignment.endAt));
