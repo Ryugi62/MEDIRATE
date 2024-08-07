@@ -8,7 +8,7 @@
       <div class="table-box">
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
-          <div class="slider-container" v-if="assignmentMode === 'BBox'">
+          <div v-if="assignmentMode === 'BBox'" class="slider-container">
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
@@ -42,12 +42,14 @@
                   >
                     {{ person.name }}
                   </th>
-                  <th
-                    v-for="index in [null, ...Array(data.length - 1).keys()]"
-                    :key="index === null ? 'none' : index"
-                  >
-                    {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
-                  </th>
+                  <template v-if="assignmentMode === 'BBox'">
+                    <th
+                      v-for="index in [null, ...Array(data.length - 1).keys()]"
+                      :key="index === null ? 'none' : index"
+                    >
+                      {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
+                    </th>
+                  </template>
                 </tr>
               </thead>
               <tbody>
@@ -63,17 +65,21 @@
                   <td v-for="person in data" :key="person.name">
                     {{
                       assignmentMode === "TextBox"
-                        ? person.questions[index].questionSelection
+                        ? person.questions[index].questionSelection === -1
+                          ? "선택되지 않음"
+                          : person.questions[index].questionSelection
                         : getValidSquaresCount(person.squares, item.questionId)
                     }}
                   </td>
-                  <td>{{ getTotalBboxes(item.questionId) }}</td>
-                  <td
-                    v-for="overlapCount in Array(data.length - 1).keys()"
-                    :key="overlapCount"
-                  >
-                    {{ getOverlaps(item.questionId, overlapCount + 2) }}
-                  </td>
+                  <template v-if="assignmentMode === 'BBox'">
+                    <td>{{ getTotalBboxes(item.questionId) }}</td>
+                    <td
+                      v-for="overlapCount in Array(data.length - 1).keys()"
+                      :key="overlapCount"
+                    >
+                      {{ getOverlaps(item.questionId, overlapCount + 2) }}
+                    </td>
+                  </template>
                 </tr>
               </tbody>
               <tfoot class="table-footer">
@@ -82,18 +88,22 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.answeredCount }}
                   </th>
-                  <th v-for="i in data.length - 1" :key="i">
-                    <i class="fa-solid fa-xmark"></i>
-                  </th>
+                  <template v-if="assignmentMode === 'BBox'">
+                    <th v-for="i in data.length - 1" :key="i">
+                      <i class="fa-solid fa-xmark"></i>
+                    </th>
+                  </template>
                 </tr>
                 <tr>
                   <th>미답변</th>
                   <th v-for="person in data" :key="person.name">
                     {{ person.unansweredCount }}
                   </th>
-                  <th v-for="i in data.length - 1" :key="i">
-                    <i class="fa-solid fa-xmark"></i>
-                  </th>
+                  <template v-if="assignmentMode === 'BBox'">
+                    <th v-for="i in data.length - 1" :key="i">
+                      <i class="fa-solid fa-xmark"></i>
+                    </th>
+                  </template>
                 </tr>
               </tfoot>
             </table>
@@ -156,13 +166,12 @@ export default {
       exportingMessageIndex: 0,
       isExporting: false,
       keyPressInterval: null,
-      keyRepeatDelay: 200, // 밀리초 단위, 필요에 따라 조정
+      keyRepeatDelay: 200,
     };
   },
 
   async created() {
     await this.loadData();
-
     this.startExportingAnimation();
   },
 
@@ -213,7 +222,7 @@ export default {
     },
 
     handleKeyDown(event) {
-      if (event.repeat) return; // 키 반복 이벤트 무시
+      if (event.repeat) return;
 
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         this.moveQuestion(event.key);
@@ -262,7 +271,6 @@ export default {
       this.activeIndex = index;
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
 
-      // 활성화된 행으로 스크롤
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector(
           ".assignment-table tbody tr.active"
@@ -317,6 +325,7 @@ export default {
     },
 
     getTotalBboxes(questionId) {
+      if (this.assignmentMode !== "BBox") return "";
       return this.data.reduce((acc, person) => {
         const count = person.squares.filter(
           (square) => square.questionIndex === questionId && !square.isTemporary
@@ -326,6 +335,7 @@ export default {
     },
 
     getOverlaps(questionId, overlapCount) {
+      if (this.assignmentMode !== "BBox") return "";
       let squares = [];
       this.data.forEach((person) => {
         squares = squares.concat(
@@ -337,7 +347,7 @@ export default {
       });
 
       if (overlapCount === 1) {
-        return squares.length; // 일치 없음 상태에서는 모든 사각형 개수 반환
+        return squares.length;
       }
 
       const groups = [];
@@ -384,7 +394,7 @@ export default {
       });
 
       if (overlapCount === 1) {
-        return squares; // 일치 없음 상태에서는 모든 사각형 반환
+        return squares;
       }
 
       const groups = [];
@@ -525,7 +535,7 @@ export default {
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
-      }, 500); // 0.5초마다 점의 개수 변경
+      }, 500);
     },
     stopExportingAnimation() {
       clearInterval(this.interval);
@@ -614,7 +624,6 @@ export default {
     },
 
     exportingMessage() {
-      // 파일 생성 메시지에 점을 순환적으로 추가
       const baseMessage = "파일을 생성 중입니다";
       const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
       return `${baseMessage}${dots}`;
@@ -748,7 +757,6 @@ tfoot > tr > th {
   align-items: center;
   color: var(--white);
   font-size: 24px;
-
   z-index: 100;
 }
 </style>
