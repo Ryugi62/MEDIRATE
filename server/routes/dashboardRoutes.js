@@ -23,23 +23,22 @@ router.get("/", async (_req, res) => {
 
     for (const assignment of assignments) {
       if (assignment.assignmentMode === "BBox") {
-        // BBox 모드일 경우 각 문제별 답변한 사용자 수 계산
+        // BBox 모드일 경우 각 사용자별로 하나 이상의 사각형을 그린 문제 수 계산
         const [bboxAnswers] = await db.query(
           `
-          SELECT q.id, COUNT(DISTINCT si.user_id) AS answeredUserCount
-          FROM questions q
-          LEFT JOIN squares_info si ON q.id = si.question_id
-          WHERE q.assignment_id = ?
-          GROUP BY q.id
-        `,
+          SELECT COUNT(DISTINCT user_id) AS answeredUserCount
+          FROM (
+            SELECT si.user_id, q.id
+            FROM questions q
+            LEFT JOIN squares_info si ON q.id = si.question_id
+            WHERE q.assignment_id = ?
+            GROUP BY si.user_id, q.id
+            HAVING COUNT(si.id) > 0
+          ) AS user_questions
+          `,
           [assignment.id]
         );
-
-        const totalAnsweredUserQuestions = bboxAnswers.reduce(
-          (sum, question) => sum + question.answeredUserCount,
-          0
-        );
-        assignment.answeredQuestions = totalAnsweredUserQuestions;
+        assignment.answeredQuestions = bboxAnswers[0].answeredUserCount;
       } else {
         // 기존 모드의 경우 이전 로직 유지
         const [answeredQuestions] = await db.query(
@@ -48,7 +47,7 @@ router.get("/", async (_req, res) => {
           FROM question_responses qr
           JOIN questions q ON qr.question_id = q.id
           WHERE q.assignment_id = ? AND qr.selected_option >= 0
-        `,
+          `,
           [assignment.id]
         );
         assignment.answeredQuestions = answeredQuestions[0].count;
