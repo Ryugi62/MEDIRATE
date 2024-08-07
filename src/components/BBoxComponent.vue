@@ -374,6 +374,14 @@ export default {
     },
 
     drawSquare(x, y) {
+      // this.temporarySquares에 같은 x, y 좌표가 있는지 확인 후 있으면 return
+      const checkSameCoordinate = this.temporarySquares.some(
+        (square) => square.x === x && square.y === y
+      );
+      if (checkSameCoordinate) return;
+
+      console.log("test");
+
       this.temporarySquares.push({
         x,
         y,
