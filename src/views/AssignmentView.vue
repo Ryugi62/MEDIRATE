@@ -9,21 +9,22 @@
         <!-- 테이블 헤더 -->
         <tr>
           <!-- 각 열 정렬 기능 -->
-          <!-- 클릭기능이 있다는걸 class로 표시 -->
-          <th @click="sort('id')" class="sortable">
-            <i :class="sortIcon('id')"></i> ID
+          <th
+            v-for="column in columns"
+            :key="column.key"
+            @click="column.sortable && sortBy(column.key)"
+            :class="{ sortable: column.sortable }"
+          >
+            <i
+              v-if="column.sortable"
+              :class="[
+                'fa-solid',
+                'fa-arrow-' +
+                  (sortColumn === column.key ? sortDirection : 'down'),
+              ]"
+            ></i>
+            {{ column.name }}
           </th>
-          <th>제목</th>
-          <th @click="sort('creationDate')" class="sortable">
-            <i :class="sortIcon('creationDate')"></i> 생성
-          </th>
-          <th @click="sort('dueDate')" class="sortable">
-            <i :class="sortIcon('dueDate')"></i> 종료
-          </th>
-          <th @click="sort('status')" class="sortable">
-            <i :class="sortIcon('status')"></i> 상태
-          </th>
-          <th>현황</th>
         </tr>
       </thead>
       <tbody>
@@ -33,17 +34,8 @@
           :key="assignment.id"
           @click="redirect(assignment.id)"
         >
-          <td class="assignment-id">{{ assignment.id }}</td>
-          <td class="assignment-title">{{ assignment.title }}</td>
-          <td class="assignment-creation-date">
-            {{ assignment.CreationDate.split("T")[0] }}
-          </td>
-          <td class="assignment-due-date">
-            {{ assignment.dueDate.split("T")[0] }}
-          </td>
-          <td class="assignment-status">{{ assignment.status }}</td>
-          <td class="assignment-progress">
-            <strong>{{ assignment.completed }}</strong> / {{ assignment.total }}
+          <td v-for="column in columns" :key="column.key" :class="column.class">
+            {{ getValue(assignment, column.key) }}
           </td>
         </tr>
       </tbody>
@@ -57,12 +49,14 @@
         <i
           class="fa-solid fa-angles-left pagination__button"
           @click="changePage(1)"
+          :disabled="current === 1"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angle-left pagination__button"
           @click="changePage(current - 1)"
+          :disabled="current === 1"
         ></i>
       </li>
       <li
@@ -79,12 +73,14 @@
         <i
           class="fa-solid fa-chevron-right pagination__button"
           @click="changePage(current + 1)"
+          :disabled="current === total"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
           @click="changePage(total)"
+          :disabled="current === total"
         ></i>
       </li>
     </ul>
@@ -99,20 +95,62 @@ export default {
       assignments: [],
       current: 1,
       perPage: 14,
-      sortKey: "id",
-      sortOrder: "asc",
+      sortColumn: "id",
+      sortDirection: "down",
     };
   },
   computed: {
+    columns() {
+      return [
+        { name: "ID", key: "id", sortable: true, class: "assignment-id" },
+        {
+          name: "제목",
+          key: "title",
+          sortable: true,
+          class: "assignment-title",
+        },
+        {
+          name: "생성",
+          key: "CreationDate",
+          sortable: true,
+          class: "assignment-creation-date",
+        },
+        {
+          name: "종료",
+          key: "dueDate",
+          sortable: true,
+          class: "assignment-due-date",
+        },
+        {
+          name: "상태",
+          key: "status",
+          sortable: true,
+          class: "assignment-status",
+        },
+        {
+          name: "현황",
+          key: "progress",
+          sortable: true,
+          class: "assignment-progress",
+        },
+      ];
+    },
     // 정렬된 과제 목록 반환
     sortedAssignments() {
       return [...this.assignments].sort((a, b) => {
-        const multiplier = this.sortOrder === "asc" ? 1 : -1;
-        return a[this.sortKey] < b[this.sortKey]
-          ? -1 * multiplier
-          : a[this.sortKey] > b[this.sortKey]
-          ? 1 * multiplier
-          : 0;
+        let aValue = this.getValue(a, this.sortColumn);
+        let bValue = this.getValue(b, this.sortColumn);
+
+        if (typeof aValue === "string" && aValue.includes("%")) {
+          aValue = parseFloat(aValue.replace("%", ""));
+        }
+        if (typeof bValue === "string" && bValue.includes("%")) {
+          bValue = parseFloat(bValue.replace("%", ""));
+        }
+
+        if (aValue < bValue) return this.sortDirection === "up" ? -1 : 1;
+        if (aValue > bValue) return this.sortDirection === "up" ? 1 : -1;
+        return 0;
       });
     },
     // 현재 페이지에 표시되는 과제 목록 반환
@@ -159,16 +197,29 @@ export default {
       this.current = Math.max(1, Math.min(pageNumber, this.total));
     },
     // 특정 키로 과제 목록 정렬
-    sort(key) {
-      this.sortOrder =
-        this.sortKey === key && this.sortOrder === "asc" ? "desc" : "asc";
-      this.sortKey = key;
+    sortBy(columnKey) {
+      if (this.sortColumn === columnKey) {
+        this.sortDirection = this.sortDirection === "up" ? "down" : "up";
+      } else {
+        this.sortColumn = columnKey;
+        this.sortDirection = columnKey === "id" ? "down" : "up"; // ID 열은 항상 내림차순으로 시작
+      }
     },
-    // 정렬 아이콘 클래스 반환
-    sortIcon(key) {
-      return `fa-solid fa-arrow-${
-        this.sortOrder === "asc" && this.sortKey === key ? "down" : "up"
-      }`;
+    getValue(obj, key) {
+      if (key === "progress") {
+        return `${obj.completed || 0} / ${obj.total || 0}`;
+      }
+      if (key === "CreationDate" || key === "dueDate") {
+        console.log(
+          `obj[key]: ${obj[key]}, Date.parse(obj[key]): ${Date.parse(obj[key])}`
+        );
+        if (obj[key] && !isNaN(Date.parse(obj[key]))) {
+          const date = new Date(obj[key]);
+          return date.toISOString().split("T")[0]; // YYYY-MM-DD 형식으로 반환
+        }
+        return "N/A";
+      }
+      return obj[key] || "N/A";
     },
   },
 };
@@ -203,7 +254,6 @@ th {
   text-align: center;
   font-weight: bold;
   border-bottom: 1px solid var(--light-gray);
-  cursor: pointer;
 }
 
 th:last-child,
@@ -211,9 +261,14 @@ td:last-child {
   padding-right: 46px;
 }
 
+.sortable {
+  cursor: pointer;
+}
+
 .sortable:hover {
   color: var(--blue-hover);
 }
+
 .sortable:active {
   color: var(--blue-active);
 }
