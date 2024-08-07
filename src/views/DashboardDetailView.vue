@@ -481,6 +481,7 @@ export default {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
+      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
       const columns = [
         { header: "문제 번호", key: "questionNumber", width: 10 },
         ...this.data.map((user) => ({
@@ -489,20 +490,23 @@ export default {
           width: 15,
         })),
       ];
+
       if (this.assignmentMode === "BBox") {
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({ header: `+${i}인`, key: `overlap${i}`, width: 10 });
-        }
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({ header: `${i}일치`, key: `matched${i}`, width: 10 });
-        }
-        for (let i = this.data.length; i >= 1; i--) {
-          columns.push({
-            header: `${i}불일치`,
-            key: `unmatched${i}`,
-            width: 10,
-          });
-        }
+        columns.push({
+          header: `+${halfRoundedEvaluatorCount}인`,
+          key: `overlap${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${halfRoundedEvaluatorCount}일치`,
+          key: `matched${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${halfRoundedEvaluatorCount}불일치`,
+          key: `unmatched${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
         columns.push({ header: "Json", key: "json", width: 15 });
       }
       worksheet.columns = columns;
@@ -518,30 +522,31 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          for (let i = 1; i <= this.data.length; i++) {
-            const overlapCount = this.getOverlaps(question.questionId, i);
-            const matchedCount = this.getOverlapsBBoxes(
-              question.questionId,
-              i
-            ).filter((bbox) =>
-              aiData.some(
-                (ai) =>
-                  Math.abs(bbox.x - ai.x) <= 12.5 &&
-                  Math.abs(bbox.y - ai.y) <= 12.5
-              )
-            ).length;
-            const unmatchedCount = overlapCount - matchedCount;
+          const overlapCount = this.getOverlaps(
+            question.questionId,
+            halfRoundedEvaluatorCount
+          );
+          const matchedCount = this.getOverlapsBBoxes(
+            question.questionId,
+            halfRoundedEvaluatorCount
+          ).filter((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          ).length;
+          const unmatchedCount = overlapCount - matchedCount;
 
-            row[`overlap${i}`] = overlapCount;
-            row[`matched${i}`] = matchedCount;
-            row[`unmatched${i}`] = unmatchedCount;
-          }
+          row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+          row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
+          row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
 
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
             annotation: this.getOverlapsBBoxes(
               question.questionId,
-              Number(this.sliderValue)
+              Number(halfRoundedEvaluatorCount)
             ).map((bbox) => ({
               category_id: bbox.category_id,
               bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
@@ -559,7 +564,6 @@ export default {
       });
       saveAs(blob, "assignment_responses.xlsx");
     },
-
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
