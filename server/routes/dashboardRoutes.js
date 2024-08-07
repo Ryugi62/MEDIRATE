@@ -5,7 +5,6 @@ const authenticateToken = require("../jwt");
 
 // 공통된 날짜 변환 및 비율 계산 함수
 const formatDate = (date) => date.toISOString().split("T")[0];
-
 const calculateRates = (answered, total, evaluatorCount) => {
   const rate = (answered / (total * evaluatorCount)) * 100;
   return `${rate.toFixed(2)}%`;
@@ -15,25 +14,44 @@ router.get("/", async (_req, res) => {
   try {
     const [assignments] = await db.query(`
       SELECT a.id, a.title, a.creation_date AS createdAt, a.deadline AS endAt, a.assignment_mode AS assignmentMode,
-             COUNT(DISTINCT au.user_id) AS evaluatorCount,
-             (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions,
-             (SELECT COUNT(DISTINCT qr.question_id) FROM question_responses qr JOIN questions q ON qr.question_id = q.id 
-              WHERE q.assignment_id = a.id AND qr.selected_option >= 0) AS answeredQuestions
+      COUNT(DISTINCT au.user_id) AS evaluatorCount,
+      (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
       FROM assignments a
       LEFT JOIN assignment_user au ON a.id = au.assignment_id
       GROUP BY a.id
     `);
 
-    // Enhanced logic for BBox mode and rates calculation
     for (const assignment of assignments) {
       if (assignment.assignmentMode === "BBox") {
-        const [additionalAnswers] = await db.query(
-          `SELECT COUNT(DISTINCT si.question_id) AS additionalCount FROM squares_info si 
-           JOIN questions q ON si.question_id = q.id WHERE q.assignment_id = ?`,
+        // BBox 모드일 경우 각 문제별 답변한 사용자 수 계산
+        const [bboxAnswers] = await db.query(
+          `
+          SELECT q.id, COUNT(DISTINCT si.user_id) AS answeredUserCount
+          FROM questions q
+          LEFT JOIN squares_info si ON q.id = si.question_id
+          WHERE q.assignment_id = ?
+          GROUP BY q.id
+        `,
           [assignment.id]
         );
 
-        assignment.answeredQuestions += additionalAnswers[0].additionalCount;
+        const totalAnsweredUserQuestions = bboxAnswers.reduce(
+          (sum, question) => sum + question.answeredUserCount,
+          0
+        );
+        assignment.answeredQuestions = totalAnsweredUserQuestions;
+      } else {
+        // 기존 모드의 경우 이전 로직 유지
+        const [answeredQuestions] = await db.query(
+          `
+          SELECT COUNT(DISTINCT qr.question_id) AS count
+          FROM question_responses qr
+          JOIN questions q ON qr.question_id = q.id
+          WHERE q.assignment_id = ? AND qr.selected_option >= 0
+        `,
+          [assignment.id]
+        );
+        assignment.answeredQuestions = answeredQuestions[0].count;
       }
 
       assignment.answerRate = calculateRates(
@@ -41,14 +59,12 @@ router.get("/", async (_req, res) => {
         assignment.totalQuestions,
         assignment.evaluatorCount
       );
-
       assignment.unansweredRate = calculateRates(
         assignment.totalQuestions * assignment.evaluatorCount -
           assignment.answeredQuestions,
         assignment.totalQuestions,
         assignment.evaluatorCount
       );
-
       assignment.createdAt = formatDate(new Date(assignment.createdAt));
       assignment.endAt = formatDate(new Date(assignment.endAt));
     }
