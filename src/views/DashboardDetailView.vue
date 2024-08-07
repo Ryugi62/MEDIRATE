@@ -9,11 +9,6 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <i
-              class="fa-solid fa-robot"
-              :class="{ active: isRobotActive }"
-              @click="toggleRobot"
-            ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
@@ -114,7 +109,6 @@
             </table>
           </div>
           <div class="image-box">
-            <!-- 만약 isRobotActive가 true라면 :aiData="aiData" -->
             <component
               :is="
                 assignmentMode === 'TextBox'
@@ -126,7 +120,6 @@
               :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)"
               :updateSquares="updateSquares"
-              :aiData="isRobotActive ? aiData : []"
             />
           </div>
         </div>
@@ -174,14 +167,11 @@ export default {
       isExporting: false,
       keyPressInterval: null,
       keyRepeatDelay: 200,
-      isRobotActive: true,
-      aiData: [],
     };
   },
 
   async created() {
     await this.loadData();
-    await this.fetchAiData();
     this.startExportingAnimation();
   },
 
@@ -231,22 +221,6 @@ export default {
       }
     },
 
-    async fetchAiData() {
-      await this.$axios
-        .get(`/api/assignments/${this.assignmentId}/ai/`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        })
-        .then((res) => {
-          res.data.forEach((ai) => {
-            ai.x += 12.5;
-            ai.y += 12.5;
-          });
-          this.aiData = res.data;
-        });
-    },
-
     handleKeyDown(event) {
       if (event.repeat) return;
 
@@ -258,14 +232,14 @@ export default {
       }
     },
 
-    handleKeyUp() {
-      this.clearKeyPressInterval();
-    },
-
     getValidSquaresCount(squares, questionId) {
       return squares.filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       ).length;
+    },
+
+    handleKeyUp() {
+      this.clearKeyPressInterval();
     },
 
     clearKeyPressInterval() {
@@ -273,10 +247,6 @@ export default {
         clearInterval(this.keyPressInterval);
         this.keyPressInterval = null;
       }
-    },
-
-    toggleRobot() {
-      this.isRobotActive = !this.isRobotActive;
     },
 
     moveQuestion(key) {
@@ -381,28 +351,33 @@ export default {
       }
 
       const groups = [];
+      const visited = new Set();
 
-      for (let i = 0; i < squares.length; i++) {
-        const currentSquare = squares[i];
-        const overlappingSquares = [currentSquare];
-        const usersRepresented = new Set([currentSquare.user_id]);
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
 
-        for (let j = i + 1; j < squares.length; j++) {
-          const otherSquare = squares[j];
+        squares.forEach((otherSquare) => {
           if (
-            Math.abs(currentSquare.x - otherSquare.x) <= 12.5 &&
-            Math.abs(currentSquare.y - otherSquare.y) <= 12.5 &&
-            !usersRepresented.has(otherSquare.user_id)
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
           ) {
-            overlappingSquares.push(otherSquare);
-            usersRepresented.add(otherSquare.user_id);
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
           }
         }
-
-        if (usersRepresented.size >= overlapCount) {
-          groups.push(overlappingSquares);
-        }
-      }
+      });
 
       return groups.length;
     },
@@ -470,7 +445,14 @@ export default {
     },
 
     async exportToExcel() {
-      const aiData = this.aiData;
+      const aiData = await this.$axios
+        .get(`/api/assignments/${this.assignmentId}/ai/`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        })
+        .then((res) => res.data);
+
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -482,24 +464,20 @@ export default {
           width: 15,
         })),
       ];
-
       if (this.assignmentMode === "BBox") {
-        const middleN = Math.ceil(this.data.length / 2);
-        columns.push({
-          header: `+${middleN}인`,
-          key: `overlap${middleN}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${middleN}일치`,
-          key: `matched${middleN}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${middleN}불일치`,
-          key: `unmatched${middleN}`,
-          width: 10,
-        });
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({ header: `+${i}인`, key: `overlap${i}`, width: 10 });
+        }
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({ header: `${i}일치`, key: `matched${i}`, width: 10 });
+        }
+        for (let i = this.data.length; i >= 1; i--) {
+          columns.push({
+            header: `${i}불일치`,
+            key: `unmatched${i}`,
+            width: 10,
+          });
+        }
         columns.push({ header: "Json", key: "json", width: 15 });
       }
       worksheet.columns = columns;
@@ -515,23 +493,24 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          const middleN = Math.ceil(this.data.length / 2);
-          const overlapCount = this.getOverlaps(question.questionId, middleN);
-          const matchedCount = this.getOverlapsBBoxes(
-            question.questionId,
-            middleN
-          ).filter((bbox) =>
-            aiData.some(
-              (ai) =>
-                Math.abs(bbox.x - ai.x) <= 12.5 &&
-                Math.abs(bbox.y - ai.y) <= 12.5
-            )
-          ).length;
-          const unmatchedCount = overlapCount - matchedCount;
+          for (let i = 1; i <= this.data.length; i++) {
+            const overlapCount = this.getOverlaps(question.questionId, i);
+            const matchedCount = this.getOverlapsBBoxes(
+              question.questionId,
+              i
+            ).filter((bbox) =>
+              aiData.some(
+                (ai) =>
+                  Math.abs(bbox.x - ai.x) <= 12.5 &&
+                  Math.abs(bbox.y - ai.y) <= 12.5
+              )
+            ).length;
+            const unmatchedCount = overlapCount - matchedCount;
 
-          row[`overlap${middleN}`] = overlapCount;
-          row[`matched${middleN}`] = matchedCount;
-          row[`unmatched${middleN}`] = unmatchedCount;
+            row[`overlap${i}`] = overlapCount;
+            row[`matched${i}`] = matchedCount;
+            row[`unmatched${i}`] = unmatchedCount;
+          }
 
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
@@ -555,6 +534,7 @@ export default {
       });
       saveAs(blob, "assignment_responses.xlsx");
     },
+
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
@@ -689,9 +669,8 @@ export default {
 }
 
 .slider-container {
-  gap: 8px;
   display: flex;
-  align-items: center;
+  gap: 8px;
 }
 
 .completed-status {
@@ -782,17 +761,5 @@ tfoot > tr > th {
   color: var(--white);
   font-size: 24px;
   z-index: 100;
-}
-
-/* fa-robot에 active class가 있다면 색 변경 */
-.fa-robot.active {
-  color: var(--blue);
-}
-.fa-robot:hover {
-  cursor: pointer;
-  color: var(--blue-hover);
-}
-.fa-robot:active {
-  color: var(--blue-active);
 }
 </style>
