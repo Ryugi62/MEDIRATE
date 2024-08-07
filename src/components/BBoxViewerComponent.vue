@@ -278,9 +278,9 @@ export default {
       // 사용자 사각형 그리기
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = square.color || "#FF0000";
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = 0.8;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
       });
@@ -288,9 +288,9 @@ export default {
       // AI 사각형 그리기
       this.localAiSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "#FFFF00";
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = 0.7;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
       });
