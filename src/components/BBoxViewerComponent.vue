@@ -44,6 +44,11 @@ export default {
       required: true,
       default: () => {},
     },
+    aiData: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
   },
 
   data() {
@@ -54,6 +59,7 @@ export default {
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
+      aiSquares: [],
     };
   },
 
@@ -88,6 +94,19 @@ export default {
         }
       }
 
+      const {
+        x: imgX,
+        y: imgY,
+        scale,
+      } = this.calculateImagePosition(width, height);
+      this.aiSquares = this.aiData.map((square) => ({
+        x: square.x * scale + imgX,
+        y: square.y * scale + imgY,
+        questionIndex: square.questionIndex, // 원본 questionIndex 유지
+        isAI: true,
+        color: "#FFFF00", // Yellow color for AI squares
+      }));
+
       this.originalLocalSquares = [...this.localSquares];
       this.updateSquares([...this.localSquares]);
     },
@@ -108,7 +127,7 @@ export default {
             Math.abs(square.x - otherSquare.x) <= 12.5 &&
             Math.abs(square.y - otherSquare.y) <= 12.5 &&
             square.questionIndex === otherSquare.questionIndex &&
-            square.color !== otherSquare.color // 다른 유저의 박스인지 확인
+            square.color !== otherSquare.color
           ) {
             dfs(otherSquare, group);
           }
@@ -123,15 +142,12 @@ export default {
         }
       });
 
-      // Filter groups based on sliderValue
       const filteredGroups = groups.filter(
         (group) => group.length >= this.sliderValue
       );
 
-      // Flatten filtered groups into a single array of squares
       this.localSquares = filteredGroups.flat();
 
-      // Remove duplicates
       this.localSquares = this.localSquares.filter(
         (square, index, self) =>
           index === self.findIndex((s) => s.x === square.x && s.y === square.y)
@@ -234,6 +250,13 @@ export default {
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
       }
+
+      for (const square of this.aiSquares) {
+        square.x =
+          (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
+        square.y =
+          (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
+      }
     },
 
     redrawSquares(event = null) {
@@ -245,8 +268,16 @@ export default {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
         ctx.lineWidth = 2;
-        ctx.strokeStyle = square.color || (square.isAI ? "#FFFF00" : "#FF0000");
-        // 투명도는 90%
+        ctx.strokeStyle = square.color || "#FF0000";
+        ctx.globalAlpha = 0.7;
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.globalAlpha = 1;
+      });
+
+      this.aiSquares.forEach((square) => {
+        if (square.questionIndex !== this.questionIndex) return;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
         ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
@@ -256,12 +287,6 @@ export default {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
-
-      console.log(
-        this.localSquares.filter(
-          (s) => s.questionIndex === this.questionIndex && !s.isTemporary
-        )
-      );
 
       this.$emit("update:squares", this.localSquares);
     },
@@ -382,6 +407,26 @@ export default {
 
     async sliderValue() {
       await this.filterSquares();
+    },
+
+    aiData: {
+      handler(newAiData) {
+        const { width, height } = this.$refs.canvas.getBoundingClientRect();
+        const {
+          x: imgX,
+          y: imgY,
+          scale,
+        } = this.calculateImagePosition(width, height);
+        this.aiSquares = newAiData.map((square) => ({
+          x: square.x * scale + imgX,
+          y: square.y * scale + imgY,
+          questionIndex: square.questionIndex, // 원본 questionIndex 유지
+          isAI: true,
+          color: "#FFFF00", // Yellow color for AI squares
+        }));
+        this.redrawSquares();
+      },
+      deep: true,
     },
   },
 };

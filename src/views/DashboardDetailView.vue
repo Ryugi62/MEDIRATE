@@ -9,6 +9,12 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
+            <!-- robot icon -->
+            <i
+              class="fa-solid fa-robot"
+              :class="{ active: isAiMode }"
+              @click="isAiMode = !isAiMode"
+            ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
@@ -120,6 +126,7 @@
               :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)"
               :updateSquares="updateSquares"
+              :aiData="isAiMode ? aiData : []"
             />
           </div>
         </div>
@@ -167,11 +174,14 @@ export default {
       isExporting: false,
       keyPressInterval: null,
       keyRepeatDelay: 200,
+      isAiMode: true,
+      aiData: [],
     };
   },
 
   async created() {
     await this.loadData();
+    await this.loadAiData();
     this.startExportingAnimation();
   },
 
@@ -218,6 +228,28 @@ export default {
         }));
       } catch (error) {
         console.error("Failed to load data:", error);
+      }
+    },
+
+    async loadAiData() {
+      try {
+        const { data } = await this.$axios.get(
+          `/api/assignments/${this.assignmentId}/ai/`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        data.forEach((ai) => {
+          ai.x += 12.5;
+          ai.y += 12.5;
+        });
+
+        this.aiData = data;
+        console.log("AI data loaded:", data);
+      } catch (error) {
+        console.error("Failed to load AI data:", error);
       }
     },
 
@@ -445,14 +477,7 @@ export default {
     },
 
     async exportToExcel() {
-      const aiData = await this.$axios
-        .get(`/api/assignments/${this.assignmentId}/ai/`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        })
-        .then((res) => res.data);
-
+      const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -761,5 +786,18 @@ tfoot > tr > th {
   color: var(--white);
   font-size: 24px;
   z-index: 100;
+}
+
+.fa-robot.active {
+  color: var(--blue);
+}
+.fa-robot:hover {
+  cursor: pointer;
+}
+.fa-robot.active:hover {
+  color: var(--blue-hover);
+}
+.fa-robot:active {
+  color: var(--blue-active);
 }
 </style>
