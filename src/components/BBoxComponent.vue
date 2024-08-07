@@ -435,8 +435,6 @@ export default {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
-
-      this.$emit("update:squares", this.temporarySquares);
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -586,6 +584,14 @@ export default {
 
     isSliderActive() {
       this.resizeCanvas();
+    },
+
+    // 사각형이 추가되거나 삭제될 때마다 로그를 찍어줌
+    temporarySquares: {
+      handler(newVal) {
+        console.log("temporarySquares", newVal);
+      },
+      deep: true,
     },
   },
 };
