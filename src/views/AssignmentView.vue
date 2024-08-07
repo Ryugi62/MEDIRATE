@@ -94,7 +94,7 @@ export default {
     return {
       assignments: [],
       current: 1,
-      perPage: 14,
+      perPage: 50,
       sortColumn: "id",
       sortDirection: "down",
     };
