@@ -351,33 +351,28 @@ export default {
       }
 
       const groups = [];
-      const visited = new Set();
 
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
+      for (let i = 0; i < squares.length; i++) {
+        const currentSquare = squares[i];
+        const overlappingSquares = [currentSquare];
+        const usersRepresented = new Set([currentSquare.user_id]);
 
-        squares.forEach((otherSquare) => {
+        for (let j = i + 1; j < squares.length; j++) {
+          const otherSquare = squares[j];
           if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
+            Math.abs(currentSquare.x - otherSquare.x) <= 12.5 &&
+            Math.abs(currentSquare.y - otherSquare.y) <= 12.5 &&
+            !usersRepresented.has(otherSquare.user_id)
           ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
+            overlappingSquares.push(otherSquare);
+            usersRepresented.add(otherSquare.user_id);
           }
         }
-      });
+
+        if (usersRepresented.size >= overlapCount) {
+          groups.push(overlappingSquares);
+        }
+      }
 
       return groups.length;
     },
