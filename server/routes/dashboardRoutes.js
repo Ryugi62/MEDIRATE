@@ -84,7 +84,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     );
     const [usersData] = await db.query(
       `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId, a.title As FileName,
-       COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(si.id) AS squareCount
+       COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(DISTINCT si.id) AS squareCount
        FROM users u
        JOIN assignment_user au ON u.id = au.user_id
        JOIN assignments a ON au.assignment_id = a.id
@@ -102,11 +102,14 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const squaresData =
       assignment_mode === "BBox"
         ? await fetchData(
-            `SELECT si.id, si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
-             FROM squares_info si
+            `SELECT DISTINCT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
+             FROM (
+               SELECT question_id, x, y, user_id, isAI, isTemporary,
+                      ROW_NUMBER() OVER (PARTITION BY question_id, x, y, user_id ORDER BY id) as rn
+               FROM squares_info
+             ) si
              JOIN questions q ON si.question_id = q.id
-             JOIN canvas_info ci ON si.canvas_id = ci.id
-             WHERE q.assignment_id = ?`,
+             WHERE q.assignment_id = ? AND si.rn = 1`,
             [assignmentId]
           )
         : [];
@@ -119,8 +122,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
             [assignmentId]
           )
         : [];
-
-    let fileName = ""; // FileName을 저장할 변수
+    let fileName = "";
     const structuredData = usersData.reduce((acc, user) => {
       const {
         name,
@@ -131,11 +133,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         originalSelection,
         squareCount,
       } = user;
-
       if (!fileName) {
-        fileName = FileName; // FileName 저장 (모든 사용자에 대해 동일하므로 한 번만 저장)
+        fileName = FileName;
       }
-
       const selection =
         assignment_mode === "BBox" ? squareCount : originalSelection;
       if (!acc[name]) {
@@ -169,7 +169,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     res.status(200).json({
       assignment: Object.values(structuredData),
       assignmentMode: assignment_mode,
-      FileName: fileName, // 여기에 FileName 추가
+      FileName: fileName,
     });
   } catch (error) {
     console.error("Error fetching data:", error);
