@@ -272,8 +272,11 @@ export default {
         }
       });
 
+      const oldSlideValue = this.sliderValue;
       this.sliderValue = null;
-      this.sliderValue = 1;
+      this.$nextTick(() => {
+        this.sliderValue = oldSlideValue;
+      });
     },
 
     updateActiveRowValues() {
