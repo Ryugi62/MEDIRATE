@@ -41,7 +41,11 @@
         >
           <!-- 각 열의 데이터 -->
           <td v-for="column in columns" :key="column.key" :class="column.class">
-            {{ item[column.key] }}
+            {{
+              column.key === "answerRate" || column.key === "unansweredRate"
+                ? formatPercentage(item[column.key])
+                : item[column.key]
+            }}
           </td>
         </tr>
       </tbody>
@@ -140,12 +144,7 @@ export default {
           sortable: false,
           class: "assignment-title",
         },
-        {
-          name: "생성",
-          key: "createdAt",
-          sortable: true,
-          class: "created-at",
-        },
+        { name: "생성", key: "createdAt", sortable: true, class: "created-at" },
         { name: "종료", key: "endAt", sortable: true, class: "end-at" },
         {
           name: "평가자 수",
@@ -198,6 +197,13 @@ export default {
       if (page >= 1 && page <= totalPages) {
         this.current = page;
       }
+    },
+
+    formatPercentage(value) {
+      if (typeof value === "string") {
+        value = parseFloat(value.replace("%", ""));
+      }
+      return Math.round(value) + "%";
     },
 
     sortBy(columnKey) {
