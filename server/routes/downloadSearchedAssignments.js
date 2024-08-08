@@ -16,10 +16,6 @@ router.post(
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
       for (const assignmentSummary of assignments) {
-        console.log(
-          `Processing assignment: ${assignmentSummary.id} - ${assignmentSummary.title}`
-        );
-
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
         const canvasInfo = await getCanvasInfo(assignmentSummary.id);
@@ -105,6 +101,8 @@ router.post(
               question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
+
+            console.log(`allSquares: ${allSquares}`);
 
             row["overlap"] = overlapCount;
             row["matched"] = matchedCount;
