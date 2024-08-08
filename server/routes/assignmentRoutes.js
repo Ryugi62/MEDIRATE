@@ -567,6 +567,23 @@ router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const [assignment] = await db.query(
+      `SELECT * FROM assignments WHERE id = ?`,
+      [id]
+    );
+
+    if (!assignment.length) {
+      return res.status(404).send({ message: "Assignment not found." });
+    } else {
+      const assignmentType = assignment[0].assignment_type;
+
+      console.log(`./assets/${assignmentType}`);
+
+      if (fs.existsSync(`./assets/${assignmentType}`)) {
+        fs.rmSync(`./assets/${assignmentType}`, { recursive: true });
+      }
+    }
+
     await db.query(
       `DELETE FROM question_responses WHERE question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
       [id]
