@@ -1,6 +1,24 @@
 <template>
   <!-- 검수 작업 제목 -->
-  <h1 class="header-title">검수 작업</h1>
+
+  <div class="assignment-header">
+    <h1 class="header-title">검수 작업</h1>
+
+    <!-- 과제 리스트에서 제목으로 검색 -->
+    <div class="assignment-search-input">
+      <!-- 초기화 버튼 -->
+      <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
+      <input
+        class="assignment-search"
+        type="text"
+        placeholder="검색어를 입력하세요"
+      />
+      <i
+        class="fa-solid fa-magnifying-glass search-icon"
+        @click="searchAssignment"
+      ></i>
+    </div>
+  </div>
 
   <!-- 과제 목록 테이블 -->
   <div class="assignments-table-container">
@@ -92,6 +110,7 @@ export default {
   name: "AssignmentEvaluationView",
   data() {
     return {
+      originalAssignments: [],
       assignments: [],
       current: 1,
       perPage: 50,
@@ -180,6 +199,7 @@ export default {
         },
       })
       .then((response) => {
+        this.originalAssignments = response.data;
         this.assignments = response.data;
       })
       .catch((error) => {
@@ -221,17 +241,83 @@ export default {
       }
       return obj[key] || "N/A";
     },
+    searchAssignment() {
+      const search = document.querySelector(".assignment-search").value;
+      if (search === "") this.resetSearch();
+      this.assignments = this.assignments.filter((assignment) =>
+        assignment.title.includes(search)
+      );
+    },
+
+    resetSearch() {
+      document.querySelector(".assignment-search").value = "";
+      this.assignments = this.originalAssignments;
+    },
   },
 };
 </script>
 
 <style scoped>
+.assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--light-gray);
+  padding: 15.5px 24px;
+}
+
 .header-title {
   margin: 0;
-  padding: 14px 24px;
   font-size: 24px;
   font-weight: 500;
-  border-bottom: 1px solid var(--light-gray);
+}
+/* 유저 검색 입력 */
+.assignment-search-input {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid var(--light-gray);
+}
+
+/* 유저 검색 입력 상자 */
+.assignment-search-input input {
+  border: none;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* 검색 아이콘 */
+.search-icon,
+.reset-icon {
+  padding: 12px;
+  cursor: pointer;
+}
+
+.search-icon {
+  color: var(--white);
+  background-color: var(--blue);
+}
+
+/* 검색 아이콘 호버 및 액티브 */
+.search-icon:hover {
+  background-color: var(--blue-hover);
+}
+
+.search-icon:active {
+  background-color: var(--blue-active);
+}
+
+.reset-icon {
+  color: var(--gray);
+}
+
+.reset-icon:hover {
+  color: var(--gray-hover);
+}
+
+.reset-icon:active {
+  color: var(--gray-active);
 }
 
 .assignments-table-container {
