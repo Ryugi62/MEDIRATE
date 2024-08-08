@@ -4,7 +4,10 @@
     <h1 class="header-title">대시 보드</h1>
 
     <!-- 검색 입력 -->
-    <div class="dashboard-search-input">
+    <div
+      class="dashboard-search-input"
+      :class="{ 'search-input-focused': isFocused }"
+    >
       <div class="search-input-container">
         <i
           class="fa-solid fa-rotate-left reset-button"
@@ -15,6 +18,8 @@
           type="text"
           v-model="searchQuery"
           placeholder="검색어를 입력하세요"
+          @focus="isFocused = true"
+          @blur="isFocused = false"
         />
         <i
           class="fa-solid fa-magnifying-glass search-button"
@@ -138,6 +143,7 @@ export default {
       lastPage: 0,
       itemsPerPage: 50,
       searchQuery: "",
+      isFocused: false, // 추가
     };
   },
 
@@ -312,12 +318,22 @@ export default {
 .search-input-container {
   border-radius: 4px;
   border: 1px solid var(--light-gray);
+  transition: all 0.3s ease;
+}
+
+.search-input-focused .search-input-container {
+  border-color: var(--blue);
+  box-shadow: 0 0 5px var(--blue);
 }
 
 .dashboard-search-input input {
   border: none;
   padding: 8px;
   box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
 }
 
 .search-button,
