@@ -112,7 +112,12 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapBBoxes.map((bbox) => ({
                 category: bbox.category_id,
-                bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
+                bbox: [
+                  Math.round(bbox.x - 12.5),
+                  Math.round(bbox.y - 12.5),
+                  25,
+                  25,
+                ],
               })),
             });
           } else {
@@ -157,7 +162,7 @@ function getAdjustedSquares(users, question) {
           square.questionIndex === question.questionId && !square.isTemporary
       )
       .map((square) =>
-        adjustCoordinates(square, user.beforeCanvas, {
+        adjustCoordinatesToOriginal(square, user.beforeCanvas, {
           width: question.originalWidth,
           height: question.originalHeight,
         })
@@ -165,25 +170,19 @@ function getAdjustedSquares(users, question) {
   );
 }
 
-function adjustCoordinates(square, beforeCanvas, originalSize) {
+function adjustCoordinatesToOriginal(square, beforeCanvas, originalSize) {
   const beforePosition = calculateImagePosition(
     beforeCanvas.width,
     beforeCanvas.height,
     originalSize.width,
     originalSize.height
   );
-  const currentPosition = calculateImagePosition(
-    originalSize.width,
-    originalSize.height,
-    originalSize.width,
-    originalSize.height
-  );
-  const scaleRatio = currentPosition.scale / beforePosition.scale;
+  const scaleRatio = 1 / beforePosition.scale;
 
   return {
     ...square,
-    x: (square.x - beforePosition.x) * scaleRatio + currentPosition.x,
-    y: (square.y - beforePosition.y) * scaleRatio + currentPosition.y,
+    x: (square.x - beforePosition.x) * scaleRatio,
+    y: (square.y - beforePosition.y) * scaleRatio,
   };
 }
 
@@ -202,6 +201,7 @@ function calculateImagePosition(
 
   return { x, y, scale };
 }
+
 function getOverlaps(squares, overlapCount) {
   if (overlapCount === 1) {
     return squares.length;
