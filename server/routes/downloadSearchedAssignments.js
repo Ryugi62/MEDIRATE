@@ -16,9 +16,17 @@ router.post(
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
       for (const assignmentSummary of assignments) {
+        console.log(`Processing assignment ID: ${assignmentSummary.id}`);
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
         const canvasInfo = await getCanvasInfo(assignmentSummary.id);
+
+        console.log(
+          "Assignment Data:",
+          JSON.stringify(assignmentData, null, 2)
+        );
+        console.log("AI Data:", JSON.stringify(aiData, null, 2));
+        console.log("Canvas Info:", JSON.stringify(canvasInfo, null, 2));
 
         const users = assignmentData.assignment;
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
@@ -86,14 +94,29 @@ router.post(
               )
             );
 
+            console.log(
+              `All squares for question ${question.questionId}:`,
+              JSON.stringify(allSquares, null, 2)
+            );
+
             const transformedSquares = transformAllSquares(
               allSquares,
               canvasInfo
             );
+            console.log(
+              `Transformed squares:`,
+              JSON.stringify(transformedSquares, null, 2)
+            );
+
             const overlapSquares = getOverlapSquares(
               transformedSquares,
               halfRoundedEvaluatorCount
             );
+            console.log(
+              `Overlap squares:`,
+              JSON.stringify(overlapSquares, null, 2)
+            );
+
             const overlapCount = overlapSquares.length;
             const matchedCount = getMatchedCount(
               overlapSquares,
@@ -102,7 +125,9 @@ router.post(
             );
             const unmatchedCount = overlapCount - matchedCount;
 
-            console.log(`allSquares: ${allSquares}`);
+            console.log(
+              `Overlap count: ${overlapCount}, Matched count: ${matchedCount}, Unmatched count: ${unmatchedCount}`
+            );
 
             row["overlap"] = overlapCount;
             row["matched"] = matchedCount;
@@ -115,6 +140,11 @@ router.post(
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
             });
+
+            console.log(
+              `JSON for question ${question.questionId}:`,
+              row["json"]
+            );
           } else {
             row["json"] = "{}";
           }
