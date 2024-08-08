@@ -112,7 +112,7 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapBBoxes.map((bbox) => ({
                 category: bbox.category_id,
-                bbox: [bbox.x, bbox.y, 25, 25],
+                bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
             });
           } else {
