@@ -135,7 +135,7 @@
                 v-if="activeQuestionId !== null"
                 @click="handlerDeleteQuestion(activeQuestionId)"
               >
-                삭제
+                문항삭제
               </button>
             </div>
           </div>
@@ -182,8 +182,7 @@
             </div>
           </div>
           <div class="assignment-save">
-            <button @click="saveEditAssignment">저장</button>
-            <!-- <button class="delete" @click="deleteAssignment">삭제</button> -->
+            <button @click="saveEditAssignment">과제저장</button>
           </div>
         </div>
       </div>
