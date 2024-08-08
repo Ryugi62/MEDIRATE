@@ -104,6 +104,21 @@ button:active {
   flex: 1;
 }
 
+.exporting-message {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--white);
+  font-size: 24px;
+  z-index: 100;
+}
+
 .loading-message {
   display: flex;
   justify-content: center;
