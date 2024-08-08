@@ -9,7 +9,6 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <!-- robot icon -->
             <i
               class="fa-solid fa-robot"
               :class="{ active: isAiMode }"
@@ -461,21 +460,6 @@ export default {
       return result;
     },
 
-    calculateImagePosition(
-      canvasWidth,
-      canvasHeight,
-      originalWidth,
-      originalHeight
-    ) {
-      const scale = Math.min(
-        canvasWidth / originalWidth,
-        canvasHeight / originalHeight
-      );
-      const x = (canvasWidth - originalWidth * scale) / 2;
-      const y = (canvasHeight - originalHeight * scale) / 2;
-      return { x, y, scale };
-    },
-
     async exportToExcel() {
       const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
@@ -507,11 +491,12 @@ export default {
           key: `unmatched${halfRoundedEvaluatorCount}`,
           width: 10,
         });
-        columns.push({ header: "Json", key: "json", width: 15 });
+        columns.push({ header: "Json", key: "json", width: 30 });
       }
       worksheet.columns = columns;
 
-      this.data[0].questions.forEach((question) => {
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
         const questionImageFileName = question.questionImage.split("/").pop();
         const row = { questionNumber: questionImageFileName };
         this.data.forEach((user) => {
@@ -542,20 +527,44 @@ export default {
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
 
+          const image = new Image();
+          image.src = question.questionImage;
+          await new Promise((resolve) => {
+            image.onload = resolve;
+          });
+          const originalWidth = image.width;
+          const originalHeight = image.height;
+
+          const adjustedBBoxes = this.getOverlapsBBoxes(
+            question.questionId,
+            halfRoundedEvaluatorCount
+          ).map((bbox) => {
+            const { x: adjustedX, y: adjustedY } =
+              this.convertToOriginalImageCoordinates(
+                bbox.x,
+                bbox.y,
+                originalWidth,
+                originalHeight
+              );
+            return {
+              category_id: bbox.category_id,
+              bbox: [
+                Math.round(adjustedX - 12.5),
+                Math.round(adjustedY - 12.5),
+                25,
+                25,
+              ],
+            };
+          });
+
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
-            annotation: this.getOverlapsBBoxes(
-              question.questionId,
-              Number(halfRoundedEvaluatorCount)
-            ).map((bbox) => ({
-              category_id: bbox.category_id,
-              bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
-            })),
+            annotation: adjustedBBoxes,
           });
         }
 
         worksheet.addRow(row);
-      });
+      }
 
       worksheet.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
@@ -565,11 +574,49 @@ export default {
       saveAs(blob, "assignment_responses.xlsx");
     },
 
+    convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
+      // const canvas = this.$refs.bboxViewer.$refs.canvas;
+      // bboxView컴포넌트의 canvas를 참조하는 방법을 찾아야함
+      const canvas = document.querySelector("canvas");
+      const { width: canvasWidth, height: canvasHeight } = canvas;
+
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight,
+        originalWidth,
+        originalHeight
+      );
+      const originalPosition = this.calculateImagePosition(
+        originalWidth,
+        originalHeight,
+        originalWidth,
+        originalHeight
+      );
+
+      const scaleRatio = originalPosition.scale / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
+    },
+
+    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
+      const scale = Math.min(
+        canvasWidth / imageWidth,
+        canvasHeight / imageHeight
+      );
+      const x = (canvasWidth - imageWidth * scale) / 2;
+      const y = (canvasHeight - imageHeight * scale) / 2;
+      return { x, y, scale };
+    },
+
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
       }, 500);
     },
+
     stopExportingAnimation() {
       clearInterval(this.interval);
     },

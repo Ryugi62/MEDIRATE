@@ -202,6 +202,7 @@ export default {
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
       );
+
       const x = (canvasWidth - this.originalWidth * scale) / 2;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
 
@@ -221,6 +222,7 @@ export default {
         canvas.width,
         canvas.height
       );
+
       canvas.width = 0;
       canvas.height = 0;
 
