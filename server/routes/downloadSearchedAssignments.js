@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
 const authenticateToken = require("../jwt");
 const ExcelJS = require("exceljs");
+const db = require("../db");
 const fs = require("fs").promises;
 const path = require("path");
 
@@ -11,154 +11,99 @@ router.post(
   authenticateToken,
   async (req, res) => {
     try {
-      const assignmentIds = req.body.data.map((assignment) => assignment.id);
-      const userId = req.user.id;
+      const assignments = req.body.data;
+      console.log(`Received ${assignments.length} assignments for processing`);
 
       const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignments Data");
 
-      for (const assignmentId of assignmentIds) {
-        const assignmentQuery = `
-        SELECT
-          a.id,
-          a.title AS FileName,
-          u.realname AS studentName,
-          a.deadline AS Deadline,
-          a.selection_type AS selectionType,
-          a.assignment_mode AS assignmentMode,
-          a.assignment_type AS assignmentType
-        FROM assignments a
-        JOIN assignment_user au ON a.id = au.assignment_id
-        JOIN users u ON au.user_id = u.id
-        WHERE a.id = ? AND u.id = ?`;
-        const [assignment] = await db.query(assignmentQuery, [
-          assignmentId,
-          userId,
-        ]);
+      let currentRow = 1;
 
-        const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
-        const [questions] = await db.query(questionsQuery, [assignmentId]);
+      for (const assignmentSummary of assignments) {
+        console.log(
+          `Processing assignment: ${assignmentSummary.id} - ${assignmentSummary.title}`
+        );
 
-        const questionResponsesQuery = `
-        SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
-        FROM question_responses qr
-        JOIN questions q ON qr.question_id = q.id
-        WHERE q.assignment_id = ? AND qr.user_id = ?`;
-        const [responses] = await db.query(questionResponsesQuery, [
-          assignmentId,
-          userId,
-        ]);
+        const assignmentData = await fetchAssignmentData(assignmentSummary.id);
+        const aiData = await getAIData(assignmentSummary.id);
 
-        const canvasQuery = `SELECT id, width, height, lastQuestionIndex FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
-        const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
+        const users = assignmentData.assignment;
+        const halfRoundedEvaluatorCount = Math.round(users.length / 2);
 
-        let squares = [];
-        if (canvas.length > 0) {
-          const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
-          const [squaresResult] = await db.query(squaresQuery, [
-            canvas[0].id,
-            userId,
-          ]);
-          squares = squaresResult;
-        }
-
-        // AI BBox data
-        const assignmentType = questions[0].image.split("/").slice(-2)[0];
-        const AI_BBOX = [];
-        for (const question of questions) {
-          const jsonSrc = question.image
-            .split("/")
-            .pop()
-            .replace(/\.(jpg|png)/, ".json");
-          try {
-            const jsonContent = await fs.readFile(
-              `./assets/${assignmentType}/${jsonSrc}`,
-              "utf8"
-            );
-            const bbox = JSON.parse(jsonContent).annotation.map(
-              (annotation) => {
-                const [x, y] = annotation.bbox;
-                return { x, y, questionIndex: question.id };
-              }
-            );
-            AI_BBOX.push(...bbox);
-          } catch (error) {
-            console.error("Error reading JSON file:", error);
-          }
-        }
-
-        const worksheet = workbook.addWorksheet(assignment[0].FileName);
-
-        const halfRoundedEvaluatorCount = Math.round(assignment.length / 2);
-        const columns = [
-          { header: "문제 번호", key: "questionNumber", width: 10 },
-          { header: assignment[0].studentName, key: "studentName", width: 15 },
+        // Add headers for this assignment
+        const headers = [
+          "과제 번호",
+          "문제 번호",
+          ...users.map((user) => user.name),
+          `+${halfRoundedEvaluatorCount}인`,
+          `${halfRoundedEvaluatorCount}일치`,
+          `${halfRoundedEvaluatorCount}불일치`,
+          "Json",
         ];
 
-        if (assignment[0].assignmentMode === "BBox") {
-          columns.push(
-            {
-              header: `+${halfRoundedEvaluatorCount}인`,
-              key: `overlap${halfRoundedEvaluatorCount}`,
-              width: 10,
-            },
-            {
-              header: `${halfRoundedEvaluatorCount}일치`,
-              key: `matched${halfRoundedEvaluatorCount}`,
-              width: 10,
-            },
-            {
-              header: `${halfRoundedEvaluatorCount}불일치`,
-              key: `unmatched${halfRoundedEvaluatorCount}`,
-              width: 10,
-            },
-            { header: "Json", key: "json", width: 15 }
-          );
-        }
+        worksheet.getRow(currentRow).values = headers;
+        worksheet.getRow(currentRow).font = { bold: true };
+        currentRow++;
 
-        worksheet.columns = columns;
+        const questions = assignmentData.assignment[0].questions;
 
-        questions.forEach((question, index) => {
-          const questionImageFileName = question.image.split("/").pop();
-          const row = {
-            questionNumber: questionImageFileName,
-            studentName: getValidSquaresCount(squares, question.id),
-          };
+        for (const question of questions) {
+          const questionImageFileName = question.questionImage.split("/").pop();
+          const row = [
+            assignmentSummary.id,
+            questionImageFileName,
+            ...users.map((user) => {
+              if (assignmentSummary.assignmentMode === "BBox") {
+                return getValidSquaresCount(user.squares, question.questionId);
+              } else {
+                return user.questions.find(
+                  (q) => q.questionId === question.questionId
+                ).questionSelection;
+              }
+            }),
+          ];
 
-          if (assignment[0].assignmentMode === "BBox") {
+          if (assignmentSummary.assignmentMode === "BBox") {
+            const allSquares = users.flatMap((user) => user.squares);
             const overlapCount = getOverlaps(
-              squares,
-              question.id,
+              allSquares,
+              question.questionId,
               halfRoundedEvaluatorCount
             );
             const matchedCount = getMatchedCount(
-              squares,
-              AI_BBOX,
-              question.id,
+              allSquares,
+              aiData,
+              question.questionId,
               halfRoundedEvaluatorCount
             );
             const unmatchedCount = overlapCount - matchedCount;
 
-            row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
-            row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-            row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
+            row.push(overlapCount, matchedCount, unmatchedCount);
 
-            row["json"] = JSON.stringify({
+            const json = JSON.stringify({
               filename: questionImageFileName,
               annotation: getOverlapSquares(
-                squares,
-                question.id,
+                allSquares,
+                question.questionId,
                 halfRoundedEvaluatorCount
               ).map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
             });
+
+            row.push(json);
+          } else {
+            // For TextBox mode, add empty cells for BBox-specific columns
+            row.push("", "", "", "{}");
           }
 
-          worksheet.addRow(row);
-        });
+          worksheet.getRow(currentRow).values = row;
+          currentRow++;
+        }
 
-        worksheet.getRow(1).font = { bold: true };
+        // Add an empty row between assignments
+        currentRow++;
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -168,7 +113,7 @@ router.post(
       );
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=assignments_responses.xlsx"
+        "attachment; filename=assignments_data.xlsx"
       );
       res.send(buffer);
     } catch (error) {
@@ -178,7 +123,106 @@ router.post(
   }
 );
 
-// Helper functions
+async function fetchAssignmentData(assignmentId) {
+  const usersQuery = `
+    SELECT u.id, u.username AS name
+    FROM users u
+    JOIN assignment_user au ON u.id = au.user_id
+    WHERE au.assignment_id = ?`;
+  const [users] = await db.query(usersQuery, [assignmentId]);
+
+  const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+  const [questions] = await db.query(questionsQuery, [assignmentId]);
+
+  const assignment = await Promise.all(
+    users.map(async (user) => {
+      const responsesQuery = `
+      SELECT qr.question_id, qr.selected_option AS questionSelection
+      FROM question_responses qr
+      JOIN questions q ON qr.question_id = q.id
+      WHERE q.assignment_id = ? AND qr.user_id = ?`;
+      const [responses] = await db.query(responsesQuery, [
+        assignmentId,
+        user.id,
+      ]);
+
+      const squaresQuery = `
+      SELECT si.id, si.x, si.y, si.question_id as questionIndex, si.isAI, si.isTemporary
+      FROM squares_info si
+      JOIN questions q ON si.question_id = q.id
+      WHERE q.assignment_id = ? AND si.user_id = ?`;
+      const [squares] = await db.query(squaresQuery, [assignmentId, user.id]);
+
+      return {
+        ...user,
+        questions: questions.map((q) => ({
+          questionId: q.id,
+          questionImage: q.image,
+          questionSelection:
+            responses.find((r) => r.question_id === q.id)?.questionSelection ||
+            -1,
+        })),
+        squares,
+      };
+    })
+  );
+
+  return { assignment };
+}
+
+async function getAIData(assignmentId) {
+  const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+  const [questions] = await db.query(questionsQuery, [assignmentId]);
+
+  if (questions.length === 0) return [];
+
+  const assignmentType = questions[0].image.split("/").slice(-2)[0];
+  const AI_BBOX = [];
+
+  for (const question of questions) {
+    const jsonSrc = question.image
+      .split("/")
+      .pop()
+      .replace(/\.(jpg|png)/, ".json");
+    try {
+      const jsonContent = await fs.readFile(
+        `./assets/${assignmentType}/${jsonSrc}`,
+        "utf8"
+      );
+      const parsedJson = JSON.parse(jsonContent);
+
+      if (
+        parsedJson &&
+        parsedJson.annotation &&
+        Array.isArray(parsedJson.annotation)
+      ) {
+        const bbox = parsedJson.annotation
+          .map((annotation) => {
+            if (
+              annotation &&
+              annotation.bbox &&
+              Array.isArray(annotation.bbox) &&
+              annotation.bbox.length >= 2
+            ) {
+              const [x, y] = annotation.bbox;
+              return { x: x + 12.5, y: y + 12.5, questionIndex: question.id };
+            }
+            return null;
+          })
+          .filter((item) => item !== null);
+        AI_BBOX.push(...bbox);
+      }
+    } catch (error) {
+      console.error(
+        `Error reading or parsing JSON file for question ${question.id}:`,
+        error
+      );
+    }
+  }
+
+  return AI_BBOX;
+}
+
 function getValidSquaresCount(squares, questionId) {
   return squares.filter(
     (square) => square.questionIndex === questionId && !square.isTemporary
