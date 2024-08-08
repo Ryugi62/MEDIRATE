@@ -5,6 +5,9 @@ const ExcelJS = require("exceljs");
 const db = require("../db");
 const fs = require("fs").promises;
 const path = require("path");
+const sizeOf = require("image-size");
+const util = require("util");
+const sizeOfPromise = util.promisify(sizeOf);
 
 router.post(
   "/download-searched-assignments",
@@ -78,11 +81,7 @@ router.post(
           });
 
           if (assignmentData.assignmentMode === "BBox") {
-            const adjustedSquares = getAdjustedSquares(
-              users,
-              question.questionId
-            );
-
+            const adjustedSquares = getAdjustedSquares(users, question);
             const relevantAiData = aiData.filter(
               (ai) => ai.questionIndex === question.questionId
             );
@@ -146,18 +145,30 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-function getAdjustedSquares(users, questionId) {
+function getAdjustedSquares(users, question) {
   return users.flatMap((user) =>
     user.squares
       .filter(
-        (square) => square.questionIndex === questionId && !square.isTemporary
+        (square) =>
+          square.questionIndex === question.questionId && !square.isTemporary
       )
-      .map((square) => ({
-        ...square,
-        x: square.x / user.beforeCanvas.width,
-        y: square.y / user.beforeCanvas.height,
-      }))
+      .map((square) =>
+        adjustCoordinates(square, user.beforeCanvas, {
+          width: question.originalWidth,
+          height: question.originalHeight,
+        })
+      )
   );
+}
+
+function adjustCoordinates(square, beforeCanvas, originalSize) {
+  const scaleX = originalSize.width / beforeCanvas.width;
+  const scaleY = originalSize.height / beforeCanvas.height;
+  return {
+    ...square,
+    x: square.x * scaleX,
+    y: square.y * scaleY,
+  };
 }
 
 function getOverlaps(squares, overlapCount) {
@@ -176,8 +187,8 @@ function getOverlaps(squares, overlapCount) {
     squares.forEach((otherSquare) => {
       if (
         !visited.has(otherSquare) &&
-        Math.abs(square.x - otherSquare.x) <= 12.5 / 1000 &&
-        Math.abs(square.y - otherSquare.y) <= 12.5 / 1000
+        Math.abs(square.x - otherSquare.x) <= 12.5 &&
+        Math.abs(square.y - otherSquare.y) <= 12.5
       ) {
         dfs(otherSquare, group);
       }
@@ -213,8 +224,8 @@ function getOverlapsBBoxes(squares, overlapCount) {
     squares.forEach((otherSquare) => {
       if (
         !visited.has(otherSquare) &&
-        Math.abs(square.x - otherSquare.x) <= 12.5 / 1000 &&
-        Math.abs(square.y - otherSquare.y) <= 12.5 / 1000
+        Math.abs(square.x - otherSquare.x) <= 12.5 &&
+        Math.abs(square.y - otherSquare.y) <= 12.5
       ) {
         dfs(otherSquare, group);
       }
@@ -237,9 +248,7 @@ function getOverlapsBBoxes(squares, overlapCount) {
 function getMatchedCount(overlapSquares, aiData, questionId) {
   return overlapSquares.filter((bbox) =>
     aiData.some(
-      (ai) =>
-        Math.abs(bbox.x - ai.x) <= 12.5 / 1000 &&
-        Math.abs(bbox.y - ai.y) <= 12.5 / 1000
+      (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
     )
   ).length;
 }
@@ -269,7 +278,7 @@ async function fetchAssignmentData(assignmentId) {
 
     // 이미지 크기 정보 가져오기
     for (let question of questions) {
-      const imagePath = path.join(__dirname, '..', question.questionImage);
+      const imagePath = path.join(__dirname, "..", question.questionImage);
       const dimensions = await sizeOfPromise(imagePath);
       question.originalWidth = dimensions.width;
       question.originalHeight = dimensions.height;
@@ -296,23 +305,29 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
-    const structuredData = users.map(user => ({
+    const structuredData = users.map((user) => ({
       ...user,
-      questions: questions.map(q => ({
+      questions: questions.map((q) => ({
         questionId: q.questionId,
         questionImage: q.questionImage,
         originalWidth: q.originalWidth,
         originalHeight: q.originalHeight,
-        questionSelection: responses.find(r => r.question_id === q.questionId && r.user_id === user.userId)?.questionSelection || -1
+        questionSelection:
+          responses.find(
+            (r) => r.question_id === q.questionId && r.user_id === user.userId
+          )?.questionSelection || -1,
       })),
-      squares: squares.filter(s => s.user_id === user.userId),
-      beforeCanvas: canvasInfo.find(c => c.user_id === user.userId) || { width: 1000, height: 1000 },
+      squares: squares.filter((s) => s.user_id === user.userId),
+      beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
+        width: 1000,
+        height: 1000,
+      },
       answeredCount: 0,
-      unansweredCount: 0
+      unansweredCount: 0,
     }));
 
-    structuredData.forEach(user => {
-      user.questions.forEach(q => {
+    structuredData.forEach((user) => {
+      user.questions.forEach((q) => {
         if (q.questionSelection > 0) {
           user.answeredCount++;
         } else {
@@ -333,7 +348,7 @@ async function fetchAssignmentData(assignmentId) {
   } finally {
     connection.release();
   }
-
+}
 
 async function getAIData(assignmentId) {
   try {
