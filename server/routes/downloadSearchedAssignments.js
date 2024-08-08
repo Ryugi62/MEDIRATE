@@ -177,28 +177,30 @@ function adjustCoordinatesToOriginal(square, beforeCanvas, originalSize) {
     originalSize.width,
     originalSize.height
   );
-  const scaleRatio = 1 / beforePosition.scale;
+  const originalPosition = calculateImagePosition(
+    originalSize.width,
+    originalSize.height,
+    originalSize.width,
+    originalSize.height
+  );
+  const scaleRatio = originalPosition.scale / beforePosition.scale;
 
   return {
     ...square,
-    x: (square.x - beforePosition.x) * scaleRatio,
-    y: (square.y - beforePosition.y) * scaleRatio,
+    x: Math.round((square.x - beforePosition.x) * scaleRatio),
+    y: Math.round((square.y - beforePosition.y) * scaleRatio),
   };
 }
 
 function calculateImagePosition(
   canvasWidth,
   canvasHeight,
-  originalWidth,
-  originalHeight
+  imageWidth,
+  imageHeight
 ) {
-  const scale = Math.min(
-    canvasWidth / originalWidth,
-    canvasHeight / originalHeight
-  );
-  const x = (canvasWidth - originalWidth * scale) / 2;
-  const y = (canvasHeight - originalHeight * scale) / 2;
-
+  const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+  const x = (canvasWidth - imageWidth * scale) / 2;
+  const y = (canvasHeight - imageHeight * scale) / 2;
   return { x, y, scale };
 }
 
