@@ -539,6 +539,10 @@ export default {
             question.questionId,
             halfRoundedEvaluatorCount
           ).map((bbox) => {
+            console.log(
+              `bbox.x : ${bbox.x}, bbox.y : ${bbox.y}, originalWidth : ${originalWidth}, originalHeight : ${originalHeight}`
+            );
+
             const { x: adjustedX, y: adjustedY } =
               this.convertToOriginalImageCoordinates(
                 bbox.x,
