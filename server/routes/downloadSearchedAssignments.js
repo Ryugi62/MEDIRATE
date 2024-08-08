@@ -83,6 +83,9 @@ router.post(
 
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = getAdjustedSquares(users, question);
+
+            console.log("adjustedSquares", adjustedSquares);
+
             const relevantAiData = aiData.filter(
               (ai) => ai.questionIndex === question.questionId
             );
@@ -163,15 +166,42 @@ function getAdjustedSquares(users, question) {
 }
 
 function adjustCoordinates(square, beforeCanvas, originalSize) {
-  const scaleX = originalSize.width / beforeCanvas.width;
-  const scaleY = originalSize.height / beforeCanvas.height;
+  const beforePosition = calculateImagePosition(
+    beforeCanvas.width,
+    beforeCanvas.height,
+    originalSize.width,
+    originalSize.height
+  );
+  const currentPosition = calculateImagePosition(
+    originalSize.width,
+    originalSize.height,
+    originalSize.width,
+    originalSize.height
+  );
+  const scaleRatio = currentPosition.scale / beforePosition.scale;
+
   return {
     ...square,
-    x: square.x * scaleX,
-    y: square.y * scaleY,
+    x: (square.x - beforePosition.x) * scaleRatio + currentPosition.x,
+    y: (square.y - beforePosition.y) * scaleRatio + currentPosition.y,
   };
 }
 
+function calculateImagePosition(
+  canvasWidth,
+  canvasHeight,
+  originalWidth,
+  originalHeight
+) {
+  const scale = Math.min(
+    canvasWidth / originalWidth,
+    canvasHeight / originalHeight
+  );
+  const x = (canvasWidth - originalWidth * scale) / 2;
+  const y = (canvasHeight - originalHeight * scale) / 2;
+
+  return { x, y, scale };
+}
 function getOverlaps(squares, overlapCount) {
   if (overlapCount === 1) {
     return squares.length;
