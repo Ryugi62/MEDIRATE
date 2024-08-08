@@ -542,22 +542,15 @@ export default {
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
 
-          const originalWidth = question.originalWidth;
-          const originalHeight = question.originalHeight;
-
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
             annotation: this.getOverlapsBBoxes(
               question.questionId,
               Number(halfRoundedEvaluatorCount)
-            ).map((bbox) => {
-              const adjustedX = (bbox.x / bbox.canvasWidth) * originalWidth;
-              const adjustedY = (bbox.y / bbox.canvasHeight) * originalHeight;
-              return {
-                category_id: bbox.category_id,
-                bbox: [adjustedX - 12.5, adjustedY - 12.5, 25, 25],
-              };
-            }),
+            ).map((bbox) => ({
+              category_id: bbox.category_id,
+              bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
+            })),
           });
         }
 
