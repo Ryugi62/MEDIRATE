@@ -82,6 +82,7 @@ router.post(
               users,
               question.questionId
             );
+
             const relevantAiData = aiData.filter(
               (ai) => ai.questionIndex === question.questionId
             );
@@ -266,6 +267,14 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
+    // 이미지 크기 정보 가져오기
+    for (let question of questions) {
+      const imagePath = path.join(__dirname, '..', question.questionImage);
+      const dimensions = await sizeOfPromise(imagePath);
+      question.originalWidth = dimensions.width;
+      question.originalHeight = dimensions.height;
+    }
+
     const [responses] = await connection.query(
       `SELECT qr.question_id, qr.user_id, qr.selected_option as questionSelection
        FROM question_responses qr
@@ -287,27 +296,23 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
-    const structuredData = users.map((user) => ({
+    const structuredData = users.map(user => ({
       ...user,
-      questions: questions.map((q) => ({
+      questions: questions.map(q => ({
         questionId: q.questionId,
         questionImage: q.questionImage,
-        questionSelection:
-          responses.find(
-            (r) => r.question_id === q.questionId && r.user_id === user.userId
-          )?.questionSelection || -1,
+        originalWidth: q.originalWidth,
+        originalHeight: q.originalHeight,
+        questionSelection: responses.find(r => r.question_id === q.questionId && r.user_id === user.userId)?.questionSelection || -1
       })),
-      squares: squares.filter((s) => s.user_id === user.userId),
-      beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
-        width: 1000,
-        height: 1000,
-      },
+      squares: squares.filter(s => s.user_id === user.userId),
+      beforeCanvas: canvasInfo.find(c => c.user_id === user.userId) || { width: 1000, height: 1000 },
       answeredCount: 0,
-      unansweredCount: 0,
+      unansweredCount: 0
     }));
 
-    structuredData.forEach((user) => {
-      user.questions.forEach((q) => {
+    structuredData.forEach(user => {
+      user.questions.forEach(q => {
         if (q.questionSelection > 0) {
           user.answeredCount++;
         } else {
@@ -328,7 +333,7 @@ async function fetchAssignmentData(assignmentId) {
   } finally {
     connection.release();
   }
-}
+
 
 async function getAIData(assignmentId) {
   try {
