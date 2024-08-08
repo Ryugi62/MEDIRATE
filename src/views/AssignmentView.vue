@@ -1,17 +1,22 @@
 <template>
   <!-- 검수 작업 제목 -->
-
   <div class="assignment-header">
     <h1 class="header-title">검수 작업</h1>
 
     <!-- 과제 리스트에서 제목으로 검색 -->
-    <div class="assignment-search-input">
+    <div
+      class="assignment-search-input"
+      :class="{ 'search-input-focused': isFocused }"
+    >
       <!-- 초기화 버튼 -->
       <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
       <input
         class="assignment-search"
         type="text"
+        v-model="searchQuery"
         placeholder="검색어를 입력하세요"
+        @focus="isFocused = true"
+        @blur="isFocused = false"
       />
       <i
         class="fa-solid fa-magnifying-glass search-icon"
@@ -116,6 +121,8 @@ export default {
       perPage: 50,
       sortColumn: "id",
       sortDirection: "down",
+      searchQuery: "",
+      isFocused: false,
     };
   },
   computed: {
@@ -242,16 +249,19 @@ export default {
       return obj[key] || "N/A";
     },
     searchAssignment() {
-      const search = document.querySelector(".assignment-search").value;
-      if (search === "") this.resetSearch();
-      this.assignments = this.assignments.filter((assignment) =>
-        assignment.title.includes(search)
+      if (this.searchQuery === "") {
+        this.resetSearch();
+        return;
+      }
+      this.assignments = this.originalAssignments.filter((assignment) =>
+        assignment.title.toLowerCase().includes(this.searchQuery.toLowerCase())
       );
+      this.current = 1; // 검색 후 첫 페이지로 이동
     },
-
     resetSearch() {
-      document.querySelector(".assignment-search").value = "";
+      this.searchQuery = "";
       this.assignments = this.originalAssignments;
+      this.current = 1; // 리셋 후 첫 페이지로 이동
     },
   },
 };
@@ -271,7 +281,7 @@ export default {
   font-size: 24px;
   font-weight: 500;
 }
-/* 유저 검색 입력 */
+
 .assignment-search-input {
   display: flex;
   height: 100%;
@@ -279,16 +289,24 @@ export default {
   border-radius: 4px;
   border: 1px solid var(--light-gray);
   margin-right: 22px;
+  transition: all 0.3s ease;
 }
 
-/* 유저 검색 입력 상자 */
+.search-input-focused {
+  border-color: var(--blue);
+  box-shadow: 0 0 5px var(--blue);
+}
+
 .assignment-search-input input {
   border: none;
   padding: 8px;
   box-sizing: border-box;
 }
 
-/* 검색 아이콘 */
+.assignment-search:focus {
+  outline: none;
+}
+
 .search-icon,
 .reset-icon {
   padding: 12px;
@@ -300,7 +318,6 @@ export default {
   background-color: var(--blue);
 }
 
-/* 검색 아이콘 호버 및 액티브 */
 .search-icon:hover {
   background-color: var(--blue-hover);
 }
