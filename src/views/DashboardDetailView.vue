@@ -414,6 +414,26 @@ export default {
       return groups.length;
     },
 
+    // getMatchedCount 메서드 추가
+    getMatchedCount(overlapGroups, aiData) {
+      let matchedCount = 0;
+      overlapGroups.forEach((group) => {
+        if (
+          group.some((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          )
+        ) {
+          matchedCount++;
+        }
+      });
+      return matchedCount;
+    },
+
+    // getOverlapsBBoxes 메서드 수정
     getOverlapsBBoxes(questionId, overlapCount) {
       let squares = [];
       this.data.forEach((person) => {
@@ -426,7 +446,7 @@ export default {
       });
 
       if (overlapCount === 1) {
-        return squares;
+        return squares.map((square) => [square]);
       }
 
       const groups = [];
@@ -458,10 +478,8 @@ export default {
         }
       });
 
-      const result = groups.flat();
-      return result;
+      return groups;
     },
-
     async exportToExcel() {
       this.isExporting = true;
       const aiData = this.aiData;
@@ -510,20 +528,12 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          const overlapCount = this.getOverlaps(
+          const overlapGroups = this.getOverlapsBBoxes(
             question.questionId,
             halfRoundedEvaluatorCount
           );
-          const matchedCount = this.getOverlapsBBoxes(
-            question.questionId,
-            halfRoundedEvaluatorCount
-          ).filter((bbox) =>
-            aiData.some(
-              (ai) =>
-                Math.abs(bbox.x - ai.x) <= 12.5 &&
-                Math.abs(bbox.y - ai.y) <= 12.5
-            )
-          ).length;
+          const overlapCount = overlapGroups.length;
+          const matchedCount = this.getMatchedCount(overlapGroups, aiData);
           const unmatchedCount = overlapCount - matchedCount;
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
@@ -538,10 +548,7 @@ export default {
           const originalWidth = image.width;
           const originalHeight = image.height;
 
-          const adjustedBBoxes = this.getOverlapsBBoxes(
-            question.questionId,
-            halfRoundedEvaluatorCount
-          ).map((bbox) => {
+          const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
             console.log(
               `bbox.x : ${bbox.x}, bbox.y : ${bbox.y}, originalWidth : ${originalWidth}, originalHeight : ${originalHeight}`
             );
@@ -581,7 +588,6 @@ export default {
       saveAs(blob, "assignment_responses.xlsx");
       this.isExporting = false;
     },
-
     convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
       const canvas = document.querySelector("canvas");
       const { width: canvasWidth, height: canvasHeight } = canvas;
