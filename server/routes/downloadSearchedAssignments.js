@@ -80,6 +80,10 @@ router.post(
               users,
               question.questionId
             );
+            const adjustedAiData = adjustAiCoordinates(
+              aiData,
+              assignmentData.originalImageSize
+            );
             const overlapCount = getOverlaps(
               adjustedSquares,
               halfRoundedEvaluatorCount
@@ -90,7 +94,7 @@ router.post(
             );
             const matchedCount = getMatchedCount(
               overlapBBoxes,
-              aiData,
+              adjustedAiData,
               question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
@@ -103,12 +107,7 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapBBoxes.map((bbox) => ({
                 category: bbox.category_id,
-                bbox: [
-                  bbox.x - 12.5 / 1000,
-                  bbox.y - 12.5 / 1000,
-                  25 / 1000,
-                  25 / 1000,
-                ],
+                bbox: [bbox.x, bbox.y, 25 / 1000, 25 / 1000],
               })),
             });
           } else {
@@ -151,18 +150,48 @@ function getAdjustedSquares(users, questionId) {
       .filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       )
-      .map((square) => adjustCoordinates(square, user.beforeCanvas))
+      .map((square) => adjustCoordinates(square, user.canvasInfo))
   );
 }
 
-function adjustCoordinates(square, beforeCanvas) {
-  const scaleX = 1 / beforeCanvas.width;
-  const scaleY = 1 / beforeCanvas.height;
+function adjustCoordinates(square, canvasInfo) {
+  if (
+    !canvasInfo ||
+    typeof canvasInfo.width === "undefined" ||
+    typeof canvasInfo.height === "undefined"
+  ) {
+    console.warn(
+      "canvasInfo is undefined or missing width/height. Using original coordinates."
+    );
+    return square;
+  }
+  const scaleX = 1 / canvasInfo.width;
+  const scaleY = 1 / canvasInfo.height;
   return {
     ...square,
     x: square.x * scaleX,
     y: square.y * scaleY,
   };
+}
+
+function adjustAiCoordinates(aiData, originalImageSize) {
+  if (
+    !originalImageSize ||
+    typeof originalImageSize.width === "undefined" ||
+    typeof originalImageSize.height === "undefined"
+  ) {
+    console.warn(
+      "originalImageSize is undefined or missing width/height. Using original AI coordinates."
+    );
+    return aiData;
+  }
+  const scaleX = 1 / originalImageSize.width;
+  const scaleY = 1 / originalImageSize.height;
+  return aiData.map((ai) => ({
+    ...ai,
+    x: ai.x * scaleX,
+    y: ai.y * scaleY,
+  }));
 }
 
 function getOverlaps(squares, overlapCount) {
@@ -304,6 +333,26 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
+    const [canvasInfo] = await connection.query(
+      `
+      SELECT ci.user_id, ci.width, ci.height
+      FROM canvas_info ci
+      WHERE ci.assignment_id = ?
+    `,
+      [assignmentId]
+    );
+
+    // Fetch original image size (assuming it's stored in the questions table)
+    const [originalImageSize] = await connection.query(
+      `
+      SELECT width AS originalWidth, height AS originalHeight
+      FROM questions
+      WHERE assignment_id = ?
+      LIMIT 1
+    `,
+      [assignmentId]
+    );
+
     const assignment = users.map((user) => ({
       ...user,
       questions: questions.map((q) => ({
@@ -314,10 +363,20 @@ async function fetchAssignmentData(assignmentId) {
             ?.questionSelection || -1,
       })),
       squares: squares.filter((s) => s.user_id === user.id),
+      canvasInfo: canvasInfo.find((ci) => ci.user_id === user.id) || null,
     }));
 
     await connection.commit();
-    return { assignment, assignmentMode: assignmentMode[0].assignmentMode };
+    return {
+      assignment,
+      assignmentMode: assignmentMode[0].assignmentMode,
+      originalImageSize: originalImageSize[0]
+        ? {
+            width: originalImageSize[0].originalWidth,
+            height: originalImageSize[0].originalHeight,
+          }
+        : null,
+    };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -337,11 +396,7 @@ async function getAIData(assignmentId) {
     [assignmentId]
   );
 
-  return aiData.map((ai) => ({
-    ...ai,
-    x: ai.x + 12.5,
-    y: ai.y + 12.5,
-  }));
+  return aiData;
 }
 
 module.exports = router;
