@@ -178,8 +178,8 @@ async function getAdjustedSquares(users, question) {
           );
         return {
           ...square,
-          x: Math.round(adjustedX - 12.5),
-          y: Math.round(adjustedY - 12.5),
+          x: Math.round(adjustedX - 12.5), // 중심점 조정
+          y: Math.round(adjustedY - 12.5), // 중심점 조정
           width: 25,
           height: 25,
         };
@@ -201,14 +201,8 @@ function convertToOriginalImageCoordinates(
     originalWidth,
     originalHeight
   );
-  const originalPosition = calculateImagePosition(
-    originalWidth,
-    originalHeight,
-    originalWidth,
-    originalHeight
-  );
 
-  const scaleRatio = originalPosition.scale / currentPosition.scale;
+  const scaleRatio = 1 / currentPosition.scale;
 
   const adjustedX = (x - currentPosition.x) * scaleRatio;
   const adjustedY = (y - currentPosition.y) * scaleRatio;
