@@ -1,4 +1,7 @@
 <template>
+  <div v-if="isExporting" class="exporting-message">
+    {{ exportingMessage }}
+  </div>
   <!-- 대시보드 헤더 -->
   <div class="dashboard-header">
     <h1 class="header-title">대시 보드</h1>
@@ -144,6 +147,7 @@ export default {
       itemsPerPage: 50,
       searchQuery: "",
       isFocused: false, // 추가
+      isExporting: false,
     };
   },
 
@@ -193,6 +197,9 @@ export default {
           class: "unanswered-rate",
         },
       ];
+    },
+    exportingMessage() {
+      return "엑셀 파일을 다운로드 중입니다. 잠시만 기다려주세요.";
     },
   },
 
@@ -291,6 +298,7 @@ export default {
     },
 
     downloadSearchedItems() {
+      this.isExporting = true;
       this.$axios
         .post(
           "/api/download/download-searched-assignments",
@@ -316,6 +324,7 @@ export default {
         .catch((error) => {
           console.error(error);
         });
+      this.isExporting = false;
     },
   },
 };

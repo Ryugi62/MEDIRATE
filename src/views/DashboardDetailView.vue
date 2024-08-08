@@ -461,6 +461,7 @@ export default {
     },
 
     async exportToExcel() {
+      this.isExporting = true;
       const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
@@ -576,11 +577,10 @@ export default {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       saveAs(blob, "assignment_responses.xlsx");
+      this.isExporting = false;
     },
 
     convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
-      // const canvas = this.$refs.bboxViewer.$refs.canvas;
-      // bboxView컴포넌트의 canvas를 참조하는 방법을 찾아야함
       const canvas = document.querySelector("canvas");
       const { width: canvasWidth, height: canvasHeight } = canvas;
 
