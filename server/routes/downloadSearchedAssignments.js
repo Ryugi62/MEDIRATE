@@ -60,7 +60,7 @@ router.post(
 
         worksheet.columns = columns;
 
-        assignmentData.assignment[0].questions.forEach((question) => {
+        for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = { questionNumber: questionImageFileName };
 
@@ -82,10 +82,7 @@ router.post(
           });
 
           if (assignmentData.assignmentMode === "BBox") {
-            const adjustedSquares = getAdjustedSquares(users, question);
-
-            console.log("adjustedSquares", adjustedSquares);
-
+            const adjustedSquares = await getAdjustedSquares(users, question);
             const relevantAiData = aiData.filter(
               (ai) => ai.questionIndex === question.questionId
             );
@@ -125,7 +122,7 @@ router.post(
           }
 
           worksheet.addRow(row);
-        });
+        }
 
         worksheet.addRow({});
       }
@@ -154,7 +151,26 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-function getAdjustedSquares(users, question) {
+async function getImageDimensions(imagePath) {
+  try {
+    const dimensions = await sizeOfPromise(imagePath);
+    return { width: dimensions.width, height: dimensions.height };
+  } catch (error) {
+    console.error(`Error getting image dimensions for ${imagePath}:`, error);
+    return { width: 1000, height: 1000 }; // 기본값 설정
+  }
+}
+
+async function getAdjustedSquares(users, question) {
+  const imagePath = path.join(
+    __dirname,
+    "..",
+    "assets",
+    question.questionImage.replace("/api/assets/", "")
+  );
+  const { width: originalWidth, height: originalHeight } =
+    await getImageDimensions(imagePath);
+
   return users.flatMap((user) =>
     user.squares
       .filter(
@@ -163,8 +179,8 @@ function getAdjustedSquares(users, question) {
       )
       .map((square) =>
         adjustCoordinatesToOriginal(square, user.beforeCanvas, {
-          width: question.originalWidth,
-          height: question.originalHeight,
+          width: originalWidth,
+          height: originalHeight,
         })
       )
   );
@@ -315,18 +331,9 @@ async function fetchAssignmentData(assignmentId) {
       const relativePath = parsedUrl.pathname.replace("/api/assets/", "");
       const imagePath = path.join(__dirname, "..", "assets", relativePath);
 
-      try {
-        const dimensions = await sizeOfPromise(imagePath);
-        question.originalWidth = dimensions.width;
-        question.originalHeight = dimensions.height;
-      } catch (error) {
-        console.error(
-          `Error getting image dimensions for ${imagePath}:`,
-          error
-        );
-        question.originalWidth = 1000; // 기본값 설정
-        question.originalHeight = 1000; // 기본값 설정
-      }
+      const { width, height } = await getImageDimensions(imagePath);
+      question.originalWidth = width;
+      question.originalHeight = height;
     }
 
     const [responses] = await connection.query(
