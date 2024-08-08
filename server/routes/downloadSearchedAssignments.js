@@ -8,6 +8,7 @@ const path = require("path");
 const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
+const url = require("url");
 
 router.post(
   "/download-searched-assignments",
@@ -245,7 +246,7 @@ function getOverlapsBBoxes(squares, overlapCount) {
   return groups.flat();
 }
 
-function getMatchedCount(overlapSquares, aiData) {
+function getMatchedCount(overlapSquares, aiData, questionId) {
   return overlapSquares.filter((bbox) =>
     aiData.some(
       (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
@@ -278,10 +279,22 @@ async function fetchAssignmentData(assignmentId) {
 
     // 이미지 크기 정보 가져오기
     for (let question of questions) {
-      const imagePath = path.join(__dirname, "..", question.questionImage);
-      const dimensions = await sizeOfPromise(imagePath);
-      question.originalWidth = dimensions.width;
-      question.originalHeight = dimensions.height;
+      const parsedUrl = url.parse(question.questionImage);
+      const relativePath = parsedUrl.pathname.replace("/api/assets/", "");
+      const imagePath = path.join(__dirname, "..", "assets", relativePath);
+
+      try {
+        const dimensions = await sizeOfPromise(imagePath);
+        question.originalWidth = dimensions.width;
+        question.originalHeight = dimensions.height;
+      } catch (error) {
+        console.error(
+          `Error getting image dimensions for ${imagePath}:`,
+          error
+        );
+        question.originalWidth = 1000; // 기본값 설정
+        question.originalHeight = 1000; // 기본값 설정
+      }
     }
 
     const [responses] = await connection.query(
@@ -366,9 +379,6 @@ async function getAIData(assignmentId) {
         .pop()
         .replace(/\.(jpg|png)/, ".json");
 
-      console.log(
-        `assets/${assignmentType}/${jsonSrc} is being read for AI data`
-      );
       try {
         const jsonContent = await fs.readFile(
           path.join(__dirname, `../assets/${assignmentType}/${jsonSrc}`),
