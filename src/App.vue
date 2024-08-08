@@ -37,6 +37,8 @@ export default {
   --light-gray: #bbc8d4;
   --ultra-light-gray: #bbc8d4;
   --green: #00c04d;
+  --green-hover: #00b03d;
+  --green-active: #00a02d;
   --yellow: #ffbb00;
   --pink: #ed455d;
   --pink-hover: #dd355d;
