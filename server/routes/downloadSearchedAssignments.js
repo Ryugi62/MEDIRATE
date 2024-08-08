@@ -19,14 +19,12 @@ router.post(
         console.log(`Processing assignment ID: ${assignmentSummary.id}`);
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
-        const canvasInfo = await getCanvasInfo(assignmentSummary.id);
 
         console.log(
           "Assignment Data:",
           JSON.stringify(assignmentData, null, 2)
         );
         console.log("AI Data:", JSON.stringify(aiData, null, 2));
-        console.log("Canvas Info:", JSON.stringify(canvasInfo, null, 2));
 
         const users = assignmentData.assignment;
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
@@ -44,17 +42,17 @@ router.post(
           columns.push(
             {
               header: `+${halfRoundedEvaluatorCount}인`,
-              key: "overlap",
+              key: `overlap${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
               header: `${halfRoundedEvaluatorCount}일치`,
-              key: "matched",
+              key: `matched${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
               header: `${halfRoundedEvaluatorCount}불일치`,
-              key: "unmatched",
+              key: `unmatched${halfRoundedEvaluatorCount}`,
               width: 10,
             }
           );
@@ -86,56 +84,34 @@ router.post(
           });
 
           if (assignmentData.assignmentMode === "BBox") {
-            const allSquares = users.flatMap((user) =>
-              user.squares.filter(
-                (square) =>
-                  square.questionIndex === question.questionId &&
-                  !square.isTemporary
-              )
-            );
-
-            console.log(
-              `All squares for question ${question.questionId}:`,
-              JSON.stringify(allSquares, null, 2)
-            );
-
-            const transformedSquares = transformAllSquares(
-              allSquares,
-              canvasInfo
-            );
-            console.log(
-              `Transformed squares:`,
-              JSON.stringify(transformedSquares, null, 2)
-            );
-
-            const overlapSquares = getOverlapSquares(
-              transformedSquares,
+            const overlapCount = getOverlaps(
+              users,
+              question.questionId,
               halfRoundedEvaluatorCount
             );
-            console.log(
-              `Overlap squares:`,
-              JSON.stringify(overlapSquares, null, 2)
+            const overlapBBoxes = getOverlapsBBoxes(
+              users,
+              question.questionId,
+              halfRoundedEvaluatorCount
             );
-
-            const overlapCount = overlapSquares.length;
             const matchedCount = getMatchedCount(
-              overlapSquares,
+              overlapBBoxes,
               aiData,
               question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
 
             console.log(
-              `Overlap count: ${overlapCount}, Matched count: ${matchedCount}, Unmatched count: ${unmatchedCount}`
+              `Question ${questionImageFileName} - Overlap: ${overlapCount}, Matched: ${matchedCount}, Unmatched: ${unmatchedCount}`
             );
 
-            row["overlap"] = overlapCount;
-            row["matched"] = matchedCount;
-            row["unmatched"] = unmatchedCount;
+            row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+            row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
+            row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: overlapSquares.map((bbox) => ({
+              annotation: overlapBBoxes.map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
@@ -180,45 +156,20 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-function transformAllSquares(squares, canvasInfo) {
-  const { width: canvasWidth, height: canvasHeight } = canvasInfo;
-  const originalWidth = 1024; // Original image width
-  const originalHeight = 1024; // Original image height
-
-  return squares.map((square) => {
-    const transformed = transformCoordinates(
-      square.x,
-      square.y,
-      canvasWidth,
-      canvasHeight,
-      originalWidth,
-      originalHeight
+function getOverlaps(users, questionId, overlapCount) {
+  let squares = [];
+  users.forEach((person) => {
+    squares = squares.concat(
+      person.squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      )
     );
-    return { ...square, x: transformed.x, y: transformed.y };
   });
-}
 
-function transformCoordinates(
-  x,
-  y,
-  canvasWidth,
-  canvasHeight,
-  originalWidth,
-  originalHeight
-) {
-  const scale = Math.min(
-    originalWidth / canvasWidth,
-    originalHeight / canvasHeight
-  );
-  const offsetX = (originalWidth - canvasWidth * scale) / 2;
-  const offsetY = (originalHeight - canvasHeight * scale) / 2;
-  return {
-    x: x * scale + offsetX,
-    y: y * scale + offsetY,
-  };
-}
+  if (overlapCount === 1) {
+    return squares.length;
+  }
 
-function getOverlapSquares(squares, overlapCount) {
   const groups = [];
   const visited = new Set();
 
@@ -248,7 +199,62 @@ function getOverlapSquares(squares, overlapCount) {
     }
   });
 
-  return groups.flat();
+  console.log(
+    `Overlaps for question ${questionId} with ${overlapCount} evaluators:`,
+    groups.length
+  );
+  return groups.length;
+}
+
+function getOverlapsBBoxes(users, questionId, overlapCount) {
+  let squares = [];
+  users.forEach((person) => {
+    squares = squares.concat(
+      person.squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      )
+    );
+  });
+
+  if (overlapCount === 1) {
+    return squares;
+  }
+
+  const groups = [];
+  const visited = new Set();
+
+  function dfs(square, group) {
+    if (visited.has(square)) return;
+    visited.add(square);
+    group.push(square);
+
+    squares.forEach((otherSquare) => {
+      if (
+        !visited.has(otherSquare) &&
+        Math.abs(square.x - otherSquare.x) <= 12.5 &&
+        Math.abs(square.y - otherSquare.y) <= 12.5
+      ) {
+        dfs(otherSquare, group);
+      }
+    });
+  }
+
+  squares.forEach((square) => {
+    if (!visited.has(square)) {
+      const group = [];
+      dfs(square, group);
+      if (group.length >= overlapCount) {
+        groups.push(group);
+      }
+    }
+  });
+
+  const result = groups.flat();
+  console.log(
+    `Overlap BBoxes for question ${questionId} with ${overlapCount} evaluators:`,
+    result.length
+  );
+  return result;
 }
 
 function getMatchedCount(overlapSquares, aiData, questionId) {
@@ -348,24 +354,6 @@ async function getAIData(assignmentId) {
   );
 
   return aiData;
-}
-
-async function getCanvasInfo(assignmentId) {
-  const [canvasInfo] = await db.query(
-    `
-    SELECT width, height
-    FROM canvas_info
-    WHERE assignment_id = ?
-    LIMIT 1
-  `,
-    [assignmentId]
-  );
-
-  if (canvasInfo.length === 0) {
-    throw new Error(`Canvas info not found for assignment ID: ${assignmentId}`);
-  }
-
-  return canvasInfo[0];
 }
 
 module.exports = router;
