@@ -253,10 +253,10 @@ function transformAllSquares(squares, canvasInfo) {
     const transformed = transformCoordinates(
       square.x,
       square.y,
-      originalWidth,
-      originalHeight,
       canvasWidth,
-      canvasHeight
+      canvasHeight,
+      originalWidth,
+      originalHeight
     );
     return { ...square, x: transformed.x, y: transformed.y };
   });
@@ -265,17 +265,17 @@ function transformAllSquares(squares, canvasInfo) {
 function transformCoordinates(
   x,
   y,
-  originalWidth,
-  originalHeight,
   canvasWidth,
-  canvasHeight
+  canvasHeight,
+  originalWidth,
+  originalHeight
 ) {
   const scale = Math.min(
-    canvasWidth / originalWidth,
-    canvasHeight / originalHeight
+    originalWidth / canvasWidth,
+    originalHeight / canvasHeight
   );
-  const offsetX = (canvasWidth - originalWidth * scale) / 2;
-  const offsetY = (canvasHeight - originalHeight * scale) / 2;
+  const offsetX = (originalWidth - canvasWidth * scale) / 2;
+  const offsetY = (originalHeight - canvasHeight * scale) / 2;
   return {
     x: (x - offsetX) / scale,
     y: (y - offsetY) / scale,
