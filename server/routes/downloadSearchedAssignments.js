@@ -353,7 +353,7 @@ async function getAIData(assignmentId) {
     [assignmentId]
   );
 
-  return aiData;
+  return aiData.map((ai) => ({ ...ai, x: ai.x + 12.5, y: ai.y + 12.5 }));
 }
 
 module.exports = router;
