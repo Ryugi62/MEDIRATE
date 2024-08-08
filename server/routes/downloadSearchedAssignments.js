@@ -22,6 +22,7 @@ router.post(
 
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
+        const canvasInfo = await getCanvasInfo(assignmentSummary.id);
 
         const users = assignmentData.assignment;
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
@@ -37,18 +38,25 @@ router.post(
 
         if (assignmentData.assignmentMode === "BBox") {
           columns.push(
-            { header: "일치 없음", key: "noMatch", width: 10 },
-            ...Array(users.length - 1)
-              .fill()
-              .map((_, i) => ({
-                header: `${i + 2}인 일치`,
-                key: `match${i + 2}`,
-                width: 10,
-              }))
+            {
+              header: `+${halfRoundedEvaluatorCount}인`,
+              key: "overlap",
+              width: 10,
+            },
+            {
+              header: `${halfRoundedEvaluatorCount}일치`,
+              key: "matched",
+              width: 10,
+            },
+            {
+              header: `${halfRoundedEvaluatorCount}불일치`,
+              key: "unmatched",
+              width: 10,
+            }
           );
         }
 
-        columns.push({ header: "Json", key: "json", width: 15 });
+        columns.push({ header: "Json", key: "json", width: 30 });
 
         worksheet.columns = columns;
 
@@ -82,17 +90,29 @@ router.post(
               )
             );
 
-            row["noMatch"] = getOverlaps(allSquares, 1);
-            for (let i = 2; i <= users.length; i++) {
-              row[`match${i}`] = getOverlaps(allSquares, i);
-            }
+            const transformedSquares = transformAllSquares(
+              allSquares,
+              canvasInfo
+            );
+            const overlapSquares = getOverlapSquares(
+              transformedSquares,
+              halfRoundedEvaluatorCount
+            );
+            const overlapCount = overlapSquares.length;
+            const matchedCount = getMatchedCount(
+              overlapSquares,
+              aiData,
+              question.questionId
+            );
+            const unmatchedCount = overlapCount - matchedCount;
+
+            row["overlap"] = overlapCount;
+            row["matched"] = matchedCount;
+            row["unmatched"] = unmatchedCount;
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: getOverlapsBBoxes(
-                allSquares,
-                halfRoundedEvaluatorCount
-              ).map((bbox) => ({
+              annotation: overlapSquares.map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
@@ -132,48 +152,45 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-function getOverlaps(squares, overlapCount) {
-  if (overlapCount === 1) {
-    return squares.length;
-  }
+function transformAllSquares(squares, canvasInfo) {
+  const { width: canvasWidth, height: canvasHeight } = canvasInfo;
+  const originalWidth = 1024; // Original image width
+  const originalHeight = 1024; // Original image height
 
-  const groups = [];
-  const visited = new Set();
-
-  function dfs(square, group) {
-    if (visited.has(square)) return;
-    visited.add(square);
-    group.push(square);
-
-    squares.forEach((otherSquare) => {
-      if (
-        !visited.has(otherSquare) &&
-        Math.abs(square.x - otherSquare.x) <= 12.5 &&
-        Math.abs(square.y - otherSquare.y) <= 12.5
-      ) {
-        dfs(otherSquare, group);
-      }
-    });
-  }
-
-  squares.forEach((square) => {
-    if (!visited.has(square)) {
-      const group = [];
-      dfs(square, group);
-      if (group.length >= overlapCount) {
-        groups.push(group);
-      }
-    }
+  return squares.map((square) => {
+    const transformed = transformCoordinates(
+      square.x,
+      square.y,
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    );
+    return { ...square, x: transformed.x, y: transformed.y };
   });
-
-  return groups.length;
 }
 
-function getOverlapsBBoxes(squares, overlapCount) {
-  if (overlapCount === 1) {
-    return squares;
-  }
+function transformCoordinates(
+  x,
+  y,
+  canvasWidth,
+  canvasHeight,
+  originalWidth,
+  originalHeight
+) {
+  const scale = Math.min(
+    originalWidth / canvasWidth,
+    originalHeight / canvasHeight
+  );
+  const offsetX = (originalWidth - canvasWidth * scale) / 2;
+  const offsetY = (originalHeight - canvasHeight * scale) / 2;
+  return {
+    x: x * scale + offsetX,
+    y: y * scale + offsetY,
+  };
+}
 
+function getOverlapSquares(squares, overlapCount) {
   const groups = [];
   const visited = new Set();
 
@@ -204,6 +221,16 @@ function getOverlapsBBoxes(squares, overlapCount) {
   });
 
   return groups.flat();
+}
+
+function getMatchedCount(overlapSquares, aiData, questionId) {
+  const relevantAiData = aiData.filter((ai) => ai.questionIndex === questionId);
+
+  return overlapSquares.filter((bbox) =>
+    relevantAiData.some(
+      (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+    )
+  ).length;
 }
 
 async function fetchAssignmentData(assignmentId) {
@@ -293,6 +320,24 @@ async function getAIData(assignmentId) {
   );
 
   return aiData;
+}
+
+async function getCanvasInfo(assignmentId) {
+  const [canvasInfo] = await db.query(
+    `
+    SELECT width, height
+    FROM canvas_info
+    WHERE assignment_id = ?
+    LIMIT 1
+  `,
+    [assignmentId]
+  );
+
+  if (canvasInfo.length === 0) {
+    throw new Error(`Canvas info not found for assignment ID: ${assignmentId}`);
+  }
+
+  return canvasInfo[0];
 }
 
 module.exports = router;
