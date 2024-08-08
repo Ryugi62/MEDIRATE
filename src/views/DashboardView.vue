@@ -18,11 +18,6 @@
         @click="searchDashboard"
       ></i>
     </div>
-
-    <!-- 전체 엑셀 내보내기 버튼 추가 -->
-    <button @click="exportExcel" class="export-excel-btn">
-      전체 엑셀 내보내기
-    </button>
   </div>
 
   <!-- 테이블 박스 -->
@@ -118,11 +113,6 @@
       </li>
     </ul>
   </nav>
-
-  <!-- 알림 메시지를 위한 div 추가 -->
-  <div v-if="notification" class="notification" :class="notification.type">
-    {{ notification.message }}
-  </div>
 </template>
 
 <script>
@@ -140,7 +130,6 @@ export default {
       lastPage: 0,
       itemsPerPage: 50,
       searchQuery: "",
-      notification: null, // 알림 메시지를 위한 데이터 추가
     };
   },
 
@@ -213,7 +202,6 @@ export default {
         this.sortBy(this.sortColumn); // 초기 정렬 적용
       } catch (error) {
         console.error(error);
-        this.showNotification("데이터를 불러오는 데 실패했습니다.", "error");
       }
     },
 
@@ -287,55 +275,6 @@ export default {
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1; // 리셋 후 첫 페이지로 이동
     },
-
-    // 수정된 엑셀 내보내기 메서드
-    async exportExcel() {
-      try {
-        // 현재 검색된 과제들의 ID를 수집
-        const assignmentIds = this.data.map((item) => item.id).join(",");
-
-        // 엑셀 파일 다운로드 요청
-        const response = await this.$axios.get(
-          `/api/all-dashboard/${assignmentIds}`,
-          {
-            responseType: "blob",
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
-
-        // 파일 다운로드 로직
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "all_assignments.xlsx");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // 성공 메시지
-        this.showNotification(
-          "엑셀 파일이 성공적으로 다운로드되었습니다.",
-          "success"
-        );
-      } catch (error) {
-        console.error("Failed to export assignments:", error);
-        this.showNotification(
-          "엑셀 파일 내보내기에 실패했습니다: " +
-            (error.response?.data?.message || error.message),
-          "error"
-        );
-      }
-    },
-
-    // 알림 메시지를 표시하는 새로운 메서드
-    showNotification(message, type = "info") {
-      this.notification = { message, type };
-      setTimeout(() => {
-        this.notification = null;
-      }, 3000); // 3초 후 알림 메시지 사라짐
-    },
   },
 };
 </script>
@@ -399,23 +338,6 @@ export default {
 
 .reset-icon:active {
   color: var(--gray-active);
-}
-
-.export-excel-btn {
-  padding: 8px 16px;
-  background-color: var(--green);
-  color: var(--white);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.export-excel-btn:hover {
-  background-color: var(--green-hover);
-}
-
-.export-excel-btn:active {
-  background-color: var(--green-active);
 }
 
 .table-box {
