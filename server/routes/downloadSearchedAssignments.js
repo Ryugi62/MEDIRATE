@@ -81,6 +81,7 @@ router.post(
             }
           });
 
+          // router.post 내부의 관련 부분을 수정합니다.
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
             const relevantAiData = aiData.filter(
@@ -95,7 +96,10 @@ router.post(
               halfRoundedEvaluatorCount
             );
             const matchedCount = getMatchedCount(overlapBBoxes, relevantAiData);
-            const unmatchedCount = overlapCount - matchedCount;
+            const unmatchedCount = getUnmatchedCount(
+              overlapCount,
+              matchedCount
+            );
 
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
@@ -308,12 +312,25 @@ function getOverlapsBBoxes(squares, overlapCount) {
   return groups.flat();
 }
 
-function getMatchedCount(overlapSquares, aiData) {
-  return overlapSquares.filter((bbox) =>
-    aiData.some(
-      (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
-    )
-  ).length;
+// getMatchedCount 함수를 수정합니다.
+function getMatchedCount(overlapBBoxes, aiData) {
+  let matchedCount = 0;
+  overlapBBoxes.forEach((bbox) => {
+    if (
+      aiData.some(
+        (ai) =>
+          Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+      )
+    ) {
+      matchedCount++;
+    }
+  });
+  return matchedCount;
+}
+
+// getUnmatchedCount 함수를 추가합니다.
+function getUnmatchedCount(overlapCount, matchedCount) {
+  return Math.max(0, overlapCount - matchedCount);
 }
 
 async function fetchAssignmentData(assignmentId) {
