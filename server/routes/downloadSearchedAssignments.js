@@ -103,8 +103,9 @@ router.post(
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: adjustedSquares.map((bbox) => ({
-                bbox: [Math.round(bbox.x), Math.round(bbox.y), 25, 25],
+              annotation: overlapBBoxes.map((bbox) => ({
+                category_id: bbox.category_id,
+                bbox: [bbox.x, bbox.y, bbox.width, bbox.height],
               })),
             });
           }
@@ -165,32 +166,54 @@ async function getAdjustedSquares(users, question) {
         (square) =>
           square.questionIndex === question.questionId && !square.isTemporary
       )
-      .map((square) =>
-        adjustCoordinatesToOriginal(square, user.beforeCanvas, {
-          width: originalWidth,
-          height: originalHeight,
-        })
-      )
+      .map((square) => {
+        const { x: adjustedX, y: adjustedY } =
+          convertToOriginalImageCoordinates(
+            square.x,
+            square.y,
+            user.beforeCanvas.width,
+            user.beforeCanvas.height,
+            originalWidth,
+            originalHeight
+          );
+        return {
+          ...square,
+          x: Math.round(adjustedX - 12.5),
+          y: Math.round(adjustedY - 12.5),
+          width: 25,
+          height: 25,
+        };
+      })
   );
 }
 
-function adjustCoordinatesToOriginal(square, beforeCanvas, originalSize) {
-  const beforePosition = calculateImagePosition(
-    beforeCanvas.width,
-    beforeCanvas.height,
-    originalSize.width,
-    originalSize.height
+function convertToOriginalImageCoordinates(
+  x,
+  y,
+  canvasWidth,
+  canvasHeight,
+  originalWidth,
+  originalHeight
+) {
+  const currentPosition = calculateImagePosition(
+    canvasWidth,
+    canvasHeight,
+    originalWidth,
+    originalHeight
+  );
+  const originalPosition = calculateImagePosition(
+    originalWidth,
+    originalHeight,
+    originalWidth,
+    originalHeight
   );
 
-  // 클라이언트 좌표계에서 원본 이미지 좌표계로 변환
-  const x = (square.x - beforePosition.x) / beforePosition.scale;
-  const y = (square.y - beforePosition.y) / beforePosition.scale;
+  const scaleRatio = originalPosition.scale / currentPosition.scale;
 
-  return {
-    ...square,
-    x: Math.round(x),
-    y: Math.round(y),
-  };
+  const adjustedX = (x - currentPosition.x) * scaleRatio;
+  const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+  return { x: adjustedX, y: adjustedY };
 }
 
 function calculateImagePosition(
