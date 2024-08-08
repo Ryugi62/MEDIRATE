@@ -84,9 +84,7 @@ router.post(
             const overlapBBoxes = getOverlapsBBoxes(
               users,
               question.questionId,
-              halfRoundedEvaluatorCount,
-              question.originalWidth,
-              question.originalHeight
+              halfRoundedEvaluatorCount
             );
             const matchedCount = getMatchedCount(
               overlapBBoxes,
@@ -186,13 +184,7 @@ function getOverlaps(users, questionId, overlapCount) {
   return groups.length;
 }
 
-function getOverlapsBBoxes(
-  users,
-  questionId,
-  overlapCount,
-  originalWidth,
-  originalHeight
-) {
+function getOverlapsBBoxes(users, questionId, overlapCount) {
   let squares = [];
   users.forEach((person) => {
     squares = squares.concat(
@@ -235,11 +227,7 @@ function getOverlapsBBoxes(
     }
   });
 
-  return groups.flat().map((square) => ({
-    ...square,
-    x: square.x * (originalWidth / 100),
-    y: square.y * (originalHeight / 100),
-  }));
+  return groups.flat();
 }
 
 function getMatchedCount(overlapSquares, aiData, questionId) {
@@ -269,7 +257,7 @@ async function fetchAssignmentData(assignmentId) {
 
     const [questions] = await connection.query(
       `
-      SELECT id, image AS questionImage, width AS originalWidth, height AS originalHeight
+      SELECT id, image AS questionImage
       FROM questions
       WHERE assignment_id = ?
     `,
@@ -310,19 +298,11 @@ async function fetchAssignmentData(assignmentId) {
       questions: questions.map((q) => ({
         questionId: q.id,
         questionImage: q.questionImage,
-        originalWidth: q.originalWidth,
-        originalHeight: q.originalHeight,
         questionSelection:
           responses.find((r) => r.question_id === q.id && r.user_id === user.id)
             ?.questionSelection || -1,
       })),
-      squares: squares
-        .filter((s) => s.user_id === user.id)
-        .map((square) => ({
-          ...square,
-          x: (square.x / square.originalWidth) * 100,
-          y: (square.y / square.originalHeight) * 100,
-        })),
+      squares: squares.filter((s) => s.user_id === user.id),
     }));
 
     await connection.commit();
@@ -348,8 +328,8 @@ async function getAIData(assignmentId) {
 
   return aiData.map((ai) => ({
     ...ai,
-    x: (ai.x / ai.originalWidth) * 100,
-    y: (ai.y / ai.originalHeight) * 100,
+    x: ai.x + 12.5,
+    y: ai.y + 12.5,
   }));
 }
 
