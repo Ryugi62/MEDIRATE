@@ -81,25 +81,18 @@ router.post(
             }
           });
 
-          // router.post 내부의 관련 부분을 수정합니다.
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
             const relevantAiData = aiData.filter(
               (ai) => ai.questionIndex === question.questionId
             );
-            const overlapCount = getOverlaps(
+            const overlapGroups = getOverlapsBBoxes(
               adjustedSquares,
               halfRoundedEvaluatorCount
             );
-            const overlapBBoxes = getOverlapsBBoxes(
-              adjustedSquares,
-              halfRoundedEvaluatorCount
-            );
-            const matchedCount = getMatchedCount(overlapBBoxes, relevantAiData);
-            const unmatchedCount = getUnmatchedCount(
-              overlapCount,
-              matchedCount
-            );
+            const overlapCount = overlapGroups.length;
+            const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
+            const unmatchedCount = overlapCount - matchedCount;
 
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
@@ -107,7 +100,7 @@ router.post(
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: overlapBBoxes.map((bbox) => ({
+              annotation: overlapGroups.flat().map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [
                   Math.round(bbox.x - 12.5),
@@ -238,46 +231,9 @@ function calculateImagePosition(
   return { x, y, scale };
 }
 
-function getOverlaps(squares, overlapCount) {
-  if (overlapCount === 1) {
-    return squares.length;
-  }
-
-  const groups = [];
-  const visited = new Set();
-
-  function dfs(square, group) {
-    if (visited.has(square)) return;
-    visited.add(square);
-    group.push(square);
-
-    squares.forEach((otherSquare) => {
-      if (
-        !visited.has(otherSquare) &&
-        Math.abs(square.x - otherSquare.x) <= 12.5 &&
-        Math.abs(square.y - otherSquare.y) <= 12.5
-      ) {
-        dfs(otherSquare, group);
-      }
-    });
-  }
-
-  squares.forEach((square) => {
-    if (!visited.has(square)) {
-      const group = [];
-      dfs(square, group);
-      if (group.length >= overlapCount) {
-        groups.push(group);
-      }
-    }
-  });
-
-  return groups.length;
-}
-
 function getOverlapsBBoxes(squares, overlapCount) {
   if (overlapCount === 1) {
-    return squares;
+    return squares.map((square) => [square]);
   }
 
   const groups = [];
@@ -309,28 +265,24 @@ function getOverlapsBBoxes(squares, overlapCount) {
     }
   });
 
-  return groups.flat();
+  return groups;
 }
 
-// getMatchedCount 함수를 수정합니다.
-function getMatchedCount(overlapBBoxes, aiData) {
+function getMatchedCount(overlapGroups, aiData) {
   let matchedCount = 0;
-  overlapBBoxes.forEach((bbox) => {
+  overlapGroups.forEach((group) => {
     if (
-      aiData.some(
-        (ai) =>
-          Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+      group.some((bbox) =>
+        aiData.some(
+          (ai) =>
+            Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+        )
       )
     ) {
       matchedCount++;
     }
   });
   return matchedCount;
-}
-
-// getUnmatchedCount 함수를 추가합니다.
-function getUnmatchedCount(overlapCount, matchedCount) {
-  return Math.max(0, overlapCount - matchedCount);
 }
 
 async function fetchAssignmentData(assignmentId) {
