@@ -248,92 +248,79 @@ async function fetchAssignmentData(assignmentId) {
   try {
     await connection.beginTransaction();
 
-    const [assignmentData] = await connection.query(
-      `
-      SELECT u.id AS userId, u.username AS name, q.id AS questionId, q.image AS questionImage, a.title AS FileName,
-             COALESCE(qr.selected_option, -1) AS questionSelection, COUNT(DISTINCT si.id) AS squareCount,
-             a.assignment_mode AS assignmentMode, ci.width AS canvasWidth, ci.height AS canvasHeight
-      FROM users u
-      JOIN assignment_user au ON u.id = au.user_id
-      JOIN assignments a ON au.assignment_id = a.id
-      LEFT JOIN questions q ON au.assignment_id = q.assignment_id
-      LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
-      LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
-      LEFT JOIN canvas_info ci ON a.id = ci.assignment_id AND u.id = ci.user_id
-      WHERE au.assignment_id = ?
-      GROUP BY u.id, q.id
-    `,
+    const [assignmentInfo] = await connection.query(
+      `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
       [assignmentId]
     );
 
-    const [squaresData] = await connection.query(
-      `
-      SELECT DISTINCT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
-      FROM (
-        SELECT question_id, x, y, user_id, isAI, isTemporary,
-               ROW_NUMBER() OVER (PARTITION BY question_id, x, y, user_id ORDER BY id) as rn
-        FROM squares_info
-      ) si
-      JOIN questions q ON si.question_id = q.id
-      WHERE q.assignment_id = ? AND si.rn = 1
-    `,
+    const [users] = await connection.query(
+      `SELECT u.id as userId, u.username as name
+       FROM users u
+       JOIN assignment_user au ON u.id = au.user_id
+       WHERE au.assignment_id = ?`,
       [assignmentId]
     );
 
-    const structuredData = assignmentData.reduce((acc, user) => {
-      const {
-        userId,
-        name,
-        questionId,
-        questionImage,
-        FileName,
-        questionSelection,
-        squareCount,
-        assignmentMode,
-        canvasWidth,
-        canvasHeight,
-      } = user;
+    const [questions] = await connection.query(
+      `SELECT id as questionId, image as questionImage FROM questions WHERE assignment_id = ?`,
+      [assignmentId]
+    );
 
-      if (!acc[name]) {
-        acc[name] = {
-          name,
-          userId,
-          questions: [],
-          answeredCount: 0,
-          unansweredCount: 0,
-          squares: [],
-          beforeCanvas: { width: canvasWidth, height: canvasHeight },
-        };
-      }
+    const [responses] = await connection.query(
+      `SELECT qr.question_id, qr.user_id, qr.selected_option as questionSelection
+       FROM question_responses qr
+       JOIN questions q ON qr.question_id = q.id
+       WHERE q.assignment_id = ?`,
+      [assignmentId]
+    );
 
-      const selection =
-        assignmentMode === "BBox" ? squareCount : questionSelection;
-      acc[name].questions.push({
-        questionId,
-        questionImage,
-        questionSelection: selection,
+    const [squares] = await connection.query(
+      `SELECT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
+       FROM squares_info si
+       JOIN questions q ON si.question_id = q.id
+       WHERE q.assignment_id = ?`,
+      [assignmentId]
+    );
+
+    const [canvasInfo] = await connection.query(
+      `SELECT user_id, width, height FROM canvas_info WHERE assignment_id = ?`,
+      [assignmentId]
+    );
+
+    const structuredData = users.map((user) => ({
+      ...user,
+      questions: questions.map((q) => ({
+        questionId: q.questionId,
+        questionImage: q.questionImage,
+        questionSelection:
+          responses.find(
+            (r) => r.question_id === q.questionId && r.user_id === user.userId
+          )?.questionSelection || -1,
+      })),
+      squares: squares.filter((s) => s.user_id === user.userId),
+      beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
+        width: 1000,
+        height: 1000,
+      },
+      answeredCount: 0,
+      unansweredCount: 0,
+    }));
+
+    structuredData.forEach((user) => {
+      user.questions.forEach((q) => {
+        if (q.questionSelection > 0) {
+          user.answeredCount++;
+        } else {
+          user.unansweredCount++;
+        }
       });
-
-      selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
-
-      if (assignmentMode === "BBox") {
-        acc[name].squares = squaresData.filter(
-          (square) => square.user_id === userId
-        );
-      }
-
-      return acc;
-    }, {});
-
-    Object.values(structuredData).forEach((user) =>
-      user.questions.sort((a, b) => a.questionId - b.questionId)
-    );
+    });
 
     await connection.commit();
     return {
-      assignment: Object.values(structuredData),
-      assignmentMode: assignmentData[0].assignmentMode,
-      FileName: assignmentData[0].FileName,
+      assignment: structuredData,
+      assignmentMode: assignmentInfo[0].assignmentMode,
+      FileName: assignmentInfo[0].FileName,
     };
   } catch (error) {
     await connection.rollback();
