@@ -416,7 +416,7 @@ async function getAIData(assignmentId) {
         );
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
-          return { x: x - 12.5, y: y - 12.5, questionIndex: question.id };
+          return { x: x + 12.5, y: y + 12.5, questionIndex: question.id };
         });
         AI_BBOX.push(...bbox);
       } catch (error) {
