@@ -65,16 +65,16 @@ router.post(
 
           if (assignmentSummary.assignmentMode === "BBox") {
             const allSquares = users.flatMap((user) => user.squares);
-            const overlapCount = getOverlaps(
+            const overlapSquares = getOverlapSquares(
               allSquares,
               question.questionId,
               halfRoundedEvaluatorCount
             );
+            const overlapCount = overlapSquares.length;
             const matchedCount = getMatchedCount(
-              allSquares,
+              overlapSquares,
               aiData,
-              question.questionId,
-              halfRoundedEvaluatorCount
+              question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
 
@@ -82,11 +82,7 @@ router.post(
 
             const json = JSON.stringify({
               filename: questionImageFileName,
-              annotation: getOverlapSquares(
-                allSquares,
-                question.questionId,
-                halfRoundedEvaluatorCount
-              ).map((bbox) => ({
+              annotation: overlapSquares.map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
@@ -229,57 +225,6 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-function getOverlaps(squares, questionId, overlapCount) {
-  const relevantSquares = squares.filter(
-    (square) => square.questionIndex === questionId && !square.isTemporary
-  );
-  const groups = [];
-  const visited = new Set();
-
-  function dfs(square, group) {
-    if (visited.has(square)) return;
-    visited.add(square);
-    group.push(square);
-
-    relevantSquares.forEach((otherSquare) => {
-      if (
-        !visited.has(otherSquare) &&
-        Math.abs(square.x - otherSquare.x) <= 12.5 &&
-        Math.abs(square.y - otherSquare.y) <= 12.5
-      ) {
-        dfs(otherSquare, group);
-      }
-    });
-  }
-
-  relevantSquares.forEach((square) => {
-    if (!visited.has(square)) {
-      const group = [];
-      dfs(square, group);
-      if (group.length >= overlapCount) {
-        groups.push(group);
-      }
-    }
-  });
-
-  return groups.length;
-}
-
-function getMatchedCount(squares, aiData, questionId, overlapCount) {
-  const relevantSquares = squares.filter(
-    (square) => square.questionIndex === questionId && !square.isTemporary
-  );
-  const relevantAiData = aiData.filter((ai) => ai.questionIndex === questionId);
-
-  const overlapSquares = getOverlapSquares(squares, questionId, overlapCount);
-
-  return overlapSquares.filter((bbox) =>
-    relevantAiData.some(
-      (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
-    )
-  ).length;
-}
-
 function getOverlapSquares(squares, questionId, overlapCount) {
   const relevantSquares = squares.filter(
     (square) => square.questionIndex === questionId && !square.isTemporary
@@ -314,6 +259,16 @@ function getOverlapSquares(squares, questionId, overlapCount) {
   });
 
   return groups.flat();
+}
+
+function getMatchedCount(overlapSquares, aiData, questionId) {
+  const relevantAiData = aiData.filter((ai) => ai.questionIndex === questionId);
+
+  return overlapSquares.filter((bbox) =>
+    relevantAiData.some(
+      (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+    )
+  ).length;
 }
 
 module.exports = router;
