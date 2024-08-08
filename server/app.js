@@ -11,12 +11,9 @@ const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
 const postRoutes = require("./routes/postRoutes");
 const assignmentRoutes = require("./routes/assignmentRoutes");
+const exportExcelRoutes = require("./routes/exportExcelRoutes.js");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
-
-// External dependencies
-
-// Internal dependencies
 
 // Constants and configurations
 const app = express();
@@ -56,6 +53,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/assignments", assignmentRoutes);
+app.use("/api/all-dashboard/", exportExcelRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
 
