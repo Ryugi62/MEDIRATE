@@ -3,9 +3,6 @@ const router = express.Router();
 const authenticateToken = require("../jwt");
 const ExcelJS = require("exceljs");
 const db = require("../db");
-const sharp = require("sharp");
-const path = require("path");
-const fs = require("fs").promises;
 
 router.post(
   "/download-searched-assignments",
@@ -59,17 +56,9 @@ router.post(
 
         worksheet.columns = columns;
 
-        for (const question of assignmentData.assignment[0].questions) {
+        assignmentData.assignment[0].questions.forEach((question) => {
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = { questionNumber: questionImageFileName };
-
-          const imagePath = path.join(
-            __dirname,
-            "..",
-            "assets",
-            question.questionImage
-          );
-          const imageSize = await getImageSize(imagePath);
 
           users.forEach((user) => {
             if (assignmentData.assignmentMode === "BBox") {
@@ -99,8 +88,7 @@ router.post(
 
             const transformedSquares = transformAllSquares(
               allSquares,
-              canvasInfo,
-              imageSize
+              canvasInfo
             );
             const overlapSquares = getOverlapSquares(
               transformedSquares,
@@ -113,6 +101,8 @@ router.post(
               question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
+
+            console.log(`allSquares: ${allSquares}`);
 
             row["overlap"] = overlapCount;
             row["matched"] = matchedCount;
@@ -130,7 +120,7 @@ router.post(
           }
 
           worksheet.addRow(row);
-        }
+        });
 
         // Add an empty row between assignments
         worksheet.addRow({});
@@ -154,19 +144,16 @@ router.post(
   }
 );
 
-async function getImageSize(imagePath) {
-  try {
-    const metadata = await sharp(imagePath).metadata();
-    return { width: metadata.width, height: metadata.height };
-  } catch (error) {
-    console.error(`Error getting image size for ${imagePath}:`, error);
-    return { width: 1024, height: 1024 }; // 기본값 반환
-  }
+function getValidSquaresCount(squares, questionId) {
+  return squares.filter(
+    (square) => square.questionIndex === questionId && !square.isTemporary
+  ).length;
 }
 
-function transformAllSquares(squares, canvasInfo, imageSize) {
+function transformAllSquares(squares, canvasInfo) {
   const { width: canvasWidth, height: canvasHeight } = canvasInfo;
-  const { width: originalWidth, height: originalHeight } = imageSize;
+  const originalWidth = 1024; // Original image width
+  const originalHeight = 1024; // Original image height
 
   return squares.map((square) => {
     const transformed = transformCoordinates(
@@ -199,12 +186,6 @@ function transformCoordinates(
     x: x * scale + offsetX,
     y: y * scale + offsetY,
   };
-}
-
-function getValidSquaresCount(squares, questionId) {
-  return squares.filter(
-    (square) => square.questionIndex === questionId && !square.isTemporary
-  ).length;
 }
 
 function getOverlapSquares(squares, overlapCount) {
