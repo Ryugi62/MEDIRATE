@@ -26,6 +26,7 @@ router.post(
 
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
+        const canvasInfo = await getCanvasInfo(assignmentSummary.id);
 
         const users = assignmentData.assignment;
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
@@ -65,8 +66,12 @@ router.post(
 
           if (assignmentSummary.assignmentMode === "BBox") {
             const allSquares = users.flatMap((user) => user.squares);
-            const overlapSquares = getOverlapSquares(
+            const transformedSquares = transformAllSquares(
               allSquares,
+              canvasInfo
+            );
+            const overlapSquares = getOverlapSquares(
+              transformedSquares,
               question.questionId,
               halfRoundedEvaluatorCount
             );
@@ -166,6 +171,20 @@ async function fetchAssignmentData(assignmentId) {
   return { assignment };
 }
 
+async function getCanvasInfo(assignmentId) {
+  const canvasQuery = `
+    SELECT width, height
+    FROM canvas_info
+    WHERE assignment_id = ?`;
+  const [canvasInfo] = await db.query(canvasQuery, [assignmentId]);
+
+  if (!canvasInfo || canvasInfo.length === 0) {
+    throw new Error(`Canvas info not found for assignment ID: ${assignmentId}`);
+  }
+
+  return canvasInfo[0];
+}
+
 async function getAIData(assignmentId) {
   const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
   const [questions] = await db.query(questionsQuery, [assignmentId]);
@@ -223,6 +242,44 @@ function getValidSquaresCount(squares, questionId) {
   return squares.filter(
     (square) => square.questionIndex === questionId && !square.isTemporary
   ).length;
+}
+
+function transformAllSquares(squares, canvasInfo) {
+  const { width: canvasWidth, height: canvasHeight } = canvasInfo;
+  const originalWidth = 1024; // Original image width
+  const originalHeight = 1024; // Original image height
+
+  return squares.map((square) => {
+    const transformed = transformCoordinates(
+      square.x,
+      square.y,
+      originalWidth,
+      originalHeight,
+      canvasWidth,
+      canvasHeight
+    );
+    return { ...square, x: transformed.x, y: transformed.y };
+  });
+}
+
+function transformCoordinates(
+  x,
+  y,
+  originalWidth,
+  originalHeight,
+  canvasWidth,
+  canvasHeight
+) {
+  const scale = Math.min(
+    canvasWidth / originalWidth,
+    canvasHeight / originalHeight
+  );
+  const offsetX = (canvasWidth - originalWidth * scale) / 2;
+  const offsetY = (canvasHeight - originalHeight * scale) / 2;
+  return {
+    x: (x - offsetX) / scale,
+    y: (y - offsetY) / scale,
+  };
 }
 
 function getOverlapSquares(squares, questionId, overlapCount) {
