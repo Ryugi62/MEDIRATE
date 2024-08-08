@@ -94,7 +94,6 @@ router.post(
               adjustedSquares,
               halfRoundedEvaluatorCount
             );
-
             const matchedCount = getMatchedCount(overlapBBoxes, relevantAiData);
             const unmatchedCount = overlapCount - matchedCount;
 
@@ -107,8 +106,8 @@ router.post(
               annotation: overlapBBoxes.map((bbox) => ({
                 category_id: bbox.category_id,
                 bbox: [
-                  Math.round(bbox.x),
-                  Math.round(bbox.y),
+                  Math.round(bbox.x - 12.5),
+                  Math.round(bbox.y - 12.5),
                   bbox.width,
                   bbox.height,
                 ],
@@ -146,25 +145,32 @@ function getValidSquaresCount(squares, questionId) {
   ).length;
 }
 
-async function getImageDimensions(imagePath) {
+function getImageLocalPath(imageUrl) {
+  const parsedUrl = new URL(imageUrl);
+  const pathParts = parsedUrl.pathname.split("/");
+  const folderName = pathParts[pathParts.length - 2];
+  const fileName = pathParts[pathParts.length - 1];
+  return path.join(__dirname, "..", "..", "assets", folderName, fileName);
+}
+
+async function getImageDimensions(imageUrl) {
   try {
-    const dimensions = await sizeOfPromise(imagePath);
+    const realPath = getImageLocalPath(imageUrl);
+    console.log(`Attempting to get dimensions for: ${realPath}`);
+    const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
-    console.error(`Error getting image dimensions for ${imagePath}:`, error);
+    console.error(`Error getting image dimensions for ${imageUrl}:`, error);
     return { width: 1000, height: 1000 }; // 기본값 설정
   }
 }
 
 async function getAdjustedSquares(users, question) {
-  const imagePath = path.join(
-    __dirname,
-    "..",
-    "assets",
-    question.questionImage.replace("/api/assets/", "")
-  );
+  const imagePath = getImageLocalPath(question.questionImage);
+  console.log(`Attempting to process image: ${imagePath}`);
+
   const { width: originalWidth, height: originalHeight } =
-    await getImageDimensions(imagePath);
+    await getImageDimensions(question.questionImage);
 
   return users.flatMap((user) =>
     user.squares
@@ -262,8 +268,6 @@ function getOverlaps(squares, overlapCount) {
     }
   });
 
-  console.log(groups);
-
   return groups.length;
 }
 
@@ -337,11 +341,9 @@ async function fetchAssignmentData(assignmentId) {
 
     // 이미지 크기 정보 가져오기
     for (let question of questions) {
-      const parsedUrl = url.parse(question.questionImage);
-      const relativePath = parsedUrl.pathname.replace("/api/assets/", "");
-      const imagePath = path.join(__dirname, "..", "assets", relativePath);
-
-      const { width, height } = await getImageDimensions(imagePath);
+      const { width, height } = await getImageDimensions(
+        question.questionImage
+      );
       question.originalWidth = width;
       question.originalHeight = height;
     }
@@ -419,20 +421,16 @@ async function getAIData(assignmentId) {
       [assignmentId]
     );
 
-    const assignmentType = questions[0].image.split("/").slice(-2)[0];
     const AI_BBOX = [];
 
     for (const question of questions) {
-      const jsonSrc = question.image
-        .split("/")
-        .pop()
-        .replace(/\.(jpg|png)/, ".json");
+      const jsonPath = getImageLocalPath(question.image).replace(
+        /\.(jpg|png|jpeg)$/i,
+        ".json"
+      );
 
       try {
-        const jsonContent = await fs.readFile(
-          path.join(__dirname, `../../assets/${assignmentType}/${jsonSrc}`),
-          "utf8"
-        );
+        const jsonContent = await fs.readFile(jsonPath, "utf8");
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
           return { x: x + 12.5, y: y + 12.5, questionIndex: question.id };
