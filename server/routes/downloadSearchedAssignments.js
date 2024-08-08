@@ -10,21 +10,13 @@ router.post(
   async (req, res) => {
     try {
       const assignments = req.body.data;
-      console.log(`Received ${assignments.length} assignments for processing`);
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
       for (const assignmentSummary of assignments) {
-        console.log(`Processing assignment ID: ${assignmentSummary.id}`);
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
-
-        console.log(
-          "Assignment Data:",
-          JSON.stringify(assignmentData, null, 2)
-        );
-        console.log("AI Data:", JSON.stringify(aiData, null, 2));
 
         const users = assignmentData.assignment;
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
@@ -101,10 +93,6 @@ router.post(
             );
             const unmatchedCount = overlapCount - matchedCount;
 
-            console.log(
-              `Question ${questionImageFileName} - Overlap: ${overlapCount}, Matched: ${matchedCount}, Unmatched: ${unmatchedCount}`
-            );
-
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
             row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
@@ -116,11 +104,6 @@ router.post(
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
             });
-
-            console.log(
-              `JSON for question ${question.questionId}:`,
-              row["json"]
-            );
           } else {
             row["json"] = "{}";
           }
@@ -250,10 +233,6 @@ function getOverlapsBBoxes(users, questionId, overlapCount) {
   });
 
   const result = groups.flat();
-  console.log(
-    `Overlap BBoxes for question ${questionId} with ${overlapCount} evaluators:`,
-    result.length
-  );
   return result;
 }
 

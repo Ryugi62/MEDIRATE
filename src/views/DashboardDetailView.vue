@@ -215,7 +215,6 @@ export default {
             },
           }
         );
-        console.log("Loaded dashboard data:", data);
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -227,8 +226,6 @@ export default {
           squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
-        console.log("Updated userSquaresList:", this.userSquaresList);
-        console.log("Updated flatSquares:", this.flatSquares);
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -249,7 +246,6 @@ export default {
           x: ai.x + 12.5,
           y: ai.y + 12.5,
         }));
-        console.log("Loaded AI data:", this.aiData);
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
@@ -270,7 +266,6 @@ export default {
       const count = squares.filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       ).length;
-      console.log(`Valid squares count for question ${questionId}:`, count);
       return count;
     },
 
@@ -415,10 +410,6 @@ export default {
         }
       });
 
-      console.log(
-        `Overlaps for question ${questionId} with ${overlapCount} evaluators:`,
-        groups.length
-      );
       return groups.length;
     },
 
@@ -467,10 +458,6 @@ export default {
       });
 
       const result = groups.flat();
-      console.log(
-        `Overlap BBoxes for question ${questionId} with ${overlapCount} evaluators:`,
-        result.length
-      );
       return result;
     },
 
@@ -490,7 +477,6 @@ export default {
     },
 
     async exportToExcel() {
-      console.log("Starting Excel export...");
       const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
@@ -552,10 +538,6 @@ export default {
           ).length;
           const unmatchedCount = overlapCount - matchedCount;
 
-          console.log(
-            `Question ${questionImageFileName} - Overlap: ${overlapCount}, Matched: ${matchedCount}, Unmatched: ${unmatchedCount}`
-          );
-
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
@@ -570,11 +552,6 @@ export default {
               bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
             })),
           });
-
-          console.log(
-            `JSON for question ${questionImageFileName}:`,
-            row["json"]
-          );
         }
 
         worksheet.addRow(row);
@@ -586,7 +563,6 @@ export default {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       saveAs(blob, "assignment_responses.xlsx");
-      console.log("Excel export completed");
     },
     startExportingAnimation() {
       this.interval = setInterval(() => {
