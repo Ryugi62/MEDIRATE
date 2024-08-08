@@ -5,18 +5,26 @@
 
     <!-- 검색 입력 -->
     <div class="dashboard-search-input">
-      <!-- 초기화 버튼 -->
-      <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
-      <input
-        class="dashboard-search"
-        type="text"
-        v-model="searchQuery"
-        placeholder="검색어를 입력하세요"
-      />
-      <i
-        class="fa-solid fa-magnifying-glass search-icon"
-        @click="searchDashboard"
-      ></i>
+      <div class="search-input-container">
+        <i
+          class="fa-solid fa-rotate-left reset-button"
+          @click="resetSearch"
+        ></i>
+        <input
+          class="search-input"
+          type="text"
+          v-model="searchQuery"
+          placeholder="검색어를 입력하세요"
+        />
+        <i
+          class="fa-solid fa-magnifying-glass search-button"
+          @click="searchDashboard"
+        ></i>
+      </div>
+
+      <button class="download-button" @click="downloadSearchedItems">
+        검색된 과제 다운로드
+      </button>
     </div>
   </div>
 
@@ -298,9 +306,12 @@ export default {
   display: flex;
   height: 100%;
   overflow: hidden;
+  margin-right: 22px;
+}
+
+.search-input-container {
   border-radius: 4px;
   border: 1px solid var(--light-gray);
-  margin-right: 22px;
 }
 
 .dashboard-search-input input {
@@ -309,35 +320,48 @@ export default {
   box-sizing: border-box;
 }
 
-.search-icon,
-.reset-icon {
+.search-button,
+.reset-button {
   padding: 12px;
   cursor: pointer;
 }
 
-.search-icon {
+.search-button {
   color: var(--white);
   background-color: var(--blue);
 }
 
-.search-icon:hover {
+.search-button:hover {
   background-color: var(--blue-hover);
 }
 
-.search-icon:active {
+.search-button:active {
   background-color: var(--blue-active);
 }
 
-.reset-icon {
+.reset-button {
   color: var(--gray);
 }
 
-.reset-icon:hover {
+.reset-button:hover {
   color: var(--gray-hover);
 }
 
-.reset-icon:active {
+.reset-button:active {
   color: var(--gray-active);
+}
+
+.download-button {
+  margin-left: 8px;
+  background-color: var(--green);
+}
+
+.download-button:hover {
+  background-color: var(--green-hover);
+}
+
+.download-button:active {
+  background-color: var(--green-active);
 }
 
 .table-box {
