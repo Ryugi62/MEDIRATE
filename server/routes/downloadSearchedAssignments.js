@@ -94,6 +94,7 @@ router.post(
               adjustedSquares,
               halfRoundedEvaluatorCount
             );
+
             const matchedCount = getMatchedCount(overlapBBoxes, relevantAiData);
             const unmatchedCount = overlapCount - matchedCount;
 
@@ -105,7 +106,12 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapBBoxes.map((bbox) => ({
                 category_id: bbox.category_id,
-                bbox: [bbox.x, bbox.y, bbox.width, bbox.height],
+                bbox: [
+                  Math.round(bbox.x),
+                  Math.round(bbox.y),
+                  bbox.width,
+                  bbox.height,
+                ],
               })),
             });
           }
@@ -178,8 +184,8 @@ async function getAdjustedSquares(users, question) {
           );
         return {
           ...square,
-          x: Math.round(adjustedX - 12.5), // 중심점 조정
-          y: Math.round(adjustedY - 12.5), // 중심점 조정
+          x: adjustedX,
+          y: adjustedY,
           width: 25,
           height: 25,
         };
@@ -255,6 +261,8 @@ function getOverlaps(squares, overlapCount) {
       }
     }
   });
+
+  console.log(groups);
 
   return groups.length;
 }
