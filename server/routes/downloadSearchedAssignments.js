@@ -366,11 +366,10 @@ async function getAIData(assignmentId) {
         .pop()
         .replace(/\.(jpg|png)/, ".json");
 
+      console.log(
+        `assets/${assignmentType}/${jsonSrc} is being read for AI data`
+      );
       try {
-        console.log(
-          `assets/${assignmentType}/${jsonSrc} is being read for AI data`
-        );
-
         const jsonContent = await fs.readFile(
           path.join(__dirname, `../assets/${assignmentType}/${jsonSrc}`),
           "utf8"
