@@ -263,7 +263,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--light-gray);
-  padding: 15.5px 24px;
+  padding: 9px 24px;
 }
 
 .header-title {
@@ -278,6 +278,7 @@ export default {
   overflow: hidden;
   border-radius: 4px;
   border: 1px solid var(--light-gray);
+  margin-right: 22px;
 }
 
 /* 유저 검색 입력 상자 */

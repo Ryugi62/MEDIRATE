@@ -141,7 +141,7 @@ export default {
 <style scoped>
 .board__title {
   margin: 0;
-  padding: 14px 24px;
+  padding: 15.5px 24px;
   font-size: 24px;
   font-weight: 500;
   border-bottom: 1px solid var(--light-gray);

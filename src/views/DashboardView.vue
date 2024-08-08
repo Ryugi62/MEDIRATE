@@ -1,6 +1,24 @@
 <template>
-  <!-- 대시보드 제목 -->
-  <h1 class="title">대시 보드</h1>
+  <!-- 대시보드 헤더 -->
+  <div class="dashboard-header">
+    <h1 class="header-title">대시 보드</h1>
+
+    <!-- 검색 입력 -->
+    <div class="dashboard-search-input">
+      <!-- 초기화 버튼 -->
+      <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
+      <input
+        class="dashboard-search"
+        type="text"
+        v-model="searchQuery"
+        placeholder="검색어를 입력하세요"
+      />
+      <i
+        class="fa-solid fa-magnifying-glass search-icon"
+        @click="searchDashboard"
+      ></i>
+    </div>
+  </div>
 
   <!-- 테이블 박스 -->
   <div class="table-box">
@@ -10,11 +28,11 @@
       <thead>
         <tr>
           <!-- 각 열의 제목 -->
-          <!-- 아이콘이 있는것만 click 이벤트 활성화 -->
           <th
             v-for="column in columns"
             :key="column.key"
             @click="column.sortable && sortBy(column.key)"
+            :class="{ sortable: column.sortable }"
           >
             <!-- 화살표 아이콘과 열 이름 -->
             <i
@@ -56,15 +74,12 @@
   <nav class="pagination-nav" aria-label="Pagination">
     <ul class="pagination">
       <li>
-        <!-- 맨 처음으로 이동 아이콘 -->
         <i
           class="fa-solid fa-angles-left pagination__button"
           @click="changePage(1)"
           :disabled="current === 1"
         ></i>
       </li>
-
-      <!-- 이전 페이지 버튼 -->
       <li>
         <i
           class="fa-solid fa-angle-left pagination__button"
@@ -72,7 +87,6 @@
           :disabled="current === 1"
         ></i>
       </li>
-      <!-- 페이지 버튼 -->
       <li
         v-for="page in visiblePages"
         :key="page"
@@ -83,7 +97,6 @@
           page
         }}</a>
       </li>
-      <!-- 다음 페이지 버튼 -->
       <li>
         <i
           class="fa-solid fa-angle-right pagination__button"
@@ -91,7 +104,6 @@
           :disabled="current === total"
         ></i>
       </li>
-
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
@@ -111,11 +123,13 @@ export default {
     return {
       sortColumn: "id",
       sortDirection: "up",
+      originalData: [],
       data: [],
       current: 1,
       total: 0,
       lastPage: 0,
       itemsPerPage: 50,
+      searchQuery: "",
     };
   },
 
@@ -181,6 +195,7 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         });
+        this.originalData = response.data;
         this.data = response.data;
         this.total = this.data.length;
         this.lastPage = Math.ceil(this.total / this.itemsPerPage);
@@ -191,8 +206,6 @@ export default {
     },
 
     changePage(page) {
-      console.log(page);
-
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
       if (page >= 1 && page <= totalPages) {
         this.current = page;
@@ -241,24 +254,90 @@ export default {
     goToDetail(id) {
       this.$router.push({ name: "dashboardDetail", params: { id } });
     },
+
+    searchDashboard() {
+      if (this.searchQuery === "") {
+        this.resetSearch();
+        return;
+      }
+      this.data = this.originalData.filter((item) =>
+        item.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+      );
+      this.total = this.data.length;
+      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.current = 1; // 검색 후 첫 페이지로 이동
+    },
+
+    resetSearch() {
+      this.searchQuery = "";
+      this.data = this.originalData;
+      this.total = this.data.length;
+      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.current = 1; // 리셋 후 첫 페이지로 이동
+    },
   },
 };
 </script>
 
 <style scoped>
-* {
-  /* border: 1px solid red; */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--light-gray);
+  padding: 9px 24px;
 }
 
-.title {
-  display: flex;
-  align-items: center;
-  height: 60px;
-  border-bottom: 1px solid var(--light-gray);
+.header-title {
   margin: 0;
-  padding-left: 24px;
   font-size: 24px;
   font-weight: 500;
+}
+
+.dashboard-search-input {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid var(--light-gray);
+  margin-right: 22px;
+}
+
+.dashboard-search-input input {
+  border: none;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.search-icon,
+.reset-icon {
+  padding: 12px;
+  cursor: pointer;
+}
+
+.search-icon {
+  color: var(--white);
+  background-color: var(--blue);
+}
+
+.search-icon:hover {
+  background-color: var(--blue-hover);
+}
+
+.search-icon:active {
+  background-color: var(--blue-active);
+}
+
+.reset-icon {
+  color: var(--gray);
+}
+
+.reset-icon:hover {
+  color: var(--gray-hover);
+}
+
+.reset-icon:active {
+  color: var(--gray-active);
 }
 
 .table-box {
@@ -281,8 +360,16 @@ th {
   text-wrap: nowrap;
 }
 
+.sortable:hover {
+  color: var(--blue-hover);
+}
+
+.sortable:active {
+  color: var(--blue-active);
+}
+
 tr.completed {
-  color: gray; /* 완료된 과제의 셀 텍스트 색상을 회색으로 지정 */
+  color: gray;
 }
 
 tbody > tr:hover {
