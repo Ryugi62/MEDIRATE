@@ -293,7 +293,7 @@ export default {
     downloadSearchedItems() {
       this.$axios
         .post(
-          "/api/download/download-searched-assigments",
+          "/api/download/download-searched-assignments",
           {
             data: this.data,
           },

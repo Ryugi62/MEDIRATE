@@ -7,7 +7,7 @@ const fs = require("fs").promises;
 const path = require("path");
 
 router.post(
-  "/download-searched-assigments",
+  "/download-searched-assignments",
   authenticateToken,
   async (req, res) => {
     try {
