@@ -3,6 +3,8 @@ const router = express.Router();
 const authenticateToken = require("../jwt");
 const ExcelJS = require("exceljs");
 const db = require("../db");
+const fs = require("fs").promises;
+const path = require("path");
 
 router.post(
   "/download-searched-assignments",
@@ -80,7 +82,9 @@ router.post(
               users,
               question.questionId
             );
-            const adjustedAiData = aiData; // AI 데이터는 이미 정규화된 좌표라고 가정
+            const relevantAiData = aiData.filter(
+              (ai) => ai.questionIndex === question.questionId
+            );
             const overlapCount = getOverlaps(
               adjustedSquares,
               halfRoundedEvaluatorCount
@@ -91,7 +95,7 @@ router.post(
             );
             const matchedCount = getMatchedCount(
               overlapBBoxes,
-              adjustedAiData,
+              relevantAiData,
               question.questionId
             );
             const unmatchedCount = overlapCount - matchedCount;
@@ -104,7 +108,7 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapBBoxes.map((bbox) => ({
                 category: bbox.category_id,
-                bbox: [bbox.x, bbox.y, 25 / 1000, 25 / 1000],
+                bbox: [bbox.x, bbox.y, 25, 25],
               })),
             });
           } else {
@@ -147,28 +151,12 @@ function getAdjustedSquares(users, questionId) {
       .filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       )
-      .map((square) => adjustCoordinates(square, user.canvasInfo))
+      .map((square) => ({
+        ...square,
+        x: square.x / user.beforeCanvas.width,
+        y: square.y / user.beforeCanvas.height,
+      }))
   );
-}
-
-function adjustCoordinates(square, canvasInfo) {
-  if (
-    !canvasInfo ||
-    typeof canvasInfo.width === "undefined" ||
-    typeof canvasInfo.height === "undefined"
-  ) {
-    console.warn(
-      "canvasInfo is undefined or missing width/height. Using original coordinates."
-    );
-    return square;
-  }
-  const scaleX = 1 / canvasInfo.width;
-  const scaleY = 1 / canvasInfo.height;
-  return {
-    ...square,
-    x: square.x * scaleX,
-    y: square.y * scaleY,
-  };
 }
 
 function getOverlaps(squares, overlapCount) {
@@ -246,10 +234,8 @@ function getOverlapsBBoxes(squares, overlapCount) {
 }
 
 function getMatchedCount(overlapSquares, aiData, questionId) {
-  const relevantAiData = aiData.filter((ai) => ai.questionIndex === questionId);
-
   return overlapSquares.filter((bbox) =>
-    relevantAiData.some(
+    aiData.some(
       (ai) =>
         Math.abs(bbox.x - ai.x) <= 12.5 / 1000 &&
         Math.abs(bbox.y - ai.y) <= 12.5 / 1000
@@ -262,80 +248,92 @@ async function fetchAssignmentData(assignmentId) {
   try {
     await connection.beginTransaction();
 
-    const [users] = await connection.query(
+    const [assignmentData] = await connection.query(
       `
-      SELECT u.id, u.username AS name
+      SELECT u.id AS userId, u.username AS name, q.id AS questionId, q.image AS questionImage, a.title AS FileName,
+             COALESCE(qr.selected_option, -1) AS questionSelection, COUNT(DISTINCT si.id) AS squareCount,
+             a.assignment_mode AS assignmentMode, ci.width AS canvasWidth, ci.height AS canvasHeight
       FROM users u
       JOIN assignment_user au ON u.id = au.user_id
+      JOIN assignments a ON au.assignment_id = a.id
+      LEFT JOIN questions q ON au.assignment_id = q.assignment_id
+      LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
+      LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
+      LEFT JOIN canvas_info ci ON a.id = ci.assignment_id AND u.id = ci.user_id
       WHERE au.assignment_id = ?
+      GROUP BY u.id, q.id
     `,
       [assignmentId]
     );
 
-    const [questions] = await connection.query(
+    const [squaresData] = await connection.query(
       `
-      SELECT id, image AS questionImage
-      FROM questions
-      WHERE assignment_id = ?
-    `,
-      [assignmentId]
-    );
-
-    const [squares] = await connection.query(
-      `
-      SELECT si.id, si.x, si.y, si.question_id AS questionIndex, si.isAI, si.isTemporary, si.user_id
-      FROM squares_info si
+      SELECT DISTINCT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
+      FROM (
+        SELECT question_id, x, y, user_id, isAI, isTemporary,
+               ROW_NUMBER() OVER (PARTITION BY question_id, x, y, user_id ORDER BY id) as rn
+        FROM squares_info
+      ) si
       JOIN questions q ON si.question_id = q.id
-      WHERE q.assignment_id = ?
+      WHERE q.assignment_id = ? AND si.rn = 1
     `,
       [assignmentId]
     );
 
-    const [responses] = await connection.query(
-      `
-      SELECT qr.question_id, qr.selected_option AS questionSelection, qr.user_id
-      FROM question_responses qr
-      JOIN questions q ON qr.question_id = q.id
-      WHERE q.assignment_id = ?
-    `,
-      [assignmentId]
-    );
+    const structuredData = assignmentData.reduce((acc, user) => {
+      const {
+        userId,
+        name,
+        questionId,
+        questionImage,
+        FileName,
+        questionSelection,
+        squareCount,
+        assignmentMode,
+        canvasWidth,
+        canvasHeight,
+      } = user;
 
-    const [assignmentMode] = await connection.query(
-      `
-      SELECT assignment_mode AS assignmentMode
-      FROM assignments
-      WHERE id = ?
-    `,
-      [assignmentId]
-    );
+      if (!acc[name]) {
+        acc[name] = {
+          name,
+          userId,
+          questions: [],
+          answeredCount: 0,
+          unansweredCount: 0,
+          squares: [],
+          beforeCanvas: { width: canvasWidth, height: canvasHeight },
+        };
+      }
 
-    const [canvasInfo] = await connection.query(
-      `
-      SELECT ci.user_id, ci.width, ci.height
-      FROM canvas_info ci
-      WHERE ci.assignment_id = ?
-    `,
-      [assignmentId]
-    );
+      const selection =
+        assignmentMode === "BBox" ? squareCount : questionSelection;
+      acc[name].questions.push({
+        questionId,
+        questionImage,
+        questionSelection: selection,
+      });
 
-    const assignment = users.map((user) => ({
-      ...user,
-      questions: questions.map((q) => ({
-        questionId: q.id,
-        questionImage: q.questionImage,
-        questionSelection:
-          responses.find((r) => r.question_id === q.id && r.user_id === user.id)
-            ?.questionSelection || -1,
-      })),
-      squares: squares.filter((s) => s.user_id === user.id),
-      canvasInfo: canvasInfo.find((ci) => ci.user_id === user.id) || null,
-    }));
+      selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
+
+      if (assignmentMode === "BBox") {
+        acc[name].squares = squaresData.filter(
+          (square) => square.user_id === userId
+        );
+      }
+
+      return acc;
+    }, {});
+
+    Object.values(structuredData).forEach((user) =>
+      user.questions.sort((a, b) => a.questionId - b.questionId)
+    );
 
     await connection.commit();
     return {
-      assignment,
-      assignmentMode: assignmentMode[0].assignmentMode,
+      assignment: Object.values(structuredData),
+      assignmentMode: assignmentData[0].assignmentMode,
+      FileName: assignmentData[0].FileName,
     };
   } catch (error) {
     await connection.rollback();
@@ -346,17 +344,41 @@ async function fetchAssignmentData(assignmentId) {
 }
 
 async function getAIData(assignmentId) {
-  const [aiData] = await db.query(
-    `
-    SELECT si.x, si.y, si.question_id AS questionIndex
-    FROM squares_info si
-    JOIN questions q ON si.question_id = q.id
-    WHERE q.assignment_id = ? AND si.isAI = 1
-  `,
-    [assignmentId]
-  );
+  try {
+    const [questions] = await db.query(
+      `SELECT id, image FROM questions WHERE assignment_id = ?`,
+      [assignmentId]
+    );
 
-  return aiData;
+    const assignmentType = questions[0].image.split("/").slice(-2)[0];
+    const AI_BBOX = [];
+
+    for (const question of questions) {
+      const jsonSrc = question.image
+        .split("/")
+        .pop()
+        .replace(/\.(jpg|png)/, ".json");
+
+      try {
+        const jsonContent = await fs.readFile(
+          path.join(__dirname, `../assets/${assignmentType}/${jsonSrc}`),
+          "utf8"
+        );
+        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+          const [x, y] = annotation.bbox;
+          return { x: x - 12.5, y: y - 12.5, questionIndex: question.id };
+        });
+        AI_BBOX.push(...bbox);
+      } catch (error) {
+        console.error("Error reading JSON file:", error);
+      }
+    }
+
+    return AI_BBOX;
+  } catch (error) {
+    console.error("Error fetching AI assignment:", error);
+    throw error;
+  }
 }
 
 module.exports = router;
