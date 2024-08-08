@@ -245,7 +245,7 @@ function getOverlapsBBoxes(squares, overlapCount) {
   return groups.flat();
 }
 
-function getMatchedCount(overlapSquares, aiData, questionId) {
+function getMatchedCount(overlapSquares, aiData) {
   return overlapSquares.filter((bbox) =>
     aiData.some(
       (ai) => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
@@ -367,6 +367,10 @@ async function getAIData(assignmentId) {
         .replace(/\.(jpg|png)/, ".json");
 
       try {
+        console.log(
+          `assets/${assignmentType}/${jsonSrc} is being read for AI data`
+        );
+
         const jsonContent = await fs.readFile(
           path.join(__dirname, `../assets/${assignmentType}/${jsonSrc}`),
           "utf8"
