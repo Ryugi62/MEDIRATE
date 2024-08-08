@@ -80,10 +80,7 @@ router.post(
               users,
               question.questionId
             );
-            const adjustedAiData = adjustAiCoordinates(
-              aiData,
-              assignmentData.originalImageSize
-            );
+            const adjustedAiData = aiData; // AI 데이터는 이미 정규화된 좌표라고 가정
             const overlapCount = getOverlaps(
               adjustedSquares,
               halfRoundedEvaluatorCount
@@ -172,26 +169,6 @@ function adjustCoordinates(square, canvasInfo) {
     x: square.x * scaleX,
     y: square.y * scaleY,
   };
-}
-
-function adjustAiCoordinates(aiData, originalImageSize) {
-  if (
-    !originalImageSize ||
-    typeof originalImageSize.width === "undefined" ||
-    typeof originalImageSize.height === "undefined"
-  ) {
-    console.warn(
-      "originalImageSize is undefined or missing width/height. Using original AI coordinates."
-    );
-    return aiData;
-  }
-  const scaleX = 1 / originalImageSize.width;
-  const scaleY = 1 / originalImageSize.height;
-  return aiData.map((ai) => ({
-    ...ai,
-    x: ai.x * scaleX,
-    y: ai.y * scaleY,
-  }));
 }
 
 function getOverlaps(squares, overlapCount) {
@@ -342,17 +319,6 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
-    // Fetch original image size (assuming it's stored in the questions table)
-    const [originalImageSize] = await connection.query(
-      `
-      SELECT width AS originalWidth, height AS originalHeight
-      FROM questions
-      WHERE assignment_id = ?
-      LIMIT 1
-    `,
-      [assignmentId]
-    );
-
     const assignment = users.map((user) => ({
       ...user,
       questions: questions.map((q) => ({
@@ -370,12 +336,6 @@ async function fetchAssignmentData(assignmentId) {
     return {
       assignment,
       assignmentMode: assignmentMode[0].assignmentMode,
-      originalImageSize: originalImageSize[0]
-        ? {
-            width: originalImageSize[0].originalWidth,
-            height: originalImageSize[0].originalHeight,
-          }
-        : null,
     };
   } catch (error) {
     await connection.rollback();
