@@ -99,8 +99,12 @@ router.post(
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: overlapBBoxes.map((bbox) => ({
-                category_id: bbox.category_id,
+              annotation: getOverlapsBBoxes(
+                users,
+                question.questionId,
+                halfRoundedEvaluatorCount
+              ).map((bbox) => ({
+                category: bbox.category_id,
                 bbox: [bbox.x - 12.5, bbox.y - 12.5, 25, 25],
               })),
             });
@@ -182,10 +186,6 @@ function getOverlaps(users, questionId, overlapCount) {
     }
   });
 
-  console.log(
-    `Overlaps for question ${questionId} with ${overlapCount} evaluators:`,
-    groups.length
-  );
   return groups.length;
 }
 
@@ -232,8 +232,7 @@ function getOverlapsBBoxes(users, questionId, overlapCount) {
     }
   });
 
-  const result = groups.flat();
-  return result;
+  return groups.flat();
 }
 
 function getMatchedCount(overlapSquares, aiData, questionId) {
