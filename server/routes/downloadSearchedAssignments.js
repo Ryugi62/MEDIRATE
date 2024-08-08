@@ -94,11 +94,7 @@ router.post(
               adjustedSquares,
               halfRoundedEvaluatorCount
             );
-            const matchedCount = getMatchedCount(
-              overlapBBoxes,
-              relevantAiData,
-              question.questionId
-            );
+            const matchedCount = getMatchedCount(overlapBBoxes, relevantAiData);
             const unmatchedCount = overlapCount - matchedCount;
 
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
@@ -107,18 +103,10 @@ router.post(
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: overlapBBoxes.map((bbox) => ({
-                category: bbox.category_id,
-                bbox: [
-                  Math.round(bbox.x - 12.5),
-                  Math.round(bbox.y - 12.5),
-                  25,
-                  25,
-                ],
+              annotation: adjustedSquares.map((bbox) => ({
+                bbox: [Math.round(bbox.x), Math.round(bbox.y), 25, 25],
               })),
             });
-          } else {
-            row["json"] = "{}";
           }
 
           worksheet.addRow(row);
@@ -193,18 +181,15 @@ function adjustCoordinatesToOriginal(square, beforeCanvas, originalSize) {
     originalSize.width,
     originalSize.height
   );
-  const originalPosition = calculateImagePosition(
-    originalSize.width,
-    originalSize.height,
-    originalSize.width,
-    originalSize.height
-  );
-  const scaleRatio = originalPosition.scale / beforePosition.scale;
+
+  // 클라이언트 좌표계에서 원본 이미지 좌표계로 변환
+  const x = (square.x - beforePosition.x) / beforePosition.scale;
+  const y = (square.y - beforePosition.y) / beforePosition.scale;
 
   return {
     ...square,
-    x: Math.round((square.x - beforePosition.x) * scaleRatio),
-    y: Math.round((square.y - beforePosition.y) * scaleRatio),
+    x: Math.round(x),
+    y: Math.round(y),
   };
 }
 
