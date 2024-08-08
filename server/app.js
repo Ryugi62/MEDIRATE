@@ -11,6 +11,7 @@ const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
 const postRoutes = require("./routes/postRoutes");
 const assignmentRoutes = require("./routes/assignmentRoutes");
+const downloadSearchedAssignments = require("./routes/downloadSearchedAssignments.js");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 
@@ -52,6 +53,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/assignments", assignmentRoutes);
+app.use("/api/download", downloadSearchedAssignments);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
 

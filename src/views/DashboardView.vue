@@ -289,6 +289,34 @@ export default {
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1; // 리셋 후 첫 페이지로 이동
     },
+
+    downloadSearchedItems() {
+      this.$axios
+        .post(
+          "/api/download/download-searched-assigments",
+          {
+            data: this.data,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+            responseType: "blob",
+          }
+        )
+        .then((response) => {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", "searched_assignments.xlsx"); // 다운로드할 파일 이름 설정
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    },
   },
 };
 </script>
