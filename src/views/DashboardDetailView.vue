@@ -412,7 +412,6 @@ export default {
       return groups.length;
     },
 
-    // getMatchedCount 메서드 추가
     getMatchedCount(overlapGroups, aiData) {
       let matchedCount = 0;
       overlapGroups.forEach((group) => {
@@ -431,7 +430,6 @@ export default {
       return matchedCount;
     },
 
-    // getOverlapsBBoxes 메서드 수정
     getOverlapsBBoxes(questionId, overlapCount) {
       let squares = [];
       this.data.forEach((person) => {
@@ -446,24 +444,6 @@ export default {
       if (overlapCount === 1) {
         return squares.map((square) => [square]);
       }
-
-      squares.forEach((square) => {
-        const image = new Image();
-        // questionIndex에 해당하는 이미지를 불러옵니다.
-        const question = this.data[0].questions.find(
-          (question) => question.questionId === questionId
-        );
-        image.src = question.questionImage;
-
-        const { x, y } = this.convertToOriginalImageCoordinates(
-          square.x,
-          square.y,
-          image.width,
-          image.height
-        );
-        square.x = x;
-        square.y = y;
-      });
 
       const groups = [];
       const visited = new Set();
@@ -559,25 +539,36 @@ export default {
 
           const image = new Image();
           image.src = question.questionImage;
+          await new Promise((resolve) => {
+            image.onload = resolve;
+          });
           const originalWidth = image.width;
           const originalHeight = image.height;
 
-          const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
-            const { x: adjustedX, y: adjustedY } =
-              this.convertToOriginalImageCoordinates(
-                bbox.x,
-                bbox.y,
-                originalWidth,
-                originalHeight
-              );
+          const adjustedBBoxes = overlapGroups.map((group) => {
+            // Calculate the center point of the group
+            const centerX =
+              group.reduce((sum, box) => sum + box.x, 0) / group.length;
+            const centerY =
+              group.reduce((sum, box) => sum + box.y, 0) / group.length;
+
+            // Convert the center point to original image coordinates
+            const { x, y } = this.convertToOriginalImageCoordinates(
+              centerX,
+              centerY,
+              originalWidth,
+              originalHeight
+            );
+
+            // Use a fixed size for width and height (you can adjust these values)
+            const width = 25;
+            const height = 25;
+
             return {
-              category_id: bbox.category_id,
-              bbox: [
-                Math.round(adjustedX - 12.5),
-                Math.round(adjustedY - 12.5),
-                25,
-                25,
-              ],
+              x: Math.round(x),
+              y: Math.round(y),
+              width,
+              height,
             };
           });
 
