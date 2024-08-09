@@ -117,6 +117,10 @@ router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
           "utf8"
         );
 
+        if (!jsonContent) {
+          return;
+        }
+
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
           return { x, y, questionIndex: question.id };
