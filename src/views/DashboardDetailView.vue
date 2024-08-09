@@ -494,22 +494,42 @@ export default {
       ];
 
       if (this.assignmentMode === "BBox") {
-        columns.push({
-          header: `+${halfRoundedEvaluatorCount}인`,
-          key: `overlap${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${halfRoundedEvaluatorCount}일치`,
-          key: `matched${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${halfRoundedEvaluatorCount}불일치`,
-          key: `unmatched${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({ header: "Json", key: "json", width: 30 });
+        columns.push(
+          {
+            header: `+${halfRoundedEvaluatorCount}인`,
+            key: `overlap${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `AI개수`,
+            key: `aiCount`,
+            width: 10,
+          },
+          {
+            header: `${halfRoundedEvaluatorCount}일치`,
+            key: `matched${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+            // 남은 사용자가 생성한 박스의 개수
+            header: `FP`,
+            key: `fp${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+            // 남은 AI가 생성한 박스의 개수
+            header: `FN`,
+            key: `fn${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `JSON`,
+            key: `json`,
+            width: 30,
+          }
+        );
       }
       worksheet.columns = columns;
 
@@ -531,11 +551,12 @@ export default {
           );
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(overlapGroups, aiData);
-          const unmatchedCount = overlapCount - matchedCount;
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+          row["aiCount"] = aiData.length;
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-          row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
+          row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
+          row[`fn${halfRoundedEvaluatorCount}`] = aiData.length - matchedCount;
 
           const image = new Image();
           image.src = question.questionImage;
@@ -586,7 +607,9 @@ export default {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(blob, "assignment_responses.xlsx");
+      // saveAs(blob, "assignment_responses.xlsx");
+      // 과제명_response.xlsx 형식으로 저장
+      saveAs(blob, `${this.assignmentTitle}_response.xlsx`);
       this.isExporting = false;
     },
 
