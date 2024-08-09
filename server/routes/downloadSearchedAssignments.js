@@ -8,7 +8,6 @@ const path = require("path");
 const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
-const url = require("url");
 
 router.post(
   "/download-searched-assignments",
@@ -39,6 +38,11 @@ router.post(
         if (assignmentData.assignmentMode === "BBox") {
           columns.push(
             {
+              header: `과제 ID`,
+              key: `assignmentId`,
+              width: 10,
+            },
+            {
               header: `+${halfRoundedEvaluatorCount}인`,
               key: `overlap${halfRoundedEvaluatorCount}`,
               width: 10,
@@ -54,15 +58,11 @@ router.post(
               width: 10,
             },
             {
-              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
-              // 남은 사용자가 생성한 박스의 개수
               header: `FP`,
               key: `fp${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
-              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
-              // 남은 AI가 생성한 박스의 개수
               header: `FN`,
               key: `fn${halfRoundedEvaluatorCount}`,
               width: 10,
@@ -79,7 +79,10 @@ router.post(
 
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
-          const row = { questionNumber: questionImageFileName };
+          const row = {
+            assignmentId: assignmentSummary.id,
+            questionNumber: questionImageFileName,
+          };
 
           users.forEach((user) => {
             if (assignmentData.assignmentMode === "BBox") {
@@ -138,8 +141,6 @@ router.post(
 
           worksheet.addRow(row);
         }
-
-        worksheet.addRow({});
       }
 
       worksheet.getRow(1).font = { bold: true };
