@@ -701,14 +701,6 @@ export default {
     getStyleForPerson(index) {
       return this.assignmentMode === "BBox" ? this.colorList[index] : {};
     },
-  },
-
-  computed: {
-    completionPercentage() {
-      return this.assignmentMode === "TextBox"
-        ? this.calculateTextBoxCompletion()
-        : this.calculateBBoxCompletion();
-    },
 
     calculateTextBoxCompletion() {
       if (!this.data.length) return "0%";
@@ -732,6 +724,14 @@ export default {
         Number(this.sliderValue)
       );
       return count.toString();
+    },
+  },
+
+  computed: {
+    completionPercentage() {
+      return this.assignmentMode === "TextBox"
+        ? this.calculateTextBoxCompletion()
+        : this.calculateBBoxCompletion();
     },
 
     totalPercentage() {
