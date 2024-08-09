@@ -565,8 +565,8 @@ export default {
             const height = 25;
 
             return {
-              x: Math.round(x),
-              y: Math.round(y),
+              x: Math.round(x - 12.5),
+              y: Math.round(y - 12.5),
               width,
               height,
             };
