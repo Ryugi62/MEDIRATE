@@ -1,5 +1,5 @@
 <template>
-  <div v-if="hasData" class="dashboard">
+  <div v-if="data.length" class="dashboard">
     <div v-if="isExporting" class="exporting-message">
       {{ exportingMessage }}
     </div>
@@ -12,7 +12,7 @@
             <i
               class="fa-solid fa-robot"
               :class="{ active: isAiMode }"
-              @click="toggleAiMode"
+              @click="isAiMode = !isAiMode"
             ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
@@ -132,7 +132,7 @@
       </div>
     </div>
   </div>
-  <div v-else class="loading-message">
+  <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
 </template>
@@ -140,16 +140,17 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
-import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 
 export default {
   name: "DashboardDetailView",
+
   components: {
     ImageComponent,
     BBoxViewerComponent,
   },
+
   data() {
     return {
       data: [],
@@ -157,11 +158,18 @@ export default {
       assignmentId: this.$route.params.id,
       activeIndex: 0,
       assignmentMode: "",
-      colorList: this.getColorList(),
+      colorList: [
+        { backgroundColor: "#F70101", color: "white" },
+        { backgroundColor: "#36A2EB", color: "white" },
+        { backgroundColor: "#FF9F40", color: "white" },
+        { backgroundColor: "#B2F302", color: "black" },
+        { backgroundColor: "#FFA07A", color: "white" },
+      ],
       sliderValue: 1,
       userSquaresList: [],
       tempSquares: [],
       flatSquares: [],
+      exportingMessageIndex: 0,
       isExporting: false,
       keyPressInterval: null,
       keyRepeatDelay: 200,
@@ -169,58 +177,36 @@ export default {
       aiData: [],
     };
   },
-  computed: {
-    hasData() {
-      return this.data.length > 0;
-    },
-    completionPercentage() {
-      if (this.assignmentMode === "TextBox") {
-        return this.calculateCompletionPercentage();
-      } else {
-        return this.getOverlaps(
-          this.activeQuestionIndex,
-          Number(this.sliderValue)
-        ).toString();
-      }
-    },
-    exportingMessage() {
-      const baseMessage = "파일을 생성 중입니다";
-      const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
-      return `${baseMessage}${dots}`;
-    },
-    sliderRange() {
-      const rangeValues = Array.from(
-        { length: this.data.length },
-        (_, i) => i + 1
-      );
-      return rangeValues[this.sliderValue - 1] || "";
-    },
-  },
+
   async created() {
     await this.loadData();
     await this.loadAiData();
     this.startExportingAnimation();
   },
+
   mounted() {
     this.$nextTick(() => {
       window.addEventListener("keydown", this.handleKeyDown);
       window.addEventListener("keyup", this.handleKeyUp);
     });
   },
+
   beforeUnmount() {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("keyup", this.handleKeyUp);
     this.clearKeyPressInterval();
   },
+
   watch: {
     sliderValue() {
       this.updateActiveRowValues();
     },
   },
+
   methods: {
     async loadData() {
       try {
-        const response = await this.$axios.get(
+        const { data } = await this.$axios.get(
           `/api/dashboard/${this.assignmentId}`,
           {
             headers: {
@@ -228,14 +214,25 @@ export default {
             },
           }
         );
-        this.initializeAssignmentData(response.data);
+        this.assignmentTitle = data.FileName;
+        this.assignmentMode = data.assignmentMode;
+        this.data = data.assignment;
+        this.activeImageUrl = this.data[0].questions[0].questionImage;
+        this.activeQuestionIndex = this.data[0].questions[0].questionId;
+        this.flatSquares = this.data.map((person) => person.squares).flat();
+        this.userSquaresList = this.data.map((person, index) => ({
+          beforeCanvas: person.beforeCanvas,
+          squares: person.squares,
+          color: this.colorList[index % this.colorList.length].backgroundColor,
+        }));
       } catch (error) {
         console.error("Failed to load data:", error);
       }
     },
+
     async loadAiData() {
       try {
-        const response = await this.$axios.get(
+        const { data } = await this.$axios.get(
           `/api/assignments/${this.assignmentId}/ai/`,
           {
             headers: {
@@ -243,69 +240,67 @@ export default {
             },
           }
         );
-        this.processAiData(response.data);
+        this.aiData = data.map((ai) => ({
+          ...ai,
+          x: ai.x + 12.5,
+          y: ai.y + 12.5,
+        }));
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
     },
-    initializeAssignmentData(data) {
-      this.assignmentTitle = data.FileName;
-      this.assignmentMode = data.assignmentMode;
-      this.data = data.assignment;
-      this.activeImageUrl = this.data[0].questions[0].questionImage;
-      this.activeQuestionIndex = this.data[0].questions[0].questionId;
-      this.flatSquares = this.data.flatMap((person) => person.squares);
-      this.userSquaresList = this.data.map((person, index) => ({
-        beforeCanvas: person.beforeCanvas,
-        squares: person.squares,
-        color: this.colorList[index % this.colorList.length].backgroundColor,
-      }));
-    },
-    processAiData(aiData) {
-      this.aiData = aiData.map((ai) => ({
-        ...ai,
-        x: ai.x + 12.5,
-        y: ai.y + 12.5,
-      }));
-    },
+
     handleKeyDown(event) {
       if (event.repeat) return;
+
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         this.moveQuestion(event.key);
-        this.keyPressInterval = setInterval(
-          () => this.moveQuestion(event.key),
-          this.keyRepeatDelay
-        );
+        this.keyPressInterval = setInterval(() => {
+          this.moveQuestion(event.key);
+        }, this.keyRepeatDelay);
       }
     },
+
+    getValidSquaresCount(squares, questionId) {
+      const count = squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      ).length;
+      return count;
+    },
+
     handleKeyUp() {
       this.clearKeyPressInterval();
     },
+
     clearKeyPressInterval() {
       if (this.keyPressInterval) {
         clearInterval(this.keyPressInterval);
         this.keyPressInterval = null;
       }
     },
+
     moveQuestion(key) {
       const currentIndex = this.activeIndex;
-      const direction = key === "ArrowDown" ? 1 : -1;
-      const newIndex = currentIndex + direction;
-      if (newIndex >= 0 && newIndex < this.data[0].questions.length) {
+      const questionsLength = this.data[0].questions.length;
+
+      if (key === "ArrowDown" && currentIndex < questionsLength - 1) {
         this.setActiveImage(
-          this.data[0].questions[newIndex].questionImage,
-          newIndex
+          this.data[0].questions[currentIndex + 1].questionImage,
+          currentIndex + 1
+        );
+      } else if (key === "ArrowUp" && currentIndex > 0) {
+        this.setActiveImage(
+          this.data[0].questions[currentIndex - 1].questionImage,
+          currentIndex - 1
         );
       }
     },
+
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
-      this.scrollToActiveRow();
-      this.resetSliderValue();
-    },
-    scrollToActiveRow() {
+
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector(
           ".assignment-table tbody tr.active"
@@ -314,173 +309,61 @@ export default {
           activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
         }
       });
-    },
-    resetSliderValue() {
+
       const oldSlideValue = this.sliderValue;
       this.sliderValue = null;
       this.$nextTick(() => {
         this.sliderValue = oldSlideValue;
       });
     },
+
     updateActiveRowValues() {
       const currentRow = this.data[0].questions[this.activeIndex];
+
       this.data.forEach((person) => {
         person.questions[this.activeIndex].questionSelection =
           this.getValidSquaresCount(person.squares, currentRow.questionId);
       });
     },
-    async exportToExcel() {
-      this.isExporting = true;
-      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
-      const columns = this.getExportColumns(halfRoundedEvaluatorCount);
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Assignment Responses");
-      worksheet.columns = columns;
-      this.data[0].questions.forEach((question, index) => {
-        const row = this.prepareExportRow(
-          question,
-          index,
-          halfRoundedEvaluatorCount
-        );
-        worksheet.addRow(row);
-      });
-      worksheet.getRow(1).font = { bold: true };
-      const buffer = await workbook.xlsx.writeBuffer();
-      this.downloadExcel(buffer);
-      this.isExporting = false;
-    },
-    getExportColumns(halfRoundedEvaluatorCount) {
-      const columns = [
-        { header: "문제 번호", key: "questionNumber", width: 10 },
-        ...this.data.map((user) => ({
-          header: user.name,
-          key: user.name,
-          width: 15,
-        })),
-      ];
-      if (this.assignmentMode === "BBox") {
-        columns.push(
-          {
-            header: `+${halfRoundedEvaluatorCount}인`,
-            key: `overlap${halfRoundedEvaluatorCount}`,
-            width: 10,
-          },
-          {
-            header: `${halfRoundedEvaluatorCount}일치`,
-            key: `matched${halfRoundedEvaluatorCount}`,
-            width: 10,
-          },
-          {
-            header: `${halfRoundedEvaluatorCount}불일치`,
-            key: `unmatched${halfRoundedEvaluatorCount}`,
-            width: 10,
-          },
-          { header: "Json", key: "json", width: 30 }
-        );
-      }
-      return columns;
+
+    moveToAssignmentManagement() {
+      this.$router.push(`/edit-assignment/${this.assignmentId}`);
     },
 
-    prepareExportRow(question, _index, halfRoundedEvaluatorCount) {
-      const questionImageFileName = question.questionImage.split("/").pop();
-      const row = { questionNumber: questionImageFileName };
-      this.data.forEach((user) => {
-        row[user.name] = this.getValidSquaresCount(
-          user.squares,
-          question.questionId
-        );
-      });
-      if (this.assignmentMode === "BBox") {
-        const overlapGroups = this.getOverlapsBBoxes(
-          question.questionId,
-          halfRoundedEvaluatorCount
-        );
-        const overlapCount = overlapGroups.length;
-        const matchedCount = this.getMatchedCount(overlapGroups, this.aiData);
-        const unmatchedCount = overlapCount - matchedCount;
-        row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
-        row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-        row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
-        const adjustedBBoxes = this.adjustBoundingBoxes(
-          overlapGroups,
-          question
-        );
-        row["json"] = JSON.stringify({
-          filename: questionImageFileName,
-          annotation: adjustedBBoxes,
+    async deleteAssignment() {
+      if (
+        !confirm(
+          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
+        )
+      )
+        return;
+      try {
+        await this.$axios.delete(`/api/assignments/${this.assignmentId}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
         });
+        this.$router.push({ name: "dashboard" });
+      } catch (error) {
+        console.error("과제 삭제 중 오류 발생:", error);
       }
-      return row;
     },
-    adjustBoundingBoxes(overlapGroups, question) {
-      const image = new Image();
-      image.src = question.questionImage;
-      const { width, height } = image;
-      return overlapGroups.flat().map((bbox) => {
-        const { x, y } = this.convertToOriginalImageCoordinates(
-          bbox.x,
-          bbox.y,
-          width,
-          height
-        );
-        return {
-          category_id: bbox.category_id,
-          bbox: [Math.round(x - 12.5), Math.round(y - 12.5), 25, 25],
-        };
-      });
+
+    updateSquares(squares) {
+      this.tempSquares = squares;
+      this.flatSquares = this.data.map((person) => person.squares).flat();
     },
-    downloadExcel(buffer) {
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      saveAs(blob, "assignment_responses.xlsx");
-    },
-    async exportImage() {
-      this.isExporting = true;
-      this.startExportingAnimation();
-      const zip = new JSZip();
-      for (const question of this.data[0].questions) {
-        const blob = await this.createImageBlob(question);
-        zip.file(question.questionImage.split("/").pop(), blob);
-      }
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, "images.zip");
-      this.isExporting = false;
-      this.stopExportingAnimation();
-      alert("이미지 다운로드가 완료되었습니다.");
-    },
-    createImageBlob(question) {
-      return new Promise((resolve) => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const image = new Image();
-        image.crossOrigin = "Anonymous";
-        image.src = question.questionImage;
-        image.onload = () => {
-          canvas.width = image.width;
-          canvas.height = image.height;
-          ctx.drawImage(image, 0, 0);
-          canvas.toBlob((blob) => resolve(blob));
-        };
-      });
-    },
-    toggleAiMode() {
-      this.isAiMode = !this.isAiMode;
-    },
-    getValidSquaresCount(squares, questionId) {
-      return squares.filter(
-        (square) => square.questionIndex === questionId && !square.isTemporary
-      ).length;
-    },
+
     getTotalBboxes(questionId) {
-      return this.assignmentMode === "BBox"
-        ? this.data.reduce(
-            (acc, person) =>
-              acc + this.getValidSquaresCount(person.squares, questionId),
-            0
-          )
-        : "";
+      if (this.assignmentMode !== "BBox") return "";
+      return this.data.reduce((acc, person) => {
+        const count = person.squares.filter(
+          (square) => square.questionIndex === questionId && !square.isTemporary
+        ).length;
+        return acc + count;
+      }, 0);
     },
+
     getOverlaps(questionId, overlapCount) {
       if (this.assignmentMode !== "BBox") return "";
       let squares = [];
@@ -492,9 +375,11 @@ export default {
           )
         );
       });
-      return this.calculateOverlapGroups(squares, overlapCount).length;
-    },
-    calculateOverlapGroups(squares, overlapCount) {
+
+      if (overlapCount === 1) {
+        return squares.length;
+      }
+
       const groups = [];
       const visited = new Set();
 
@@ -502,6 +387,92 @@ export default {
         if (visited.has(square)) return;
         visited.add(square);
         group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups.length;
+    },
+
+    // getMatchedCount 메서드 추가
+    getMatchedCount(overlapGroups, aiData) {
+      let matchedCount = 0;
+      overlapGroups.forEach((group) => {
+        if (
+          group.some((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          )
+        ) {
+          matchedCount++;
+        }
+      });
+      return matchedCount;
+    },
+
+    // getOverlapsBBoxes 메서드 수정
+    getOverlapsBBoxes(questionId, overlapCount) {
+      let squares = [];
+      this.data.forEach((person) => {
+        squares = squares.concat(
+          person.squares.filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
+          )
+        );
+      });
+
+      if (overlapCount === 1) {
+        return squares.map((square) => [square]);
+      }
+
+      squares.forEach((square) => {
+        const image = new Image();
+        // questionIndex에 해당하는 이미지를 불러옵니다.
+        const question = this.data[0].questions.find(
+          (question) => question.questionId === questionId
+        );
+        image.src = question.questionImage;
+
+        const { x, y } = this.convertToOriginalImageCoordinates(
+          square.x,
+          square.y,
+          image.width,
+          image.height
+        );
+        square.x = x;
+        square.y = y;
+      });
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
+
         squares.forEach((otherSquare) => {
           if (
             !visited.has(otherSquare) &&
@@ -525,61 +496,128 @@ export default {
 
       return groups;
     },
-    getOverlapsBBoxes(questionId, overlapCount) {
-      let squares = this.data.flatMap((person) =>
-        person.squares.filter(
-          (square) => square.questionIndex === questionId && !square.isTemporary
-        )
-      );
-      squares.forEach((square) => {
-        const question = this.data[0].questions.find(
-          (q) => q.questionId === questionId
-        );
-        const image = new Image();
-        image.src = question.questionImage;
-        const { x, y } = this.convertToOriginalImageCoordinates(
-          square.x,
-          square.y,
-          image.width,
-          image.height
-        );
-        square.x = x;
-        square.y = y;
-      });
-      return this.calculateOverlapGroups(squares, overlapCount);
-    },
-    getMatchedCount(overlapGroups, aiData) {
-      let matchedCount = 0;
-      overlapGroups.forEach((group) => {
-        if (
-          group.some((bbox) =>
-            aiData.some(
-              (ai) =>
-                Math.abs(bbox.x - ai.x) <= 12.5 &&
-                Math.abs(bbox.y - ai.y) <= 12.5
-            )
-          )
-        ) {
-          matchedCount++;
+
+    async exportToExcel() {
+      this.isExporting = true;
+      const aiData = this.aiData;
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignment Responses");
+      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
+      const columns = [
+        { header: "문제 번호", key: "questionNumber", width: 10 },
+        ...this.data.map((user) => ({
+          header: user.name,
+          key: user.name,
+          width: 15,
+        })),
+      ];
+
+      if (this.assignmentMode === "BBox") {
+        columns.push({
+          header: `+${halfRoundedEvaluatorCount}인`,
+          key: `overlap${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${halfRoundedEvaluatorCount}일치`,
+          key: `matched${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
+        columns.push({
+          header: `${halfRoundedEvaluatorCount}불일치`,
+          key: `unmatched${halfRoundedEvaluatorCount}`,
+          width: 10,
+        });
+        columns.push({ header: "Json", key: "json", width: 30 });
+      }
+      worksheet.columns = columns;
+
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
+        const questionImageFileName = question.questionImage.split("/").pop();
+        const row = { questionNumber: questionImageFileName };
+        this.data.forEach((user) => {
+          row[user.name] = this.getValidSquaresCount(
+            user.squares,
+            question.questionId
+          );
+        });
+
+        if (this.assignmentMode === "BBox") {
+          const overlapGroups = this.getOverlapsBBoxes(
+            question.questionId,
+            halfRoundedEvaluatorCount
+          );
+          const overlapCount = overlapGroups.length;
+          const matchedCount = this.getMatchedCount(overlapGroups, aiData);
+          const unmatchedCount = overlapCount - matchedCount;
+
+          row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+          row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
+          row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
+
+          const image = new Image();
+          image.src = question.questionImage;
+          const originalWidth = image.width;
+          const originalHeight = image.height;
+
+          const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
+            const { x: adjustedX, y: adjustedY } =
+              this.convertToOriginalImageCoordinates(
+                bbox.x,
+                bbox.y,
+                originalWidth,
+                originalHeight
+              );
+            return {
+              category_id: bbox.category_id,
+              bbox: [
+                Math.round(adjustedX - 12.5),
+                Math.round(adjustedY - 12.5),
+                25,
+                25,
+              ],
+            };
+          });
+
+          row["json"] = JSON.stringify({
+            filename: questionImageFileName,
+            annotation: adjustedBBoxes,
+          });
         }
+
+        worksheet.addRow(row);
+      }
+
+      worksheet.getRow(1).font = { bold: true };
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      return matchedCount;
+      saveAs(blob, "assignment_responses.xlsx");
+      this.isExporting = false;
     },
+
     convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
       const canvas = document.querySelector("canvas");
       const { width: canvasWidth, height: canvasHeight } = canvas;
-      const {
-        x: posX,
-        y: posY,
-        scale,
-      } = this.calculateImagePosition(
+
+      const currentPosition = this.calculateImagePosition(
         canvasWidth,
         canvasHeight,
         originalWidth,
         originalHeight
       );
-      return { x: (x - posX) / scale, y: (y - posY) / scale };
+
+      const scaleRatio = 1 / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
     },
+
     calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
       const scale = Math.min(
         canvasWidth / imageWidth,
@@ -589,58 +627,103 @@ export default {
       const y = (canvasHeight - imageHeight * scale) / 2;
       return { x, y, scale };
     },
-    calculateCompletionPercentage() {
-      if (!this.data.length) return "0%";
-      const totalAnswered = this.data.reduce(
-        (acc, user) => acc + user.answeredCount,
-        0
-      );
-      const totalUnanswered = this.data.reduce(
-        (acc, user) => acc + user.unansweredCount,
-        0
-      );
-      const totalQuestions = totalAnswered + totalUnanswered;
-      return totalQuestions
-        ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
-        : "0%";
-    },
-    getColorList() {
-      return [
-        { backgroundColor: "#F70101", color: "white" },
-        { backgroundColor: "#36A2EB", color: "white" },
-        { backgroundColor: "#FF9F40", color: "white" },
-        { backgroundColor: "#B2F302", color: "black" },
-        { backgroundColor: "#FFA07A", color: "white" },
-      ];
-    },
-    moveToAssignmentManagement() {
-      this.$router.push(`/edit-assignment/${this.assignmentId}`);
-    },
-    async deleteAssignment() {
-      if (
-        !confirm(
-          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
-        )
-      )
-        return;
-      try {
-        await this.$axios.delete(`/api/assignments/${this.assignmentId}`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        });
-        this.$router.push({ name: "dashboard" });
-      } catch (error) {
-        console.error("과제 삭제 중 오류 발생:", error);
-      }
-    },
+
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
       }, 500);
     },
+
     stopExportingAnimation() {
       clearInterval(this.interval);
+    },
+
+    async exportImage() {
+      this.isExporting = true;
+      this.startExportingAnimation();
+
+      const zip = new JSZip();
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+        image.src = question.questionImage;
+        await new Promise((resolve) => {
+          image.onload = () => {
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+            canvas.toBlob((blob) => {
+              zip.file(`${question.questionImage.split("/").pop()}`, blob);
+              resolve();
+            });
+          };
+        });
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "images.zip");
+
+      this.isExporting = false;
+      this.stopExportingAnimation();
+      alert("이미지 다운로드가 완료되었습니다.");
+    },
+
+    getStyleForPerson(index) {
+      return this.assignmentMode === "BBox" ? this.colorList[index] : {};
+    },
+  },
+
+  computed: {
+    completionPercentage() {
+      if (this.assignmentMode === "TextBox") {
+        if (!this.data.length) return "0%";
+        const totalAnswered = this.data.reduce(
+          (acc, user) => acc + user.answeredCount,
+          0
+        );
+        const totalUnanswered = this.data.reduce(
+          (acc, user) => acc + user.unansweredCount,
+          0
+        );
+        const totalQuestions = totalAnswered + totalUnanswered;
+        return totalQuestions
+          ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
+          : "0%";
+      } else {
+        const count = this.getOverlaps(
+          this.activeQuestionIndex,
+          Number(this.sliderValue)
+        );
+
+        return count.toString();
+      }
+    },
+
+    totalPercentage() {
+      if (this.assignmentMode === "TextBox") {
+        return "100%";
+      } else {
+        return this.flatSquares.filter(
+          (s) => s.questionIndex === this.activeQuestionIndex && !s.isTemporary
+        ).length;
+      }
+    },
+
+    sliderRange() {
+      const rangeValues = Array.from(
+        { length: this.data.length },
+        (_, i) => i + 1
+      );
+      return rangeValues[this.sliderValue - 1] || "";
+    },
+
+    exportingMessage() {
+      const baseMessage = "파일을 생성 중입니다";
+      const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
+      return `${baseMessage}${dots}`;
     },
   },
 };
@@ -658,8 +741,44 @@ export default {
   border-bottom: 1px solid var(--light-gray);
 }
 
+.table-header {
+  height: 60px;
+  display: flex;
+  padding-left: 24px;
+  padding-right: 46px;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--light-gray);
+}
+
 .table-body {
   padding-left: 24px;
+}
+
+.table-title {
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+  margin-right: auto;
+}
+
+.slider-container {
+  display: flex;
+  gap: 8px;
+}
+
+.completed-status {
+  font-size: 14px;
+}
+
+.completed-status > strong {
+  color: var(--blue);
+  font-size: 20px;
+}
+
+.table-body {
+  display: flex;
+  gap: 16px;
 }
 
 .table-section {
