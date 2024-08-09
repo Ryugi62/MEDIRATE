@@ -409,15 +409,11 @@ export default {
         }
       });
 
-      console.log(groups);
-
       return groups.length;
     },
 
     // getMatchedCount 메서드 추가
     getMatchedCount(overlapGroups, aiData) {
-      console.log(aiData);
-
       let matchedCount = 0;
       overlapGroups.forEach((group) => {
         if (
@@ -450,6 +446,24 @@ export default {
       if (overlapCount === 1) {
         return squares.map((square) => [square]);
       }
+
+      squares.forEach((square) => {
+        const image = new Image();
+        // questionIndex에 해당하는 이미지를 불러옵니다.
+        const question = this.data[0].questions.find(
+          (question) => question.questionId === questionId
+        );
+        image.src = question.questionImage;
+
+        const { x, y } = this.convertToOriginalImageCoordinates(
+          square.x,
+          square.y,
+          image.width,
+          image.height
+        );
+        square.x = x;
+        square.y = y;
+      });
 
       const groups = [];
       const visited = new Set();
@@ -551,10 +565,6 @@ export default {
           const originalHeight = image.height;
 
           const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
-            console.log(
-              `bbox.x : ${bbox.x}, bbox.y : ${bbox.y}, originalWidth : ${originalWidth}, originalHeight : ${originalHeight}`
-            );
-
             const { x: adjustedX, y: adjustedY } =
               this.convertToOriginalImageCoordinates(
                 bbox.x,

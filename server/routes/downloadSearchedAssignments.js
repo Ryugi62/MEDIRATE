@@ -153,7 +153,6 @@ function getImageLocalPath(imageUrl) {
 async function getImageDimensions(imageUrl) {
   try {
     const realPath = getImageLocalPath(imageUrl);
-    console.log(`Attempting to get dimensions for: ${realPath}`);
     const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
@@ -163,9 +162,6 @@ async function getImageDimensions(imageUrl) {
 }
 
 async function getAdjustedSquares(users, question) {
-  const imagePath = getImageLocalPath(question.questionImage);
-  console.log(`Attempting to process image: ${imagePath}`);
-
   const { width: originalWidth, height: originalHeight } =
     await getImageDimensions(question.questionImage);
 
@@ -235,8 +231,6 @@ function getOverlapsBBoxes(squares, overlapCount) {
   if (overlapCount === 1) {
     return squares.map((square) => [square]);
   }
-
-  console.log(`squares: ${squares}, overlapCount: ${overlapCount}`);
 
   const groups = [];
   const visited = new Set();
