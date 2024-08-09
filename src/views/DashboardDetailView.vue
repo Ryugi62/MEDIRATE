@@ -564,6 +564,8 @@ export default {
           const originalWidth = image.width;
           const originalHeight = image.height;
 
+          console.log(overlapGroups);
+
           const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
             const { x: adjustedX, y: adjustedY } =
               this.convertToOriginalImageCoordinates(
@@ -600,6 +602,7 @@ export default {
       saveAs(blob, "assignment_responses.xlsx");
       this.isExporting = false;
     },
+
     convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
       const canvas = document.querySelector("canvas");
       const { width: canvasWidth, height: canvasHeight } = canvas;
