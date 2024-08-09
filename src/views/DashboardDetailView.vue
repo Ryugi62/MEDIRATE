@@ -12,7 +12,7 @@
             <i
               class="fa-solid fa-robot"
               :class="{ active: isAiMode }"
-              @click="isAiMode = !isAiMode"
+              @click="toggleAiMode"
             ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
@@ -68,13 +68,7 @@
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
                   <td v-for="person in data" :key="person.name">
-                    {{
-                      assignmentMode === "TextBox"
-                        ? person.questions[index].questionSelection === -1
-                          ? "선택되지 않음"
-                          : person.questions[index].questionSelection
-                        : getValidSquaresCount(person.squares, item.questionId)
-                    }}
+                    {{ getQuestionValue(person, item.questionId, index) }}
                   </td>
                   <template v-if="assignmentMode === 'BBox'">
                     <td>{{ getTotalBboxes(item.questionId) }}</td>
@@ -138,8 +132,6 @@
 </template>
 
 <script>
-import ImageComponent from "@/components/ImageComponent.vue";
-import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 
@@ -147,8 +139,8 @@ export default {
   name: "DashboardDetailView",
 
   components: {
-    ImageComponent,
-    BBoxViewerComponent,
+    ImageComponent: () => import("@/components/ImageComponent.vue"),
+    BBoxViewerComponent: () => import("@/components/BBoxViewerComponent.vue"),
   },
 
   data() {
@@ -185,16 +177,11 @@ export default {
   },
 
   mounted() {
-    this.$nextTick(() => {
-      window.addEventListener("keydown", this.handleKeyDown);
-      window.addEventListener("keyup", this.handleKeyUp);
-    });
+    this.addKeyboardEventListeners();
   },
 
   beforeUnmount() {
-    window.removeEventListener("keydown", this.handleKeyDown);
-    window.removeEventListener("keyup", this.handleKeyUp);
-    this.clearKeyPressInterval();
+    this.removeKeyboardEventListeners();
   },
 
   watch: {
@@ -206,66 +193,87 @@ export default {
   methods: {
     async loadData() {
       try {
-        const { data } = await this.$axios.get(
-          `/api/dashboard/${this.assignmentId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
-        this.assignmentTitle = data.FileName;
-        this.assignmentMode = data.assignmentMode;
-        this.data = data.assignment;
-        this.activeImageUrl = this.data[0].questions[0].questionImage;
-        this.activeQuestionIndex = this.data[0].questions[0].questionId;
-        this.flatSquares = this.data.map((person) => person.squares).flat();
-        this.userSquaresList = this.data.map((person, index) => ({
-          beforeCanvas: person.beforeCanvas,
-          squares: person.squares,
-          color: this.colorList[index % this.colorList.length].backgroundColor,
-        }));
+        const { data } = await this.fetchAssignmentData();
+        this.processAssignmentData(data);
       } catch (error) {
         console.error("Failed to load data:", error);
       }
     },
 
+    async fetchAssignmentData() {
+      return await this.$axios.get(`/api/dashboard/${this.assignmentId}`, {
+        headers: {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        },
+      });
+    },
+
+    processAssignmentData(data) {
+      this.assignmentTitle = data.FileName;
+      this.assignmentMode = data.assignmentMode;
+      this.data = data.assignment;
+      this.activeImageUrl = this.data[0].questions[0].questionImage;
+      this.activeQuestionIndex = this.data[0].questions[0].questionId;
+      this.flatSquares = this.data.flatMap((person) => person.squares);
+      this.userSquaresList = this.createUserSquaresList();
+    },
+
+    createUserSquaresList() {
+      return this.data.map((person, index) => ({
+        beforeCanvas: person.beforeCanvas,
+        squares: person.squares,
+        color: this.colorList[index % this.colorList.length].backgroundColor,
+      }));
+    },
+
     async loadAiData() {
       try {
-        const { data } = await this.$axios.get(
-          `/api/assignments/${this.assignmentId}/ai/`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
-        this.aiData = data.map((ai) => ({
-          ...ai,
-          x: ai.x + 12.5,
-          y: ai.y + 12.5,
-        }));
+        const { data } = await this.fetchAiData();
+        this.aiData = this.processAiData(data);
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
     },
 
-    handleKeyDown(event) {
-      if (event.repeat) return;
-
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        this.moveQuestion(event.key);
-        this.keyPressInterval = setInterval(() => {
-          this.moveQuestion(event.key);
-        }, this.keyRepeatDelay);
-      }
+    async fetchAiData() {
+      return await this.$axios.get(
+        `/api/assignments/${this.assignmentId}/ai/`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        }
+      );
     },
 
-    getValidSquaresCount(squares, questionId) {
-      const count = squares.filter(
-        (square) => square.questionIndex === questionId && !square.isTemporary
-      ).length;
-      return count;
+    processAiData(data) {
+      return data.map((ai) => ({
+        ...ai,
+        x: ai.x + 12.5,
+        y: ai.y + 12.5,
+      }));
+    },
+
+    addKeyboardEventListeners() {
+      window.addEventListener("keydown", this.handleKeyDown);
+      window.addEventListener("keyup", this.handleKeyUp);
+    },
+
+    removeKeyboardEventListeners() {
+      window.removeEventListener("keydown", this.handleKeyDown);
+      window.removeEventListener("keyup", this.handleKeyUp);
+      this.clearKeyPressInterval();
+    },
+
+    handleKeyDown(event) {
+      if (event.repeat) return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        this.moveQuestion(event.key);
+        this.keyPressInterval = setInterval(
+          () => this.moveQuestion(event.key),
+          this.keyRepeatDelay
+        );
+      }
     },
 
     handleKeyUp() {
@@ -282,16 +290,18 @@ export default {
     moveQuestion(key) {
       const currentIndex = this.activeIndex;
       const questionsLength = this.data[0].questions.length;
+      let newIndex = currentIndex;
 
       if (key === "ArrowDown" && currentIndex < questionsLength - 1) {
-        this.setActiveImage(
-          this.data[0].questions[currentIndex + 1].questionImage,
-          currentIndex + 1
-        );
+        newIndex = currentIndex + 1;
       } else if (key === "ArrowUp" && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      }
+
+      if (newIndex !== currentIndex) {
         this.setActiveImage(
-          this.data[0].questions[currentIndex - 1].questionImage,
-          currentIndex - 1
+          this.data[0].questions[newIndex].questionImage,
+          newIndex
         );
       }
     },
@@ -300,7 +310,11 @@ export default {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
+      this.scrollToActiveRow();
+      this.resetSliderValue();
+    },
 
+    scrollToActiveRow() {
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector(
           ".assignment-table tbody tr.active"
@@ -309,7 +323,9 @@ export default {
           activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
         }
       });
+    },
 
+    resetSliderValue() {
       const oldSlideValue = this.sliderValue;
       this.sliderValue = null;
       this.$nextTick(() => {
@@ -319,7 +335,6 @@ export default {
 
     updateActiveRowValues() {
       const currentRow = this.data[0].questions[this.activeIndex];
-
       this.data.forEach((person) => {
         person.questions[this.activeIndex].questionSelection =
           this.getValidSquaresCount(person.squares, currentRow.questionId);
@@ -351,159 +366,138 @@ export default {
 
     updateSquares(squares) {
       this.tempSquares = squares;
-      this.flatSquares = this.data.map((person) => person.squares).flat();
+      this.flatSquares = this.data.flatMap((person) => person.squares);
+    },
+
+    getValidSquaresCount(squares, questionId) {
+      return squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      ).length;
     },
 
     getTotalBboxes(questionId) {
       if (this.assignmentMode !== "BBox") return "";
       return this.data.reduce((acc, person) => {
-        const count = person.squares.filter(
-          (square) => square.questionIndex === questionId && !square.isTemporary
-        ).length;
-        return acc + count;
+        return acc + this.getValidSquaresCount(person.squares, questionId);
       }, 0);
     },
 
     getOverlaps(questionId, overlapCount) {
       if (this.assignmentMode !== "BBox") return "";
-      let squares = [];
-      this.data.forEach((person) => {
-        squares = squares.concat(
-          person.squares.filter(
-            (square) =>
-              square.questionIndex === questionId && !square.isTemporary
-          )
-        );
-      });
+      const squares = this.getAllValidSquares(questionId);
 
       if (overlapCount === 1) {
         return squares.length;
       }
 
+      const groups = this.findOverlappingGroups(squares);
+      return groups.filter((group) => group.length >= overlapCount).length;
+    },
+
+    getAllValidSquares(questionId) {
+      return this.data.flatMap((person) =>
+        person.squares.filter(
+          (square) => square.questionIndex === questionId && !square.isTemporary
+        )
+      );
+    },
+
+    findOverlappingGroups(squares) {
       const groups = [];
       const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
 
       squares.forEach((square) => {
         if (!visited.has(square)) {
           const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
-        }
-      });
-
-      return groups.length;
-    },
-
-    // getMatchedCount 메서드 추가
-    getMatchedCount(overlapGroups, aiData) {
-      let matchedCount = 0;
-      overlapGroups.forEach((group) => {
-        if (
-          group.some((bbox) =>
-            aiData.some(
-              (ai) =>
-                Math.abs(bbox.x - ai.x) <= 12.5 &&
-                Math.abs(bbox.y - ai.y) <= 12.5
-            )
-          )
-        ) {
-          matchedCount++;
-        }
-      });
-      return matchedCount;
-    },
-
-    // getOverlapsBBoxes 메서드 수정
-    getOverlapsBBoxes(questionId, overlapCount) {
-      let squares = [];
-      this.data.forEach((person) => {
-        squares = squares.concat(
-          person.squares.filter(
-            (square) =>
-              square.questionIndex === questionId && !square.isTemporary
-          )
-        );
-      });
-
-      if (overlapCount === 1) {
-        return squares.map((square) => [square]);
-      }
-
-      squares.forEach((square) => {
-        const image = new Image();
-        // questionIndex에 해당하는 이미지를 불러옵니다.
-        const question = this.data[0].questions.find(
-          (question) => question.questionId === questionId
-        );
-        image.src = question.questionImage;
-
-        const { x, y } = this.convertToOriginalImageCoordinates(
-          square.x,
-          square.y,
-          image.width,
-          image.height
-        );
-        square.x = x;
-        square.y = y;
-      });
-
-      const groups = [];
-      const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
+          this.dfs(square, squares, visited, group);
+          groups.push(group);
         }
       });
 
       return groups;
     },
 
+    dfs(square, squares, visited, group) {
+      if (visited.has(square)) return;
+      visited.add(square);
+      group.push(square);
+
+      squares.forEach((otherSquare) => {
+        if (
+          !visited.has(otherSquare) &&
+          this.isOverlapping(square, otherSquare)
+        ) {
+          this.dfs(otherSquare, squares, visited, group);
+        }
+      });
+    },
+
+    isOverlapping(square1, square2) {
+      return (
+        Math.abs(square1.x - square2.x) <= 12.5 &&
+        Math.abs(square1.y - square2.y) <= 12.5
+      );
+    },
+
+    getMatchedCount(overlapGroups, aiData) {
+      return overlapGroups.filter((group) =>
+        group.some((bbox) =>
+          aiData.some(
+            (ai) =>
+              Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+          )
+        )
+      ).length;
+    },
+
+    getOverlapsBBoxes(questionId, overlapCount) {
+      const squares = this.getAllValidSquares(questionId);
+
+      if (overlapCount === 1) {
+        return squares.map((square) => [square]);
+      }
+
+      const adjustedSquares = this.adjustSquareCoordinates(squares, questionId);
+      const groups = this.findOverlappingGroups(adjustedSquares);
+      return groups.filter((group) => group.length >= overlapCount);
+    },
+
+    adjustSquareCoordinates(squares, questionId) {
+      const question = this.data[0].questions.find(
+        (q) => q.questionId === questionId
+      );
+      const image = new Image();
+      image.src = question.questionImage;
+
+      return squares.map((square) => {
+        const { x, y } = this.convertToOriginalImageCoordinates(
+          square.x,
+          square.y,
+          image.width,
+          image.height
+        );
+        return { ...square, x, y };
+      });
+    },
+
     async exportToExcel() {
       this.isExporting = true;
-      const aiData = this.aiData;
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
-      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
+
+      this.setupWorksheetColumns(worksheet);
+      this.populateWorksheetData(worksheet);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(blob, "assignment_responses.xlsx");
+      this.isExporting = false;
+    },
+
+    setupWorksheetColumns(worksheet) {
       const columns = [
         { header: "문제 번호", key: "questionNumber", width: 10 },
         ...this.data.map((user) => ({
@@ -514,89 +508,104 @@ export default {
       ];
 
       if (this.assignmentMode === "BBox") {
-        columns.push({
-          header: `+${halfRoundedEvaluatorCount}인`,
-          key: `overlap${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${halfRoundedEvaluatorCount}일치`,
-          key: `matched${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({
-          header: `${halfRoundedEvaluatorCount}불일치`,
-          key: `unmatched${halfRoundedEvaluatorCount}`,
-          width: 10,
-        });
-        columns.push({ header: "Json", key: "json", width: 30 });
+        const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
+        columns.push(
+          {
+            header: `+${halfRoundedEvaluatorCount}인`,
+            key: `overlap${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `${halfRoundedEvaluatorCount}일치`,
+            key: `matched${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `${halfRoundedEvaluatorCount}불일치`,
+            key: `unmatched${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          { header: "Json", key: "json", width: 30 }
+        );
       }
-      worksheet.columns = columns;
 
-      for (let index = 0; index < this.data[0].questions.length; index++) {
-        const question = this.data[0].questions[index];
-        const questionImageFileName = question.questionImage.split("/").pop();
-        const row = { questionNumber: questionImageFileName };
-        this.data.forEach((user) => {
-          row[user.name] = this.getValidSquaresCount(
-            user.squares,
-            question.questionId
-          );
-        });
+      worksheet.columns = columns;
+    },
+
+    populateWorksheetData(worksheet) {
+      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
+
+      this.data[0].questions.forEach((question, index) => {
+        const row = this.createRowData(question, index);
 
         if (this.assignmentMode === "BBox") {
-          const overlapGroups = this.getOverlapsBBoxes(
-            question.questionId,
-            halfRoundedEvaluatorCount
-          );
-          const overlapCount = overlapGroups.length;
-          const matchedCount = this.getMatchedCount(overlapGroups, aiData);
-          const unmatchedCount = overlapCount - matchedCount;
-
-          row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
-          row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-          row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
-
-          const image = new Image();
-          image.src = question.questionImage;
-          const originalWidth = image.width;
-          const originalHeight = image.height;
-
-          const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
-            const { x: adjustedX, y: adjustedY } =
-              this.convertToOriginalImageCoordinates(
-                bbox.x,
-                bbox.y,
-                originalWidth,
-                originalHeight
-              );
-            return {
-              category_id: bbox.category_id,
-              bbox: [
-                Math.round(adjustedX - 12.5),
-                Math.round(adjustedY - 12.5),
-                25,
-                25,
-              ],
-            };
-          });
-
-          row["json"] = JSON.stringify({
-            filename: questionImageFileName,
-            annotation: adjustedBBoxes,
-          });
+          this.addBBoxSpecificData(row, question, halfRoundedEvaluatorCount);
         }
 
         worksheet.addRow(row);
-      }
+      });
 
       worksheet.getRow(1).font = { bold: true };
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+
+    createRowData(question) {
+      const questionImageFileName = question.questionImage.split("/").pop();
+      const row = { questionNumber: questionImageFileName };
+
+      this.data.forEach((user) => {
+        row[user.name] = this.getValidSquaresCount(
+          user.squares,
+          question.questionId
+        );
       });
-      saveAs(blob, "assignment_responses.xlsx");
-      this.isExporting = false;
+
+      return row;
+    },
+
+    addBBoxSpecificData(row, question, halfRoundedEvaluatorCount) {
+      const overlapGroups = this.getOverlapsBBoxes(
+        question.questionId,
+        halfRoundedEvaluatorCount
+      );
+      const overlapCount = overlapGroups.length;
+      const matchedCount = this.getMatchedCount(overlapGroups, this.aiData);
+      const unmatchedCount = overlapCount - matchedCount;
+
+      row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+      row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
+      row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
+
+      const adjustedBBoxes = this.getAdjustedBBoxes(question, overlapGroups);
+      row["json"] = JSON.stringify({
+        filename: question.questionImage.split("/").pop(),
+        annotation: adjustedBBoxes,
+      });
+    },
+
+    getAdjustedBBoxes(question, overlapGroups) {
+      const image = new Image();
+      image.src = question.questionImage;
+      const originalWidth = image.width;
+      const originalHeight = image.height;
+
+      return overlapGroups.flat().map((bbox) => {
+        const { x: adjustedX, y: adjustedY } =
+          this.convertToOriginalImageCoordinates(
+            bbox.x,
+            bbox.y,
+            originalWidth,
+            originalHeight
+          );
+        return {
+          category_id: bbox.category_id,
+          bbox: [
+            Math.round(adjustedX - 12.5),
+            Math.round(adjustedY - 12.5),
+            25,
+            25,
+          ],
+        };
+      });
     },
 
     convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
@@ -628,6 +637,44 @@ export default {
       return { x, y, scale };
     },
 
+    async exportImage() {
+      this.isExporting = true;
+      this.startExportingAnimation();
+
+      const zip = new JSZip();
+      await this.addImagesToZip(zip);
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "images.zip");
+
+      this.isExporting = false;
+      this.stopExportingAnimation();
+      alert("이미지 다운로드가 완료되었습니다.");
+    },
+
+    async addImagesToZip(zip) {
+      for (const question of this.data[0].questions) {
+        const blob = await this.getImageBlob(question.questionImage);
+        zip.file(`${question.questionImage.split("/").pop()}`, blob);
+      }
+    },
+
+    getImageBlob(src) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+        image.src = src;
+        image.onload = () => {
+          canvas.width = image.width;
+          canvas.height = image.height;
+          ctx.drawImage(image, 0, 0);
+          canvas.toBlob(resolve);
+        };
+      });
+    },
+
     startExportingAnimation() {
       this.interval = setInterval(() => {
         this.exportingMessageIndex++;
@@ -638,37 +685,17 @@ export default {
       clearInterval(this.interval);
     },
 
-    async exportImage() {
-      this.isExporting = true;
-      this.startExportingAnimation();
+    toggleAiMode() {
+      this.isAiMode = !this.isAiMode;
+    },
 
-      const zip = new JSZip();
-      for (let index = 0; index < this.data[0].questions.length; index++) {
-        const question = this.data[0].questions[index];
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const image = new Image();
-        image.crossOrigin = "Anonymous";
-        image.src = question.questionImage;
-        await new Promise((resolve) => {
-          image.onload = () => {
-            canvas.width = image.width;
-            canvas.height = image.height;
-            ctx.drawImage(image, 0, 0);
-            canvas.toBlob((blob) => {
-              zip.file(`${question.questionImage.split("/").pop()}`, blob);
-              resolve();
-            });
-          };
-        });
+    getQuestionValue(person, questionId, index) {
+      if (this.assignmentMode === "TextBox") {
+        const selection = person.questions[index].questionSelection;
+        return selection === -1 ? "선택되지 않음" : selection;
+      } else {
+        return this.getValidSquaresCount(person.squares, questionId);
       }
-
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, "images.zip");
-
-      this.isExporting = false;
-      this.stopExportingAnimation();
-      alert("이미지 다운로드가 완료되었습니다.");
     },
 
     getStyleForPerson(index) {
@@ -678,28 +705,33 @@ export default {
 
   computed: {
     completionPercentage() {
-      if (this.assignmentMode === "TextBox") {
-        if (!this.data.length) return "0%";
-        const totalAnswered = this.data.reduce(
-          (acc, user) => acc + user.answeredCount,
-          0
-        );
-        const totalUnanswered = this.data.reduce(
-          (acc, user) => acc + user.unansweredCount,
-          0
-        );
-        const totalQuestions = totalAnswered + totalUnanswered;
-        return totalQuestions
-          ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
-          : "0%";
-      } else {
-        const count = this.getOverlaps(
-          this.activeQuestionIndex,
-          Number(this.sliderValue)
-        );
+      return this.assignmentMode === "TextBox"
+        ? this.calculateTextBoxCompletion()
+        : this.calculateBBoxCompletion();
+    },
 
-        return count.toString();
-      }
+    calculateTextBoxCompletion() {
+      if (!this.data.length) return "0%";
+      const totalAnswered = this.data.reduce(
+        (acc, user) => acc + user.answeredCount,
+        0
+      );
+      const totalUnanswered = this.data.reduce(
+        (acc, user) => acc + user.unansweredCount,
+        0
+      );
+      const totalQuestions = totalAnswered + totalUnanswered;
+      return totalQuestions
+        ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
+        : "0%";
+    },
+
+    calculateBBoxCompletion() {
+      const count = this.getOverlaps(
+        this.activeQuestionIndex,
+        Number(this.sliderValue)
+      );
+      return count.toString();
     },
 
     totalPercentage() {
@@ -752,33 +784,9 @@ export default {
 }
 
 .table-body {
-  padding-left: 24px;
-}
-
-.table-title {
-  font-weight: bold;
-  margin: 0;
-  padding: 0;
-  margin-right: auto;
-}
-
-.slider-container {
-  display: flex;
-  gap: 8px;
-}
-
-.completed-status {
-  font-size: 14px;
-}
-
-.completed-status > strong {
-  color: var(--blue);
-  font-size: 20px;
-}
-
-.table-body {
   display: flex;
   gap: 16px;
+  padding-left: 24px;
 }
 
 .table-section {
@@ -828,6 +836,7 @@ td > img {
   background-color: var(--white);
   bottom: 0;
 }
+
 .table-head {
   top: 0;
 }
@@ -847,12 +856,15 @@ tfoot > tr > th {
 .fa-robot.active {
   color: var(--blue);
 }
+
 .fa-robot:hover {
   cursor: pointer;
 }
+
 .fa-robot.active:hover {
   color: var(--blue-hover);
 }
+
 .fa-robot:active {
   color: var(--blue-active);
 }
