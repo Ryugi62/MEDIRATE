@@ -316,7 +316,7 @@ export default {
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement("a");
           link.href = url;
-          link.setAttribute("download", "searched_assignments.xlsx"); // 다운로드할 파일 이름 설정
+          link.setAttribute("download", `Total_${this.data.length}.xlsx`);
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
