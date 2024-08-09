@@ -94,7 +94,7 @@
                     {{ person.answeredCount }}
                   </th>
                   <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="i in data.length - 1" :key="i">
+                    <th v-for="i in data.length" :key="i">
                       <i class="fa-solid fa-xmark"></i>
                     </th>
                   </template>
@@ -105,7 +105,7 @@
                     {{ person.unansweredCount }}
                   </th>
                   <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="i in data.length - 1" :key="i">
+                    <th v-for="i in data.length" :key="i">
                       <i class="fa-solid fa-xmark"></i>
                     </th>
                   </template>
@@ -823,8 +823,10 @@ td > img {
 .table-footer {
   position: sticky;
   background-color: var(--white);
-  position: sticky;
   bottom: 0;
+}
+.table-head {
+  top: 0;
 }
 
 .export-button {
