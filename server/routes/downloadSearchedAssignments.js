@@ -44,14 +44,33 @@ router.post(
               width: 10,
             },
             {
+              header: `AI개수`,
+              key: `aiCount`,
+              width: 10,
+            },
+            {
               header: `${halfRoundedEvaluatorCount}일치`,
               key: `matched${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
-              header: `${halfRoundedEvaluatorCount}불일치`,
-              key: `unmatched${halfRoundedEvaluatorCount}`,
+              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+              // 남은 사용자가 생성한 박스의 개수
+              header: `FP`,
+              key: `fp${halfRoundedEvaluatorCount}`,
               width: 10,
+            },
+            {
+              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+              // 남은 AI가 생성한 박스의 개수
+              header: `FN`,
+              key: `fn${halfRoundedEvaluatorCount}`,
+              width: 10,
+            },
+            {
+              header: `JSON`,
+              key: `json`,
+              width: 30,
             }
           );
         }
@@ -92,11 +111,36 @@ router.post(
             );
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
-            const unmatchedCount = overlapCount - matchedCount;
 
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+
+            row["aiCount"] = relevantAiData.length;
+
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-            row[`unmatched${halfRoundedEvaluatorCount}`] = unmatchedCount;
+
+            const fpCount = adjustedSquares.filter(
+              (square) =>
+                !overlapGroups
+                  .flat()
+                  .some(
+                    (bbox) =>
+                      Math.abs(square.x - bbox.x) <= 12.5 &&
+                      Math.abs(square.y - bbox.y) <= 12.5
+                  )
+            ).length;
+            row[`fp${halfRoundedEvaluatorCount}`] = fpCount;
+
+            const fnCount = relevantAiData.filter(
+              (ai) =>
+                !overlapGroups
+                  .flat()
+                  .some(
+                    (bbox) =>
+                      Math.abs(ai.x - bbox.x) <= 12.5 &&
+                      Math.abs(ai.y - bbox.y) <= 12.5
+                  )
+            ).length;
+            row[`fn${halfRoundedEvaluatorCount}`] = fnCount;
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
