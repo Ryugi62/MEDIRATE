@@ -199,17 +199,18 @@ export default {
       ];
     },
     exportingMessage() {
-      return "엑셀 파일을 다운로드 중입니다. 잠시만 기다려주세요.";
+      return "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
     },
   },
 
   mounted() {
-    // 데이터 가져오기
     this.getData();
   },
 
   methods: {
     async getData() {
+      this.isExporting = true;
+
       try {
         const response = await this.$axios.get("/api/dashboard", {
           headers: {
@@ -223,6 +224,8 @@ export default {
         this.sortBy(this.sortColumn); // 초기 정렬 적용
       } catch (error) {
         console.error(error);
+      } finally {
+        this.isExporting = false;
       }
     },
 
@@ -323,8 +326,10 @@ export default {
         })
         .catch((error) => {
           console.error(error);
+        })
+        .finally(() => {
+          this.isExporting = false;
         });
-      this.isExporting = false;
     },
   },
 };

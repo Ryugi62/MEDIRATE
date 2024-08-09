@@ -179,9 +179,17 @@ export default {
   },
 
   async created() {
-    await this.loadData();
-    await this.loadAiData();
-    this.startExportingAnimation();
+    // 로딩창
+    this.isExporting = true;
+
+    try {
+      await this.loadData();
+      await this.loadAiData();
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    } finally {
+      this.isExporting = false;
+    }
   },
 
   mounted() {
@@ -607,8 +615,6 @@ export default {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      // saveAs(blob, "assignment_responses.xlsx");
-      // 과제명_response.xlsx 형식으로 저장
       saveAs(blob, `${this.assignmentTitle}.xlsx`);
       this.isExporting = false;
     },
@@ -735,7 +741,7 @@ export default {
     },
 
     exportingMessage() {
-      const baseMessage = "파일을 생성 중입니다";
+      const baseMessage = "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
       const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
       return `${baseMessage}${dots}`;
     },
