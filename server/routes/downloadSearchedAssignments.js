@@ -118,18 +118,11 @@ router.post(
 
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
 
+            // overlap된 박스들 중 AI가 생성한 박스와 겹치는 박스들을 제거
             // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
             // 남은 사용자가 생성한 박스의 개수
-            const fpCount = adjustedSquares.filter(
-              (square) =>
-                !overlapGroups
-                  .flat()
-                  .some(
-                    (bbox) =>
-                      Math.abs(square.x - bbox.x) <= 12.5 &&
-                      Math.abs(square.y - bbox.y) <= 12.5
-                  )
-            ).length;
+            const fpCount = overlapGroups.flat().filter((bbox) => bbox.isAI);
+
             row[`fp${halfRoundedEvaluatorCount}`] = `${fpCount},
               ${JSON.stringify(
                 adjustedSquares.filter(

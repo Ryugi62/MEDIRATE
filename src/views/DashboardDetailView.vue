@@ -140,6 +140,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
+import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 
@@ -379,7 +380,8 @@ export default {
       }
       return columns;
     },
-    prepareExportRow(question, index, halfRoundedEvaluatorCount) {
+
+    prepareExportRow(question, _index, halfRoundedEvaluatorCount) {
       const questionImageFileName = question.questionImage.split("/").pop();
       const row = { questionNumber: questionImageFileName };
       this.data.forEach((user) => {
