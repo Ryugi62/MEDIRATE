@@ -27,6 +27,11 @@ router.post(
         const halfRoundedEvaluatorCount = Math.round(users.length / 2);
 
         const columns = [
+          {
+            header: `과제 ID`,
+            key: `assignmentId`,
+            width: 10,
+          },
           { header: "문제 번호", key: "questionNumber", width: 10 },
           ...users.map((user) => ({
             header: user.name,
@@ -37,11 +42,6 @@ router.post(
 
         if (assignmentData.assignmentMode === "BBox") {
           columns.push(
-            {
-              header: `과제 ID`,
-              key: `assignmentId`,
-              width: 10,
-            },
             {
               header: `+${halfRoundedEvaluatorCount}인`,
               key: `overlap${halfRoundedEvaluatorCount}`,
@@ -80,7 +80,6 @@ router.post(
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = {
-            assignmentId: assignmentSummary.id,
             questionNumber: questionImageFileName,
           };
 
@@ -113,6 +112,9 @@ router.post(
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
 
+            console.log(`id : ${assignmentSummary.id}`);
+
+            row["assignmentId"] = assignmentSummary.id;
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row["aiCount"] = relevantAiData.length;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
