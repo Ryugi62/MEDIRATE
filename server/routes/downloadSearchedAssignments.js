@@ -117,8 +117,9 @@ router.post(
             row[`fn${halfRoundedEvaluatorCount}`] =
               relevantAiData.length - matchedCount;
 
-            row["json"] = JSON.stringify(
-              overlapGroups.map((group) => {
+            row["json"] = JSON.stringify({
+              filename: questionImageFileName,
+              annotation: overlapGroups.map((group) => {
                 const x = Math.round(
                   group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length
                 );
@@ -131,8 +132,8 @@ router.post(
                   width: 25,
                   height: 25,
                 };
-              })
-            );
+              }),
+            });
           }
 
           worksheet.addRow(row);
