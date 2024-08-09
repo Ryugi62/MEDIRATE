@@ -496,6 +496,7 @@ export default {
 
       return groups;
     },
+
     async exportToExcel() {
       this.isExporting = true;
       const aiData = this.aiData;
@@ -558,13 +559,8 @@ export default {
 
           const image = new Image();
           image.src = question.questionImage;
-          await new Promise((resolve) => {
-            image.onload = resolve;
-          });
           const originalWidth = image.width;
           const originalHeight = image.height;
-
-          console.log(overlapGroups);
 
           const adjustedBBoxes = overlapGroups.flat().map((bbox) => {
             const { x: adjustedX, y: adjustedY } =
@@ -613,14 +609,8 @@ export default {
         originalWidth,
         originalHeight
       );
-      const originalPosition = this.calculateImagePosition(
-        originalWidth,
-        originalHeight,
-        originalWidth,
-        originalHeight
-      );
 
-      const scaleRatio = originalPosition.scale / currentPosition.scale;
+      const scaleRatio = 1 / currentPosition.scale;
 
       const adjustedX = (x - currentPosition.x) * scaleRatio;
       const adjustedY = (y - currentPosition.y) * scaleRatio;
