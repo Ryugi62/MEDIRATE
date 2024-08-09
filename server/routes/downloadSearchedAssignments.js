@@ -131,15 +131,17 @@ router.post(
                   )
             ).length;
             row[`fp${halfRoundedEvaluatorCount}`] = `${fpCount},
-              ${adjustedSquares.filter(
-                (square) =>
-                  !overlapGroups
-                    .flat()
-                    .some(
-                      (bbox) =>
-                        Math.abs(square.x - bbox.x) <= 12.5 &&
-                        Math.abs(square.y - bbox.y) <= 12.5
-                    )
+              ${JSON.stringify(
+                adjustedSquares.filter(
+                  (square) =>
+                    !overlapGroups
+                      .flat()
+                      .some(
+                        (bbox) =>
+                          Math.abs(square.x - bbox.x) <= 12.5 &&
+                          Math.abs(square.y - bbox.y) <= 12.5
+                      )
+                )
               )}`;
 
             const fnCount = relevantAiData.filter(
