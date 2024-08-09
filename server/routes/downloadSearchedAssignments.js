@@ -1,13 +1,14 @@
-import { Router } from "express";
-const router = Router();
-import authenticateToken from "../jwt";
-import { Workbook } from "exceljs";
-import { getConnection, query } from "../db";
-import { promises as fs } from "fs";
-import { join } from "path";
-import sizeOf from "image-size";
-import { promisify } from "util";
-const sizeOfPromise = promisify(sizeOf);
+const express = require("express");
+const router = express.Router();
+const authenticateToken = require("../jwt");
+const ExcelJS = require("exceljs");
+const db = require("../db");
+const fs = require("fs").promises;
+const path = require("path");
+const sizeOf = require("image-size");
+const util = require("util");
+const sizeOfPromise = util.promisify(sizeOf);
+const url = require("url");
 
 router.post(
   "/download-searched-assignments",
@@ -16,7 +17,7 @@ router.post(
     try {
       const assignments = req.body.data;
 
-      const workbook = new Workbook();
+      const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
       for (const assignmentSummary of assignments) {
@@ -53,11 +54,15 @@ router.post(
               width: 10,
             },
             {
+              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+              // 남은 사용자가 생성한 박스의 개수
               header: `FP`,
               key: `fp${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
+              // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+              // 남은 AI가 생성한 박스의 개수
               header: `FN`,
               key: `fn${halfRoundedEvaluatorCount}`,
               width: 10,
@@ -111,6 +116,9 @@ router.post(
 
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
 
+            // overlap된 박스들 중 AI가 생성한 박스와 겹치는 박스들을 제거
+            // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
+            // 남은 사용자가 생성한 박스의 개수
             const fpCount = adjustedSquares.filter(
               (square) =>
                 !overlapGroups
@@ -185,7 +193,7 @@ function getImageLocalPath(imageUrl) {
   const pathParts = parsedUrl.pathname.split("/");
   const folderName = pathParts[pathParts.length - 2];
   const fileName = pathParts[pathParts.length - 1];
-  return join(__dirname, "..", "..", "assets", folderName, fileName);
+  return path.join(__dirname, "..", "..", "assets", folderName, fileName);
 }
 
 async function getImageDimensions(imageUrl) {
@@ -320,7 +328,7 @@ function getMatchedCount(overlapGroups, aiData) {
 }
 
 async function fetchAssignmentData(assignmentId) {
-  const connection = await getConnection();
+  const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
@@ -419,7 +427,7 @@ async function fetchAssignmentData(assignmentId) {
 
 async function getAIData(assignmentId) {
   try {
-    const [questions] = await query(
+    const [questions] = await db.query(
       `SELECT id, image FROM questions WHERE assignment_id = ?`,
       [assignmentId]
     );
@@ -451,4 +459,4 @@ async function getAIData(assignmentId) {
   }
 }
 
-export default router;
+module.exports = router;
