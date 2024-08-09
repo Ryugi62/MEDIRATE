@@ -269,6 +269,8 @@ function getOverlapsBBoxes(squares, overlapCount) {
 }
 
 function getMatchedCount(overlapGroups, aiData) {
+  console.log(aiData);
+
   let matchedCount = 0;
   overlapGroups.forEach((group) => {
     if (

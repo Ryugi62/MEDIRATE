@@ -416,6 +416,8 @@ export default {
 
     // getMatchedCount 메서드 추가
     getMatchedCount(overlapGroups, aiData) {
+      console.log(aiData);
+
       let matchedCount = 0;
       overlapGroups.forEach((group) => {
         if (
