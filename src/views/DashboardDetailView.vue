@@ -609,7 +609,7 @@ export default {
       });
       // saveAs(blob, "assignment_responses.xlsx");
       // 과제명_response.xlsx 형식으로 저장
-      saveAs(blob, `${this.assignmentTitle}_response.xlsx`);
+      saveAs(blob, `${this.assignmentTitle}.xlsx`);
       this.isExporting = false;
     },
 
