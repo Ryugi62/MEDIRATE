@@ -83,6 +83,7 @@ router.post(
             questionNumber: questionImageFileName,
           };
 
+          row["assignmentId"] = assignmentSummary.id;
           users.forEach((user) => {
             if (assignmentData.assignmentMode === "BBox") {
               row[user.name] = getValidSquaresCount(
@@ -112,9 +113,6 @@ router.post(
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
 
-            console.log(`id : ${assignmentSummary.id}`);
-
-            row["assignmentId"] = assignmentSummary.id;
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row["aiCount"] = relevantAiData.length;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
@@ -258,6 +256,8 @@ function getOverlapsBBoxes(squares, overlapCount) {
   if (overlapCount === 1) {
     return squares.map((square) => [square]);
   }
+
+  console.log(squares);
 
   const groups = [];
   const visited = new Set();

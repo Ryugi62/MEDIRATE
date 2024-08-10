@@ -449,6 +449,8 @@ export default {
         );
       });
 
+      console.log(squares);
+
       if (overlapCount === 1) {
         return squares.map((square) => [square]);
       }
