@@ -451,16 +451,10 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       mode,
     });
 
-    await deleteCanvasForAssignmentUsers(assignmentId);
-    await createCanvasForUsers(assignmentId, users);
-
     if (assignmentChanged) {
-      await deleteResponsesAndQuestions(assignmentId);
-      await addQuestions(assignmentId, questions);
-      await deleteSquareInfo(assignmentId);
+      await updateQuestions(assignmentId, questions);
+      await updateUserAssignments(assignmentId, users);
     }
-
-    await updateUserAssignments(assignmentId, users);
 
     res.json({ message: "Assignment successfully updated." });
   } catch (error) {
@@ -470,6 +464,76 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       .send({ message: "Failed to update assignment", error: error.message });
   }
 });
+
+// 질문을 업데이트하는 함수
+const updateQuestions = async (assignmentId, questions) => {
+  const existingQuestions = await db.query(
+    `SELECT id, image FROM questions WHERE assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
+
+  // 기존 질문을 업데이트 또는 삭제
+  await Promise.all(
+    existingQuestions.map(async (question) => {
+      const updatedQuestion = questions.find((q) => q.id === question.id);
+      if (updatedQuestion) {
+        // 업데이트가 필요한 질문
+        await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
+          updatedQuestion.img,
+          question.id,
+        ]);
+        existingQuestionIds.delete(question.id);
+      } else {
+        // 삭제가 필요한 질문
+        await db.query(`DELETE FROM question_responses WHERE question_id = ?`, [
+          question.id,
+        ]);
+        await db.query(`DELETE FROM questions WHERE id = ?`, [question.id]);
+      }
+    })
+  );
+
+  // 새로 추가된 질문 처리
+  const newQuestions = questions.filter((q) => !existingQuestionIds.has(q.id));
+  await Promise.all(
+    newQuestions.map((question) =>
+      db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
+        assignmentId,
+        question.img,
+      ])
+    )
+  );
+};
+
+// 할당된 유저를 업데이트하는 함수
+const updateUserAssignments = async (assignmentId, users) => {
+  const existingUsers = await db.query(
+    `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const existingUserIds = new Set(existingUsers.map((u) => u.user_id));
+
+  // 기존 유저를 업데이트 또는 삭제
+  await Promise.all(
+    existingUsers.map(async (user) => {
+      if (!users.includes(user.user_id)) {
+        // 삭제가 필요한 유저
+        await db.query(
+          `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
+          [assignmentId, user.user_id]
+        );
+      }
+      existingUserIds.delete(user.user_id);
+    })
+  );
+
+  // 새로 추가된 유저 처리
+  const newUsers = users.filter((userId) => !existingUserIds.has(userId));
+  await createCanvasForUsers(assignmentId, newUsers);
+};
 
 const deleteCanvasForAssignmentUsers = async (assignmentId) => {
   await db.query(`DELETE FROM canvas_info WHERE assignment_id = ?`, [
@@ -549,20 +613,6 @@ const deleteSquareInfo = async (assignmentId) => {
   await db.query(
     `DELETE si FROM squares_info si JOIN canvas_info ci ON si.canvas_id = ci.id WHERE ci.assignment_id = ?`,
     [assignmentId]
-  );
-};
-
-const updateUserAssignments = async (assignmentId, users) => {
-  await db.query(`DELETE FROM assignment_user WHERE assignment_id = ?`, [
-    assignmentId,
-  ]);
-  await Promise.all(
-    users.map((userId) =>
-      db.query(
-        `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
-        [assignmentId, userId]
-      )
-    )
   );
 };
 
