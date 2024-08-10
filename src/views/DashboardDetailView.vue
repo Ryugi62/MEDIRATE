@@ -487,6 +487,38 @@ export default {
       return groups;
     },
 
+    async getAdjustedSquares(users, question) {
+      const { width: originalWidth, height: originalHeight } =
+        await getImageDimensions(question.questionImage);
+
+      return users.flatMap((user) =>
+        user.squares
+          .filter(
+            (square) =>
+              square.questionIndex === question.questionId &&
+              !square.isTemporary
+          )
+          .map((square) => {
+            const { x: adjustedX, y: adjustedY } =
+              convertToOriginalImageCoordinates(
+                square.x,
+                square.y,
+                user.beforeCanvas.width,
+                user.beforeCanvas.height,
+                originalWidth,
+                originalHeight
+              );
+            return {
+              ...square,
+              x: adjustedX,
+              y: adjustedY,
+              width: 25,
+              height: 25,
+            };
+          })
+      );
+    },
+
     async exportToExcel() {
       this.isExporting = true;
       const aiData = this.aiData;
@@ -551,22 +583,27 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
+          //
+          const adjustedSquares = await this.getAdjustedSquares(
+            this.data,
+            question
+          );
+          const relevantAiData = aiData.filter(
+            (ai) => ai.questionIndex === question.questionId
+          );
           const overlapGroups = this.getOverlapsBBoxes(
             question.questionId,
             halfRoundedEvaluatorCount
           );
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(overlapGroups, aiData);
-          console.log(JSON.stringify(aiData));
-          const aiCount = aiData.filter(
-            (ai) => ai.questionIndex === question.questionId
-          ).length;
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
-          row["aiCount"] = aiCount;
+          row["aiCount"] = relevantAiData.length;
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
-          row[`fn${halfRoundedEvaluatorCount}`] = aiCount - matchedCount;
+          row[`fn${halfRoundedEvaluatorCount}`] =
+            relevantAiData.length - matchedCount;
 
           const image = new Image();
           image.src = question.questionImage;
