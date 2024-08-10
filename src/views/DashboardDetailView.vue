@@ -179,7 +179,6 @@ export default {
   },
 
   async created() {
-    // 로딩창
     this.isExporting = true;
 
     try {
@@ -438,19 +437,7 @@ export default {
       return matchedCount;
     },
 
-    getOverlapsBBoxes(questionId, overlapCount) {
-      let squares = [];
-      this.data.forEach((person) => {
-        squares = squares.concat(
-          person.squares.filter(
-            (square) =>
-              square.questionIndex === questionId && !square.isTemporary
-          )
-        );
-      });
-
-      console.log(squares);
-
+    getOverlapsBBoxes(squares, overlapCount) {
       if (overlapCount === 1) {
         return squares.map((square) => [square]);
       }
@@ -489,7 +476,7 @@ export default {
 
     async getAdjustedSquares(users, question) {
       const { width: originalWidth, height: originalHeight } =
-        await getImageDimensions(question.questionImage);
+        await this.getImageDimensions(question.questionImage);
 
       return users.flatMap((user) =>
         user.squares
@@ -500,7 +487,7 @@ export default {
           )
           .map((square) => {
             const { x: adjustedX, y: adjustedY } =
-              convertToOriginalImageCoordinates(
+              this.convertToOriginalImageCoordinates(
                 square.x,
                 square.y,
                 user.beforeCanvas.width,
@@ -517,6 +504,48 @@ export default {
             };
           })
       );
+    },
+
+    async getImageDimensions(imageUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+    },
+
+    convertToOriginalImageCoordinates(
+      x,
+      y,
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    ) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight,
+        originalWidth,
+        originalHeight
+      );
+
+      const scaleRatio = 1 / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
+    },
+
+    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
+      const scale = Math.min(
+        canvasWidth / imageWidth,
+        canvasHeight / imageHeight
+      );
+      const x = (canvasWidth - imageWidth * scale) / 2;
+      const y = (canvasHeight - imageHeight * scale) / 2;
+      return { x, y, scale };
     },
 
     async exportToExcel() {
@@ -583,7 +612,6 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          //
           const adjustedSquares = await this.getAdjustedSquares(
             this.data,
             question
@@ -592,11 +620,14 @@ export default {
             (ai) => ai.questionIndex === question.questionId
           );
           const overlapGroups = this.getOverlapsBBoxes(
-            question.questionId,
+            adjustedSquares,
             halfRoundedEvaluatorCount
           );
           const overlapCount = overlapGroups.length;
-          const matchedCount = this.getMatchedCount(overlapGroups, aiData);
+          const matchedCount = this.getMatchedCount(
+            overlapGroups,
+            relevantAiData
+          );
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
           row["aiCount"] = relevantAiData.length;
@@ -614,13 +645,11 @@ export default {
           const originalHeight = image.height;
 
           const adjustedBBoxes = overlapGroups.map((group) => {
-            // Calculate the center point of the group
             const centerX =
               group.reduce((sum, box) => sum + box.x, 0) / group.length;
             const centerY =
               group.reduce((sum, box) => sum + box.y, 0) / group.length;
 
-            // Convert the center point to original image coordinates
             const { x, y } = this.convertToOriginalImageCoordinates(
               centerX,
               centerY,
@@ -628,7 +657,6 @@ export default {
               originalHeight
             );
 
-            // Use a fixed size for width and height (you can adjust these values)
             const width = 25;
             const height = 25;
 
@@ -656,45 +684,6 @@ export default {
       });
       saveAs(blob, `${this.assignmentTitle}.xlsx`);
       this.isExporting = false;
-    },
-
-    convertToOriginalImageCoordinates(x, y, originalWidth, originalHeight) {
-      const canvas = document.querySelector("canvas");
-      const { width: canvasWidth, height: canvasHeight } = canvas;
-
-      const currentPosition = this.calculateImagePosition(
-        canvasWidth,
-        canvasHeight,
-        originalWidth,
-        originalHeight
-      );
-
-      const scaleRatio = 1 / currentPosition.scale;
-
-      const adjustedX = (x - currentPosition.x) * scaleRatio;
-      const adjustedY = (y - currentPosition.y) * scaleRatio;
-
-      return { x: adjustedX, y: adjustedY };
-    },
-
-    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
-      const scale = Math.min(
-        canvasWidth / imageWidth,
-        canvasHeight / imageHeight
-      );
-      const x = (canvasWidth - imageWidth * scale) / 2;
-      const y = (canvasHeight - imageHeight * scale) / 2;
-      return { x, y, scale };
-    },
-
-    startExportingAnimation() {
-      this.interval = setInterval(() => {
-        this.exportingMessageIndex++;
-      }, 500);
-    },
-
-    stopExportingAnimation() {
-      clearInterval(this.interval);
     },
 
     async exportImage() {
@@ -732,6 +721,16 @@ export default {
 
     getStyleForPerson(index) {
       return this.assignmentMode === "BBox" ? this.colorList[index] : {};
+    },
+
+    startExportingAnimation() {
+      this.interval = setInterval(() => {
+        this.exportingMessageIndex++;
+      }, 500);
+    },
+
+    stopExportingAnimation() {
+      clearInterval(this.interval);
     },
   },
 

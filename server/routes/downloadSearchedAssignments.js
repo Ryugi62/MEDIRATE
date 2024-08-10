@@ -257,8 +257,6 @@ function getOverlapsBBoxes(squares, overlapCount) {
     return squares.map((square) => [square]);
   }
 
-  console.log(squares);
-
   const groups = [];
   const visited = new Set();
 
