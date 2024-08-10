@@ -154,6 +154,7 @@ export default {
   data() {
     return {
       data: [],
+      originalData: [],
       activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
       activeIndex: 0,
@@ -224,6 +225,7 @@ export default {
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
+        this.originalData = JSON.parse(JSON.stringify(data.assignment));
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
         this.flatSquares = this.data.map((person) => person.squares).flat();
@@ -613,7 +615,7 @@ export default {
 
         if (this.assignmentMode === "BBox") {
           const adjustedSquares = await this.getAdjustedSquares(
-            this.data,
+            this.originalData,
             question
           );
           const relevantAiData = aiData.filter(
