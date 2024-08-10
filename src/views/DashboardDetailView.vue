@@ -559,9 +559,11 @@ export default {
           );
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(overlapGroups, aiData);
+          console.log(JSON.stringify(overlapGroups));
+          const aiCount = aiData.length;
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
-          row["aiCount"] = aiData.length;
+          row["aiCount"] = aiCount;
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
           row[`fn${halfRoundedEvaluatorCount}`] = aiData.length - matchedCount;
