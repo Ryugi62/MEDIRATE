@@ -559,17 +559,12 @@ export default {
           const aiCount = aiData.filter(
             (ai) => ai.questionIndex === question.questionId
           ).length;
-          console.log(
-            JSON.stringify(
-              aiData.filter((ai) => ai.questionIndex === question.questionId)
-            )
-          );
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
           row["aiCount"] = aiCount;
           row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
           row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
-          row[`fn${halfRoundedEvaluatorCount}`] = aiData.length - matchedCount;
+          row[`fn${halfRoundedEvaluatorCount}`] = aiCount - matchedCount;
 
           const image = new Image();
           image.src = question.questionImage;
