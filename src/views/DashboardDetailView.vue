@@ -519,15 +519,11 @@ export default {
             width: 10,
           },
           {
-            // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
-            // 남은 사용자가 생성한 박스의 개수
             header: `FP`,
             key: `fp${halfRoundedEvaluatorCount}`,
             width: 10,
           },
           {
-            // 사용자가 생성한 박스와 AI가 생성한 박스가 겹치진 박스들을 제거하고
-            // 남은 AI가 생성한 박스의 개수
             header: `FN`,
             key: `fn${halfRoundedEvaluatorCount}`,
             width: 10,
@@ -559,8 +555,15 @@ export default {
           );
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(overlapGroups, aiData);
-          console.log(JSON.stringify(overlapGroups));
-          const aiCount = aiData.length;
+          console.log(JSON.stringify(aiData));
+          const aiCount = aiData.filter(
+            (ai) => ai.questionIndex === question.questionId
+          ).length;
+          console.log(
+            JSON.stringify(
+              aiData.filter((ai) => ai.questionIndex === question.questionId)
+            )
+          );
 
           row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
           row["aiCount"] = aiCount;
