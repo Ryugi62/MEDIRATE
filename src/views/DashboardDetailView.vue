@@ -637,42 +637,20 @@ export default {
           row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
           row[`fn${halfRoundedEvaluatorCount}`] =
             relevantAiData.length - matchedCount;
-
-          const image = new Image();
-          image.src = question.questionImage;
-          await new Promise((resolve) => {
-            image.onload = resolve;
-          });
-          const originalWidth = image.width;
-          const originalHeight = image.height;
-
-          const adjustedBBoxes = overlapGroups.map((group) => {
-            const centerX =
-              group.reduce((sum, box) => sum + box.x, 0) / group.length;
-            const centerY =
-              group.reduce((sum, box) => sum + box.y, 0) / group.length;
-
-            const { x, y } = this.convertToOriginalImageCoordinates(
-              centerX,
-              centerY,
-              originalWidth,
-              originalHeight
-            );
-
-            const width = 25;
-            const height = 25;
-
-            return {
-              x: Math.round(x - 12.5),
-              y: Math.round(y - 12.5),
-              width,
-              height,
-            };
-          });
-
           row["json"] = JSON.stringify({
-            filename: questionImageFileName,
-            annotation: adjustedBBoxes,
+            fileName: questionImageFileName,
+            annotation: overlapGroups.map((group) => {
+              const x = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
+                  12.5
+              );
+              const y = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
+                  12.5
+              );
+
+              return [x, y, 25, 25];
+            }),
           });
         }
 
