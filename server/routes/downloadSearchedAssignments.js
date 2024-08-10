@@ -124,17 +124,14 @@ router.post(
               filename: questionImageFileName,
               annotation: overlapGroups.map((group) => {
                 const x = Math.round(
-                  group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length
+                  group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
+                    12.5
                 );
                 const y = Math.round(
-                  group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length
+                  group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
+                    12.5
                 );
-                return {
-                  x: x - 12.5,
-                  y: y - 12.5,
-                  width: 25,
-                  height: 25,
-                };
+                return [x - 12.5, y - 12.5, 25, 25];
               }),
             });
           }
