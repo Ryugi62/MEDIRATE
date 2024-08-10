@@ -324,6 +324,134 @@ export default {
       });
     },
 
+    async adjustCoordinatesForOriginalImage(squares) {
+      const { width: originalWidth, height: originalHeight } =
+        await this.getImageDimensions(this.activeImageUrl);
+
+      return squares.map((square) => {
+        const { x: adjustedX, y: adjustedY } =
+          this.convertToOriginalImageCoordinates(
+            square.x,
+            square.y,
+            this.userSquaresList[0].beforeCanvas.width,
+            this.userSquaresList[0].beforeCanvas.height,
+            originalWidth,
+            originalHeight
+          );
+        return { ...square, x: adjustedX, y: adjustedY };
+      });
+    },
+
+    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
+      const scale = Math.min(
+        canvasWidth / imageWidth,
+        canvasHeight / imageHeight
+      );
+      const x = (canvasWidth - imageWidth * scale) / 2;
+      const y = (canvasHeight - imageHeight * scale) / 2;
+      return { x, y, scale };
+    },
+
+    convertToOriginalImageCoordinates(
+      x,
+      y,
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    ) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight,
+        originalWidth,
+        originalHeight
+      );
+
+      const scaleRatio = 1 / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
+    },
+
+    async getOverlapsBBoxes(squares, overlapCount) {
+      if (overlapCount === 1) {
+        return squares.map((square) => [square]);
+      }
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups;
+    },
+
+    async getOverlaps(questionId, overlapCount) {
+      const squares = this.data
+        .map((user) =>
+          user.squares.filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
+          )
+        )
+        .flat();
+
+      const adjustedSquares = await this.adjustCoordinatesForOriginalImage(
+        squares
+      );
+      const overlapGroups = await this.getOverlapsBBoxes(
+        adjustedSquares,
+        overlapCount
+      );
+
+      return overlapGroups.length;
+    },
+
+    getTotalBboxes(questionId) {
+      if (this.assignmentMode !== "BBox") return "";
+      return this.data.reduce((acc, person) => {
+        const count = person.squares.filter(
+          (square) => square.questionIndex === questionId && !square.isTemporary
+        ).length;
+        return acc + count;
+      }, 0);
+    },
+
+    async getImageDimensions(imageUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+    },
+
     updateActiveRowValues() {
       const currentRow = this.data[0].questions[this.activeIndex];
 
@@ -361,64 +489,6 @@ export default {
       this.flatSquares = this.data.map((person) => person.squares).flat();
     },
 
-    getTotalBboxes(questionId) {
-      if (this.assignmentMode !== "BBox") return "";
-      return this.data.reduce((acc, person) => {
-        const count = person.squares.filter(
-          (square) => square.questionIndex === questionId && !square.isTemporary
-        ).length;
-        return acc + count;
-      }, 0);
-    },
-
-    getOverlaps(questionId, overlapCount) {
-      if (this.assignmentMode !== "BBox") return "";
-      let squares = [];
-      this.data.forEach((person) => {
-        squares = squares.concat(
-          person.squares.filter(
-            (square) =>
-              square.questionIndex === questionId && !square.isTemporary
-          )
-        );
-      });
-
-      if (overlapCount === 1) {
-        return squares.length;
-      }
-
-      const groups = [];
-      const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
-        }
-      });
-
-      return groups.length;
-    },
-
     getMatchedCount(overlapGroups, aiData) {
       let matchedCount = 0;
       overlapGroups.forEach((group) => {
@@ -435,117 +505,6 @@ export default {
         }
       });
       return matchedCount;
-    },
-
-    getOverlapsBBoxes(squares, overlapCount) {
-      if (overlapCount === 1) {
-        return squares.map((square) => [square]);
-      }
-
-      const groups = [];
-      const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
-        }
-      });
-
-      return groups;
-    },
-
-    async getAdjustedSquares(users, question) {
-      const { width: originalWidth, height: originalHeight } =
-        await this.getImageDimensions(question.questionImage);
-
-      return users.flatMap((user) =>
-        user.squares
-          .filter(
-            (square) =>
-              square.questionIndex === question.questionId &&
-              !square.isTemporary
-          )
-          .map((square) => {
-            const { x: adjustedX, y: adjustedY } =
-              this.convertToOriginalImageCoordinates(
-                square.x,
-                square.y,
-                user.beforeCanvas.width,
-                user.beforeCanvas.height,
-                originalWidth,
-                originalHeight
-              );
-            return {
-              ...square,
-              x: adjustedX,
-              y: adjustedY,
-              width: 25,
-              height: 25,
-            };
-          })
-      );
-    },
-
-    async getImageDimensions(imageUrl) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-    },
-
-    convertToOriginalImageCoordinates(
-      x,
-      y,
-      canvasWidth,
-      canvasHeight,
-      originalWidth,
-      originalHeight
-    ) {
-      const currentPosition = this.calculateImagePosition(
-        canvasWidth,
-        canvasHeight,
-        originalWidth,
-        originalHeight
-      );
-
-      const scaleRatio = 1 / currentPosition.scale;
-
-      const adjustedX = (x - currentPosition.x) * scaleRatio;
-      const adjustedY = (y - currentPosition.y) * scaleRatio;
-
-      return { x: adjustedX, y: adjustedY };
-    },
-
-    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
-      const scale = Math.min(
-        canvasWidth / imageWidth,
-        canvasHeight / imageHeight
-      );
-      const x = (canvasWidth - imageWidth * scale) / 2;
-      const y = (canvasHeight - imageHeight * scale) / 2;
-      return { x, y, scale };
     },
 
     async exportToExcel() {
@@ -612,14 +571,15 @@ export default {
         });
 
         if (this.assignmentMode === "BBox") {
-          const adjustedSquares = await this.getAdjustedSquares(
-            this.data,
-            question
+          const adjustedSquares = await this.adjustCoordinatesForOriginalImage(
+            this.flatSquares.filter(
+              (square) => square.questionIndex === question.questionId
+            )
           );
           const relevantAiData = aiData.filter(
             (ai) => ai.questionIndex === question.questionId
           );
-          const overlapGroups = this.getOverlapsBBoxes(
+          const overlapGroups = await this.getOverlapsBBoxes(
             adjustedSquares,
             halfRoundedEvaluatorCount
           );
@@ -636,41 +596,22 @@ export default {
           row[`fn${halfRoundedEvaluatorCount}`] =
             relevantAiData.length - matchedCount;
 
-          const image = new Image();
-          image.src = question.questionImage;
-          await new Promise((resolve) => {
-            image.onload = resolve;
-          });
-          const originalWidth = image.width;
-          const originalHeight = image.height;
-
-          const adjustedBBoxes = overlapGroups.map((group) => {
-            const centerX =
-              group.reduce((sum, box) => sum + box.x, 0) / group.length;
-            const centerY =
-              group.reduce((sum, box) => sum + box.y, 0) / group.length;
-
-            const { x, y } = this.convertToOriginalImageCoordinates(
-              centerX,
-              centerY,
-              originalWidth,
-              originalHeight
-            );
-
-            const width = 25;
-            const height = 25;
-
-            return {
-              x: Math.round(x - 12.5),
-              y: Math.round(y - 12.5),
-              width,
-              height,
-            };
-          });
-
           row["json"] = JSON.stringify({
             filename: questionImageFileName,
-            annotation: adjustedBBoxes,
+            annotation: overlapGroups.map((group) => {
+              const x = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length
+              );
+              const y = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length
+              );
+              return {
+                x: x - 12.5,
+                y: y - 12.5,
+                width: 25,
+                height: 25,
+              };
+            }),
           });
         }
 
