@@ -131,7 +131,7 @@ router.post(
                   group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
                     12.5
                 );
-                return [x - 12.5, y - 12.5, 25, 25];
+                return [x, y, 25, 25];
               }),
             });
           }
