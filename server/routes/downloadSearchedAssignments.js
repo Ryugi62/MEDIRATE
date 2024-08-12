@@ -58,13 +58,13 @@ router.post(
               width: 10,
             },
             {
-              header: `FP`,
-              key: `fp${halfRoundedEvaluatorCount}`,
+              header: `FN`,
+              key: `fn${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
-              header: `FN`,
-              key: `fn${halfRoundedEvaluatorCount}`,
+              header: `FP`,
+              key: `fp${halfRoundedEvaluatorCount}`,
               width: 10,
             },
             {
@@ -116,8 +116,8 @@ router.post(
             row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
             row["aiCount"] = relevantAiData.length;
             row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-            row[`fp${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
-            row[`fn${halfRoundedEvaluatorCount}`] =
+            row[`fn${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
+            row[`fp${halfRoundedEvaluatorCount}`] =
               relevantAiData.length - matchedCount;
 
             row["json"] = JSON.stringify({
