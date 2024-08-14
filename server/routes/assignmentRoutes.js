@@ -52,14 +52,7 @@ router.post("/", authenticateToken, async (req, res) => {
       })
     );
 
-    await Promise.all(
-      users.map(async (userId) => {
-        const insertCanvasInfoQuery = `
-          INSERT INTO canvas_info (assignment_id, width, height, user_id)
-          VALUES (?, 0, 0, ?)`;
-        await db.query(insertCanvasInfoQuery, [assignmentId, userId]);
-      })
-    );
+    await createCanvasForUsers(assignmentId, users);
 
     res
       .status(201)
@@ -453,8 +446,10 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
 
     if (assignmentChanged) {
       await updateQuestions(assignmentId, questions);
-      await updateUserAssignments(assignmentId, users);
     }
+
+    // 유저 업데이트를 마지막에 처리하여 변경사항을 반영
+    await updateUserAssignments(assignmentId, users);
 
     res.json({ message: "Assignment successfully updated." });
   } catch (error) {
@@ -467,7 +462,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
 
 // 질문을 업데이트하는 함수
 const updateQuestions = async (assignmentId, questions) => {
-  const existingQuestions = await db.query(
+  const [existingQuestions] = await db.query(
     `SELECT id, image FROM questions WHERE assignment_id = ?`,
     [assignmentId]
   );
@@ -509,7 +504,7 @@ const updateQuestions = async (assignmentId, questions) => {
 
 // 할당된 유저를 업데이트하는 함수
 const updateUserAssignments = async (assignmentId, users) => {
-  const existingUsers = await db.query(
+  const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
     [assignmentId]
   );
@@ -525,20 +520,44 @@ const updateUserAssignments = async (assignmentId, users) => {
           `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
           [assignmentId, user.user_id]
         );
+        await db.query(
+          `DELETE FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
+          [assignmentId, user.user_id]
+        );
+        await db.query(
+          `DELETE FROM squares_info WHERE user_id = ? AND canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`,
+          [user.user_id, assignmentId]
+        );
+        await db.query(
+          `DELETE FROM question_responses WHERE user_id = ? AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+          [user.user_id, assignmentId]
+        );
       }
+
       existingUserIds.delete(user.user_id);
     })
   );
 
-  // 새로 추가된 유저 처리
+  // 새로운 유저 추가
   const newUsers = users.filter((userId) => !existingUserIds.has(userId));
-  await createCanvasForUsers(assignmentId, newUsers);
-};
-
-const deleteCanvasForAssignmentUsers = async (assignmentId) => {
-  await db.query(`DELETE FROM canvas_info WHERE assignment_id = ?`, [
-    assignmentId,
-  ]);
+  if (newUsers.length > 0) {
+    await Promise.all(
+      newUsers.map(async (userId) => {
+        const [existingUser] = await db.query(
+          `SELECT * FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
+          [assignmentId, userId]
+        );
+        if (!existingUser.length) {
+          await db.query(
+            `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+            [assignmentId, userId]
+          );
+        }
+      })
+    );
+    // 추가된 유저에 대한 캔버스 정보 생성
+    await createCanvasForUsers(assignmentId, newUsers);
+  }
 };
 
 const createCanvasForUsers = async (assignmentId, users) => {
