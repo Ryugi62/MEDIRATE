@@ -77,6 +77,13 @@ export default {
       this.localBeforeCanvas = { width, height };
 
       for (const user of this.userSquaresList) {
+        console.log(user);
+
+        if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
+          user.beforeCanvas.width = img.width;
+          user.beforeCanvas.height = img.height;
+        }
+
         const beforePosition = this.calculateImagePosition(width, height);
         const userBeforePosition = this.calculateImagePosition(
           user.beforeCanvas.width,
