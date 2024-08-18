@@ -90,9 +90,6 @@ export default {
         const aiSquares = user.squares.filter((square) => square.isAI);
 
         for (const square of aiSquares) {
-          // use img.width, img.height to calculate the position of the square
-          const { width: originalWidth, height: originalHeight } = img;
-
           const currentPosition = this.calculateImagePosition(
             user.beforeCanvas.width,
             user.beforeCanvas.height
