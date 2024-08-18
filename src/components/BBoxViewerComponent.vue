@@ -1,12 +1,8 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__body">
-      <canvas
-        ref="canvas"
-        @mousemove="handleCanvasMouseMove"
-        @resize="resizeCanvas"
-        @mouseleave="redrawSquares"
-      ></canvas>
+      <canvas ref="canvas" @mousemove="handleCanvasMouseMove" @resize="resizeCanvas"
+        @mouseleave="redrawSquares"></canvas>
     </div>
     <div class="bbox-component__footer">
       <strong>{{ getFileNameFromSrc() }}</strong>
@@ -42,7 +38,7 @@ export default {
     updateSquares: {
       type: Function,
       required: true,
-      default: () => {},
+      default: () => { },
     },
     aiData: {
       type: Array,
@@ -90,6 +86,26 @@ export default {
           user.beforeCanvas.height
         );
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
+
+        const aiSquares = user.squares.filter((square) => square.isAI);
+
+        for (const square of aiSquares) {
+          // use img.width, img.height to calculate the position of the square
+          const { width: originalWidth, height: originalHeight } = img;
+
+          const currentPosition = this.calculateImagePosition(
+            user.beforeCanvas.width,
+            user.beforeCanvas.height
+          );
+
+          const scaleRatio = 1 / currentPosition.scale;
+
+          const adjustedX = (x - currentPosition.x) * scaleRatio;
+          const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+          square.x = (adjustedX != square.x) ? adjustedX : square.x;
+          square.y = (adjustedY != square.y) ? adjustedY : square.y;
+        }
 
         for (const square of user.squares) {
           square.color = user.color;
