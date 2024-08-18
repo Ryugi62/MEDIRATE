@@ -97,8 +97,8 @@ export default {
 
           const scaleRatio = 1 / currentPosition.scale;
 
-          const adjustedX = (x - currentPosition.x) * scaleRatio;
-          const adjustedY = (y - currentPosition.y) * scaleRatio;
+          const adjustedX = (square.x - currentPosition.x) * scaleRatio;
+          const adjustedY = (square.y - currentPosition.y) * scaleRatio;
 
           square.x = (adjustedX != square.x) ? adjustedX : square.x;
           square.y = (adjustedY != square.y) ? adjustedY : square.y;
