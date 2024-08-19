@@ -181,46 +181,46 @@ export default {
 
   methods: {
     async loadData() {
-  try {
-    const { data } = await this.$axios.get(
-      `/api/dashboard/${this.assignmentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-        },
+      try {
+        const { data } = await this.$axios.get(
+          `/api/dashboard/${this.assignmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+
+        this.assignmentTitle = data.FileName;
+        this.assignmentMode = data.assignmentMode;
+        this.data = data.assignment;
+        this.originalData = JSON.parse(JSON.stringify(data.assignment));
+        this.activeImageUrl = this.data[0].questions[0].questionImage;
+        this.activeQuestionIndex = this.data[0].questions[0].questionId;
+
+        this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
+
+        // Create userSquaresList with the desired structure
+        this.userSquaresList = this.data.map((person, index) => {
+          const color = this.colorList[index % this.colorList.length].backgroundColor;
+          return {
+            color: color,
+            beforeCanvas: person.beforeCanvas,
+            squares: person.squares.map(square => ({
+              x: square.x,
+              y: square.y,
+              questionIndex: square.questionIndex
+            }))
+          };
+        });
+
+        // Log the userSquaresList for debugging
+        console.log("userSquaresList:", this.userSquaresList);
+
+      } catch (error) {
+        console.error("Failed to load data:", error);
       }
-    );
-
-    this.assignmentTitle = data.FileName;
-    this.assignmentMode = data.assignmentMode;
-    this.data = data.assignment;
-    this.originalData = JSON.parse(JSON.stringify(data.assignment));
-    this.activeImageUrl = this.data[0].questions[0].questionImage;
-    this.activeQuestionIndex = this.data[0].questions[0].questionId;
-
-    this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
-
-    // Create userSquaresList with the desired structure
-    this.userSquaresList = this.data.map((person, index) => {
-      const color = this.colorList[index % this.colorList.length].backgroundColor;
-      return {
-        color: color,
-        beforeCanvas: person.beforeCanvas,
-        squares: person.squares.map(square => ({
-          x: square.x,
-          y: square.y,
-          questionIndex: square.questionIndex
-        }))
-      };
-    });
-
-    // Log the userSquaresList for debugging
-    console.log("userSquaresList:", this.userSquaresList);
-
-  } catch (error) {
-    console.error("Failed to load data:", error);
-  }
-},
+    },
 
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       if (!square.isAI) return { ...square, wasConverted: false };
@@ -557,19 +557,22 @@ export default {
     },
 
     async getAdjustedSquares(users, question) {
-      const { width: originalWidth, height: originalHeight } =
-        await this.getImageDimensions(question.questionImage);
+      const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
 
-      return users.flatMap((user) =>
+      return users.flatMap(user =>
         user.squares
-          .filter(
-            (square) =>
-              square.questionIndex === question.questionId &&
-              !square.isTemporary
-          )
-          .map((square) => {
-            const { x: adjustedX, y: adjustedY } =
-              this.convertToOriginalImageCoordinates(
+          .filter(square => square.questionIndex === question.questionId && !square.isTemporary)
+          .map(square => {
+            if (square.isOriginalCoordinates) {
+              // 이미 원본 이미지 좌표계를 사용하는 경우
+              return {
+                ...square,
+                width: 25,
+                height: 25,
+              };
+            } else {
+              // userBeforeCanvas 기준 좌표를 원본 이미지 좌표로 변환
+              const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
                 square.x,
                 square.y,
                 user.beforeCanvas.width,
@@ -577,32 +580,20 @@ export default {
                 originalWidth,
                 originalHeight
               );
-            return {
-              ...square,
-              x: adjustedX,
-              y: adjustedY,
-              width: 25,
-              height: 25,
-            };
+              return {
+                ...square,
+                x: adjustedX,
+                y: adjustedY,
+                width: 25,
+                height: 25,
+              };
+            }
           })
       );
     },
 
-    convertToOriginalImageCoordinates(
-      x,
-      y,
-      canvasWidth,
-      canvasHeight,
-      originalWidth,
-      originalHeight
-    ) {
-      const currentPosition = this.calculateImagePosition(
-        canvasWidth,
-        canvasHeight,
-        originalWidth,
-        originalHeight
-      );
-
+    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
+      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
       const scaleRatio = 1 / currentPosition.scale;
 
       const adjustedX = (x - currentPosition.x) * scaleRatio;
@@ -612,10 +603,7 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
-      const scale = Math.min(
-        canvasWidth / imageWidth,
-        canvasHeight / imageHeight
-      );
+      const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
       const x = (canvasWidth - imageWidth * scale) / 2;
       const y = (canvasHeight - imageHeight * scale) / 2;
       return { x, y, scale };
