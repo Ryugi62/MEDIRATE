@@ -211,6 +211,9 @@ export default {
 
           const processedSquares = person.squares.map(square => {
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
+
+            console.log(`imageSize: ${imageSize}`);
+
             if (!imageSize) return square;
 
             // 좌표 시스템 판별 및 필요시 변환
@@ -221,6 +224,8 @@ export default {
               canvasWidth,
               canvasHeight
             );
+
+            console.log(`adjustedX: ${adjustedX}, adjustedY: ${adjustedY}, wasConverted: ${wasConverted}`);
 
             return { ...square, x: adjustedX, y: adjustedY, wasConverted };
           });
@@ -238,6 +243,8 @@ export default {
     },
 
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
+      if (!square.isAI) return { ...square, wasConverted: false };
+
       // 1. 좌표의 범위 확인
       const isWithinCanvas = square.x <= canvasWidth && square.y <= canvasHeight;
 
@@ -250,8 +257,13 @@ export default {
       const imageScale = square.width / imageWidth;
       const canvasScale = square.width / canvasWidth;
 
+      console.log(`isWithinCanvas: ${isWithinCanvas}, squareRatio: ${squareRatio}, imageRatio: ${imageRatio}, canvasRatio: ${canvasRatio}, imageScale: ${imageScale}, canvasScale: ${canvasScale}`);
+
+
       // imageSize를 기반으로 만들어진 것으로 판단되는 경우
       if (isWithinCanvas && Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) && Math.abs(imageScale - 1) < Math.abs(canvasScale - 1)) {
+        console.log("imageSize 기반 좌표로 판단");
+        
         // imageSize 기반 좌표를 userBeforeCanvas 기반으로 변환
         const scaleX = canvasWidth / imageWidth;
         const scaleY = canvasHeight / imageHeight;
