@@ -181,46 +181,46 @@ export default {
 
   methods: {
     async loadData() {
-      try {
-        const { data } = await this.$axios.get(
-          `/api/dashboard/${this.assignmentId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
-
-        this.assignmentTitle = data.FileName;
-        this.assignmentMode = data.assignmentMode;
-        this.data = data.assignment;
-        this.originalData = JSON.parse(JSON.stringify(data.assignment));
-        this.activeImageUrl = this.data[0].questions[0].questionImage;
-        this.activeQuestionIndex = this.data[0].questions[0].questionId;
-
-        this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
-
-        // Create userSquaresList with the desired structure
-        this.userSquaresList = this.data.map((person, index) => {
-          const color = this.colorList[index % this.colorList.length].backgroundColor;
-          return {
-            color: color,
-            beforeCanvas: person.beforeCanvas,
-            squares: person.squares.map(square => ({
-              x: square.x,
-              y: square, y,
-              questionIndex: square.questionIndex
-            }))
-          };
-        });
-
-        // Log the userSquaresList for debugging
-        console.log("userSquaresList:", this.userSquaresList);
-
-      } catch (error) {
-        console.error("Failed to load data:", error);
+  try {
+    const { data } = await this.$axios.get(
+      `/api/dashboard/${this.assignmentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        },
       }
-    },
+    );
+
+    this.assignmentTitle = data.FileName;
+    this.assignmentMode = data.assignmentMode;
+    this.data = data.assignment;
+    this.originalData = JSON.parse(JSON.stringify(data.assignment));
+    this.activeImageUrl = this.data[0].questions[0].questionImage;
+    this.activeQuestionIndex = this.data[0].questions[0].questionId;
+
+    this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
+
+    // Create userSquaresList with the desired structure
+    this.userSquaresList = this.data.map((person, index) => {
+      const color = this.colorList[index % this.colorList.length].backgroundColor;
+      return {
+        color: color,
+        beforeCanvas: person.beforeCanvas,
+        squares: person.squares.map(square => ({
+          x: square.x,
+          y: square.y,
+          questionIndex: square.questionIndex
+        }))
+      };
+    });
+
+    // Log the userSquaresList for debugging
+    console.log("userSquaresList:", this.userSquaresList);
+
+  } catch (error) {
+    console.error("Failed to load data:", error);
+  }
+},
 
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       if (!square.isAI) return { ...square, wasConverted: false };
