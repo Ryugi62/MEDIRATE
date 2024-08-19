@@ -191,8 +191,6 @@ export default {
           }
         );
 
-        console.log(data);
-
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -202,37 +200,22 @@ export default {
 
         this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
 
-        // 이미지 크기 정보를 미리 계산
-        const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
-          const { width, height } = await this.getImageDimensions(question.questionImage);
-          return { questionId: question.questionId, width, height };
-        }));
-
-        this.userSquaresList = await Promise.all(this.data.map(async (person, index) => {
+        // Create userSquaresList with the desired structure
+        this.userSquaresList = this.data.map((person, index) => {
           const color = this.colorList[index % this.colorList.length].backgroundColor;
-          const { width: canvasWidth, height: canvasHeight } = person.beforeCanvas;
-
-          const processedSquares = person.squares.map(square => {
-            const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
-
-            if (!imageSize) return square;
-
-            // 좌표 시스템 판별 및 필요시 변환
-            return this.detectAndConvertCoordinates(
-              square,
-              imageSize.width,
-              imageSize.height,
-              canvasWidth,
-              canvasHeight
-            );
-          });
-
           return {
+            color: color,
             beforeCanvas: person.beforeCanvas,
-            squares: processedSquares,
-            color
+            squares: person.squares.map(square => ({
+              x: square.x,
+              y: square, y,
+              questionIndex: square.questionIndex
+            }))
           };
-        }));
+        });
+
+        // Log the userSquaresList for debugging
+        console.log("userSquaresList:", this.userSquaresList);
 
       } catch (error) {
         console.error("Failed to load data:", error);
@@ -242,36 +225,77 @@ export default {
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       if (!square.isAI) return { ...square, wasConverted: false };
 
-      console.log(`Input square:`, JSON.stringify(square));
-      console.log(`Image dimensions: ${imageWidth}x${imageHeight}, Canvas dimensions: ${canvasWidth}x${canvasHeight}`);
-
-      // Handle cases where canvas dimensions are 0
-      if (canvasWidth === 0 || canvasHeight === 0) {
-        console.log("Canvas dimensions are 0. Using image dimensions instead.");
-        canvasWidth = imageWidth;
-        canvasHeight = imageHeight;
+      if (this.isDebugMode) {
+        console.log(`Input square:`, JSON.stringify(square));
+        console.log(`Image dimensions: ${imageWidth}x${imageHeight}, Canvas dimensions: ${canvasWidth}x${canvasHeight}`);
       }
 
-      // Calculate scale factors
+      try {
+        const isWithinCanvas = this.checkWithinCanvas(square, canvasWidth, canvasHeight);
+        const { squareRatio, imageRatio, canvasRatio } = this.calculateRatios(square, imageWidth, imageHeight, canvasWidth, canvasHeight);
+        const { imageScale, canvasScale } = this.calculateScales(square, imageWidth, canvasWidth);
+
+        if (this.isDebugMode) {
+          console.log(`isWithinCanvas: ${isWithinCanvas}, squareRatio: ${squareRatio}, imageRatio: ${imageRatio}, canvasRatio: ${canvasRatio}, imageScale: ${imageScale}, canvasScale: ${canvasScale}`);
+        }
+
+        if (this.shouldConvertCoordinates(isWithinCanvas, squareRatio, imageRatio, canvasRatio, imageScale, canvasScale)) {
+          const convertedCoordinates = this.convertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight);
+          if (this.isDebugMode) {
+            console.log(`Converted coordinates:`, JSON.stringify(convertedCoordinates));
+          }
+          return convertedCoordinates;
+        }
+
+        return { ...square, wasConverted: false };
+      } catch (error) {
+        console.error('Error in detectAndConvertCoordinates:', error);
+        return { ...square, wasConverted: false, error: error.message };
+      }
+    },
+
+    checkWithinCanvas(square, canvasWidth, canvasHeight) {
+      return square.x <= canvasWidth && square.y <= canvasHeight;
+    },
+
+    calculateRatios(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
+      const squareRatio = (square.height && square.width) ? square.width / square.height : 1;
+      const imageRatio = imageHeight ? imageWidth / imageHeight : 1;
+      const canvasRatio = canvasHeight ? canvasWidth / canvasHeight : 1;
+      return { squareRatio, imageRatio, canvasRatio };
+    },
+
+    calculateScales(square, imageWidth, canvasWidth) {
+      const imageScale = (square.width && imageWidth) ? square.width / imageWidth : 1;
+      const canvasScale = (square.width && canvasWidth) ? square.width / canvasWidth : 1;
+      return { imageScale, canvasScale };
+    },
+
+    shouldConvertCoordinates(isWithinCanvas, squareRatio, imageRatio, canvasRatio, imageScale, canvasScale) {
+      return isWithinCanvas &&
+        Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) &&
+        Math.abs(imageScale - 1) < Math.abs(canvasScale - 1);
+    },
+
+    convertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       const scaleX = canvasWidth / imageWidth;
       const scaleY = canvasHeight / imageHeight;
       const scale = Math.min(scaleX, scaleY);
 
-      // Convert coordinates
       const adjustedX = (square.x * scale) + (canvasWidth - imageWidth * scale) / 2;
       const adjustedY = (square.y * scale) + (canvasHeight - imageHeight * scale) / 2;
+      const adjustedWidth = (square.width || 25) * scale;
+      const adjustedHeight = (square.height || 25) * scale;
 
-      const result = {
+      return {
         ...square,
         x: adjustedX,
         y: adjustedY,
+        width: adjustedWidth,
+        height: adjustedHeight,
         wasConverted: true
       };
-
-      console.log(`Converted coordinates:`, JSON.stringify(result));
-      return result;
     },
-
 
     getImageDimensions(src) {
       return new Promise((resolve, reject) => {
@@ -282,23 +306,6 @@ export default {
       });
     },
 
-
-    convertCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight, isAI) {
-      if (isAI) {
-        // AI 생성 박스의 경우 원본 이미지 좌표를 캔버스 좌표로 변환
-        const scaleX = canvasWidth / originalWidth;
-        const scaleY = canvasHeight / originalHeight;
-        const scale = Math.min(scaleX, scaleY);
-
-        const canvasX = (x * scale) + (canvasWidth - originalWidth * scale) / 2;
-        const canvasY = (y * scale) + (canvasHeight - originalHeight * scale) / 2;
-
-        return { x: canvasX, y: canvasY };
-      } else {
-        // 사용자 생성 박스의 경우 좌표를 그대로 반환
-        return { x, y };
-      }
-    },
 
     // 원본 이미지 좌표를 캔버스 좌표로 변환하는 메서드
     convertToCanvasCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight) {
