@@ -198,23 +198,27 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
-        this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
+        const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
+          const { width, height } = await this.getImageDimensions(question.questionImage);
+          return { questionId: question.questionId, width, height };
+        }));
 
-        // Create userSquaresList with the desired structure
-        this.userSquaresList = this.data.map((person, index) => {
+        this.userSquaresList = await Promise.all(this.data.map((person, index) => {
           const color = this.colorList[index % this.colorList.length].backgroundColor;
-          return {
-            color: color,
-            beforeCanvas: person.beforeCanvas,
-            squares: person.squares.map(square => ({
-              x: square.x,
-              y: square.y,
-              questionIndex: square.questionIndex
-            }))
-          };
-        });
+          const { width: canvasWidth, height: canvasHeight } = person.beforeCanvas;
 
-        // Log the userSquaresList for debugging
+          const processedSquares = person.squares.map(square => {
+            const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
+            return this.detectAndConvertCoordinates(square, imageSize.width, imageSize.height, canvasWidth, canvasHeight);
+          });
+
+          return {
+            beforeCanvas: person.beforeCanvas,
+            squares: processedSquares,
+            color
+          };
+        }));
+
         console.log("userSquaresList:", this.userSquaresList);
 
       } catch (error) {
@@ -557,22 +561,19 @@ export default {
     },
 
     async getAdjustedSquares(users, question) {
-      const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
+      const { width: originalWidth, height: originalHeight } =
+        await this.getImageDimensions(question.questionImage);
 
-      return users.flatMap(user =>
+      return users.flatMap((user) =>
         user.squares
-          .filter(square => square.questionIndex === question.questionId && !square.isTemporary)
-          .map(square => {
-            if (square.isOriginalCoordinates) {
-              // 이미 원본 이미지 좌표계를 사용하는 경우
-              return {
-                ...square,
-                width: 25,
-                height: 25,
-              };
-            } else {
-              // userBeforeCanvas 기준 좌표를 원본 이미지 좌표로 변환
-              const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
+          .filter(
+            (square) =>
+              square.questionIndex === question.questionId &&
+              !square.isTemporary
+          )
+          .map((square) => {
+            const { x: adjustedX, y: adjustedY } =
+              this.convertToOriginalImageCoordinates(
                 square.x,
                 square.y,
                 user.beforeCanvas.width,
@@ -580,20 +581,32 @@ export default {
                 originalWidth,
                 originalHeight
               );
-              return {
-                ...square,
-                x: adjustedX,
-                y: adjustedY,
-                width: 25,
-                height: 25,
-              };
-            }
+            return {
+              ...square,
+              x: adjustedX,
+              y: adjustedY,
+              width: 25,
+              height: 25,
+            };
           })
       );
     },
 
-    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
-      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
+    convertToOriginalImageCoordinates(
+      x,
+      y,
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    ) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight,
+        originalWidth,
+        originalHeight
+      );
+
       const scaleRatio = 1 / currentPosition.scale;
 
       const adjustedX = (x - currentPosition.x) * scaleRatio;
@@ -603,7 +616,10 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
-      const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+      const scale = Math.min(
+        canvasWidth / imageWidth,
+        canvasHeight / imageHeight
+      );
       const x = (canvasWidth - imageWidth * scale) / 2;
       const y = (canvasHeight - imageHeight * scale) / 2;
       return { x, y, scale };
