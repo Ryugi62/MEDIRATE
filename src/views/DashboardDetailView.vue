@@ -190,6 +190,10 @@ export default {
             },
           }
         );
+
+        console.log(data);
+
+
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -212,30 +216,26 @@ export default {
           const processedSquares = person.squares.map(square => {
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
 
-
             if (!imageSize) return square;
 
             // 좌표 시스템 판별 및 필요시 변환
-            const { x: adjustedX, y: adjustedY, wasConverted } = this.detectAndConvertCoordinates(
+            return this.detectAndConvertCoordinates(
               square,
               imageSize.width,
               imageSize.height,
               canvasWidth,
               canvasHeight
             );
-
-
-            return { ...square, x: adjustedX, y: adjustedY, wasConverted };
           });
 
-          return {
-            beforeCanvas: person.beforeCanvas,
-            squares: processedSquares,
-            color
-          };
+          return { ...square, x: adjustedX, y: adjustedY, wasConverted };
         }));
 
-
+        return {
+          beforeCanvas: person.beforeCanvas,
+          squares: processedSquares,
+          color
+        };
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -244,48 +244,35 @@ export default {
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       if (!square.isAI) return { ...square, wasConverted: false };
 
-      console.log(JSON.stringify(square));
+      console.log(`Input square:`, JSON.stringify(square));
+      console.log(`Image dimensions: ${imageWidth}x${imageHeight}, Canvas dimensions: ${canvasWidth}x${canvasHeight}`);
 
-
-      // 1. 좌표의 범위 확인
-      const isWithinCanvas = square.x <= canvasWidth && square.y <= canvasHeight;
-
-      // 2. 좌표의 비율 확인
-      const squareRatio = square.width / square.height;
-      const imageRatio = imageWidth / imageHeight;
-      const canvasRatio = canvasWidth / canvasHeight;
-
-      // 3. 좌표의 스케일 확인
-      const imageScale = square.width / imageWidth;
-      const canvasScale = square.width / canvasWidth;
-
-      // imageSize를 기반으로 만들어진 것으로 판단되는 경우
-      if (isWithinCanvas && Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) && Math.abs(imageScale - 1) < Math.abs(canvasScale - 1)) {
-        console.log("imageSize 기반 좌표로 판단");
-
-        // imageSize 기반 좌표를 userBeforeCanvas 기반으로 변환
-        const scaleX = canvasWidth / imageWidth;
-        const scaleY = canvasHeight / imageHeight;
-        const scale = Math.min(scaleX, scaleY);
-
-        const adjustedX = (square.x * scale) + (canvasWidth - imageWidth * scale) / 2;
-        const adjustedY = (square.y * scale) + (canvasHeight - imageHeight * scale) / 2;
-        const adjustedWidth = square.width * scale;
-        const adjustedHeight = square.height * scale;
-
-        return {
-          x: adjustedX,
-          y: adjustedY,
-          width: adjustedWidth,
-          height: adjustedHeight,
-          wasConverted: true
-        };
+      // Handle cases where canvas dimensions are 0
+      if (canvasWidth === 0 || canvasHeight === 0) {
+        console.log("Canvas dimensions are 0. Using image dimensions instead.");
+        canvasWidth = imageWidth;
+        canvasHeight = imageHeight;
       }
 
-      // 변환이 필요 없는 경우
-      return { ...square, wasConverted: false };
-    },
+      // Calculate scale factors
+      const scaleX = canvasWidth / imageWidth;
+      const scaleY = canvasHeight / imageHeight;
+      const scale = Math.min(scaleX, scaleY);
 
+      // Convert coordinates
+      const adjustedX = (square.x * scale) + (canvasWidth - imageWidth * scale) / 2;
+      const adjustedY = (square.y * scale) + (canvasHeight - imageHeight * scale) / 2;
+
+      const result = {
+        ...square,
+        x: adjustedX,
+        y: adjustedY,
+        wasConverted: true
+      };
+
+      console.log(`Converted coordinates:`, JSON.stringify(result));
+      return result;
+    },
 
 
     getImageDimensions(src) {
