@@ -91,8 +91,8 @@
           </div>
           <div class="image-box">
             <component :is="assignmentMode === 'TextBox'
-                ? 'ImageComponent'
-                : 'BBoxViewerComponent'
+              ? 'ImageComponent'
+              : 'BBoxViewerComponent'
               " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
           </div>
@@ -182,14 +182,11 @@ export default {
   methods: {
     async loadData() {
       try {
-        const { data } = await this.$axios.get(
-          `/api/dashboard/${this.assignmentId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
+        const { data } = await this.$axios.get(`/api/dashboard/${this.assignmentId}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        });
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -199,9 +196,10 @@ export default {
         this.flatSquares = this.data.map((person) => person.squares).flat();
 
         const originalImageDimensions = await this.getImageDimensions(this.activeImageUrl);
+
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
-          squares: person.squares.map(square =>
+          squares: person.squares.map((square) =>
             this.convertToCanvasCoordinates(square, person.beforeCanvas, originalImageDimensions)
           ),
           color: this.colorList[index % this.colorList.length].backgroundColor,
@@ -212,10 +210,6 @@ export default {
     },
 
     convertToCanvasCoordinates(square, beforeCanvas, originalImage) {
-      if (!square.isAI) {
-        return square;
-      }
-
       const scaleX = beforeCanvas.width / originalImage.width;
       const scaleY = beforeCanvas.height / originalImage.height;
 
@@ -225,6 +219,7 @@ export default {
         y: square.y * scaleY,
       };
     },
+
 
     async getImageDimensions(imageUrl) {
       return new Promise((resolve, reject) => {
