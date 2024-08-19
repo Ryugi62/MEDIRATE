@@ -209,22 +209,40 @@ export default {
       }
     },
 
+    convertToCanvasCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
+      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
+      const scaleRatio = currentPosition.scale;
+      return {
+        x: x * scaleRatio + currentPosition.x,
+        y: y * scaleRatio + currentPosition.y
+      };
+    },
+
     async adjustAiSquares() {
       const adjustSquare = async (square, beforeCanvas, questionImage) => {
         const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(questionImage);
-        const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
-          square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
-        );
+        let adjustedX, adjustedY;
+
+        if (square.isAI) {
+          // AI 생성 square의 경우, 원본 이미지 크기에서 canvas 크기로 변환
+          ({ x: adjustedX, y: adjustedY } = this.convertToCanvasCoordinates(
+            square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
+          ));
+        } else {
+          // 사용자 생성 square의 경우, canvas 크기에서 원본 이미지 크기로 변환
+          ({ x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
+            square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
+          ));
+        }
+
         return { ...square, x: adjustedX, y: adjustedY };
       };
 
       const adjustments = this.userSquaresList.flatMap(user =>
-        user.squares
-          .filter(square => square.isAI)
-          .map(square => {
-            const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
-            return adjustSquare(square, user.beforeCanvas, question.questionImage);
-          })
+        user.squares.map(square => {
+          const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
+          return adjustSquare(square, user.beforeCanvas, question.questionImage);
+        })
       );
 
       await Promise.all(adjustments);
