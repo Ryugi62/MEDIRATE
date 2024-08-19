@@ -216,6 +216,9 @@ export default {
             if (!square.isAI) return square;
 
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
+
+            console.log(imageSize);
+
             if (!imageSize) return square;
 
             const { x: canvasX, y: canvasY } = this.convertCoordinates(
