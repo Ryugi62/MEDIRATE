@@ -209,33 +209,45 @@ export default {
       }
     },
 
-    convertToCanvasCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
-      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
-      const scaleRatio = currentPosition.scale;
+    isSquareBasedOnOriginalImage(square, originalWidth, originalHeight) {
+      // square의 좌표가 원본 이미지 크기를 벗어나지 않는지 확인
+      return square.x <= originalWidth && square.y <= originalHeight;
+    },
+
+
+    convertToCanvasCoordinates(square, beforeCanvas, originalWidth, originalHeight) {
+      const scaleX = beforeCanvas.width / originalWidth;
+      const scaleY = beforeCanvas.height / originalHeight;
+
       return {
-        x: x * scaleRatio + currentPosition.x,
-        y: y * scaleRatio + currentPosition.y
+        ...square,
+        x: square.x * scaleX,
+        y: square.y * scaleY,
+        width: square.width * scaleX,
+        height: square.height * scaleY
       };
     },
 
     async adjustAiSquares() {
       const adjustSquare = async (square, beforeCanvas, questionImage) => {
         const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(questionImage);
-        let adjustedX, adjustedY;
 
         if (square.isAI) {
-          // AI 생성 square의 경우, 원본 이미지 크기에서 canvas 크기로 변환
-          ({ x: adjustedX, y: adjustedY } = this.convertToCanvasCoordinates(
-            square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
-          ));
+          // AI square인 경우
+          if (this.isSquareBasedOnOriginalImage(square, originalWidth, originalHeight)) {
+            // 원본 이미지 크기 기반으로 생성된 경우, beforeCanvas 크기로 조정
+            return this.convertToCanvasCoordinates(square, beforeCanvas, originalWidth, originalHeight);
+          } else {
+            // 이미 beforeCanvas 크기에 맞춰져 있는 경우, 그대로 반환
+            return square;
+          }
         } else {
-          // 사용자 생성 square의 경우, canvas 크기에서 원본 이미지 크기로 변환
-          ({ x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
+          // 사용자 생성 square의 경우, 기존 로직 유지
+          const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
             square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
-          ));
+          );
+          return { ...square, x: adjustedX, y: adjustedY };
         }
-
-        return { ...square, x: adjustedX, y: adjustedY };
       };
 
       const adjustments = this.userSquaresList.flatMap(user =>
@@ -246,6 +258,14 @@ export default {
       );
 
       await Promise.all(adjustments);
+
+      // 조정된 square들로 userSquaresList 업데이트
+      this.userSquaresList.forEach((user, index) => {
+        user.squares = adjustments.slice(
+          index * user.squares.length,
+          (index + 1) * user.squares.length
+        );
+      });
     },
 
     handleKeyDown(event) {
