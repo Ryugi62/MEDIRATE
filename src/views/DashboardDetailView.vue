@@ -52,7 +52,7 @@
                       v-for="index in [null, ...Array(data.length - 1).keys()]"
                       :key="index === null ? 'none' : index"
                     >
-                      {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
+                      {{ index === null ? "전체 갯수" : `${index + 2}인 일치` }}
                     </th>
                   </template>
                 </tr>
