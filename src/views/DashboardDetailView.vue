@@ -9,20 +9,9 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <i
-              class="fa-solid fa-robot"
-              :class="{ active: isAiMode }"
-              @click="isAiMode = !isAiMode"
-            ></i>
+            <i class="fa-solid fa-robot" :class="{ active: isAiMode }" @click="isAiMode = !isAiMode"></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
-            <input
-              type="range"
-              min="1"
-              :max="data.length"
-              class="slider"
-              id="slider"
-              v-model="sliderValue"
-            />
+            <input type="range" min="1" :max="data.length" class="slider" id="slider" v-model="sliderValue" />
           </div>
           <span class="completed-status">
             <strong>{{ completionPercentage }}</strong>
@@ -40,30 +29,20 @@
               <thead class="table-head">
                 <tr>
                   <th>이미지</th>
-                  <th
-                    v-for="(person, index) in data"
-                    :key="person.name"
-                    :style="getStyleForPerson(index)"
-                  >
+                  <th v-for="(person, index) in data" :key="person.name" :style="getStyleForPerson(index)">
                     {{ person.name }}
                   </th>
                   <template v-if="assignmentMode === 'BBox'">
-                    <th
-                      v-for="index in [null, ...Array(data.length - 1).keys()]"
-                      :key="index === null ? 'none' : index"
-                    >
+                    <th v-for="index in [null, ...Array(data.length - 1).keys()]"
+                      :key="index === null ? 'none' : index">
                       {{ index === null ? "전체 갯수" : `${index + 2}인 일치` }}
                     </th>
                   </template>
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="(item, index) in data[0].questions"
-                  :key="index"
-                  :class="{ active: index === activeIndex }"
-                  @click="setActiveImage(item.questionImage, index)"
-                >
+                <tr v-for="(item, index) in data[0].questions" :key="index" :class="{ active: index === activeIndex }"
+                  @click="setActiveImage(item.questionImage, index)">
                   <td>
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
@@ -78,10 +57,7 @@
                   </td>
                   <template v-if="assignmentMode === 'BBox'">
                     <td>{{ getTotalBboxes(item.questionId) }}</td>
-                    <td
-                      v-for="overlapCount in Array(data.length - 1).keys()"
-                      :key="overlapCount"
-                    >
+                    <td v-for="overlapCount in Array(data.length - 1).keys()" :key="overlapCount">
                       {{ getOverlaps(item.questionId, overlapCount + 2) }}
                     </td>
                   </template>
@@ -114,19 +90,11 @@
             </table>
           </div>
           <div class="image-box">
-            <component
-              :is="
-                assignmentMode === 'TextBox'
-                  ? 'ImageComponent'
-                  : 'BBoxViewerComponent'
-              "
-              :src="activeImageUrl"
-              :questionIndex="activeQuestionIndex"
-              :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)"
-              :updateSquares="updateSquares"
-              :aiData="isAiMode ? aiData : []"
-            />
+            <component :is="assignmentMode === 'TextBox'
+              ? 'ImageComponent'
+              : 'BBoxViewerComponent'
+              " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
+              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
           </div>
         </div>
       </div>
@@ -234,6 +202,39 @@ export default {
           squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
+
+        this.userSquaresList.forEach((user) => {
+          for (const square of user.squares) {
+            if (!square.isAI) continue;
+
+            // 현재 square의 questionIndex에 해당하는 문제의
+            // 이미지 src를 가져옴
+            const src = this.data[0].questions.find(
+              (question) => question.questionId === square.questionIndex
+            ).questionImage;
+
+            const img = new Image();
+            img.src = src;
+            const { width: originalWidth, height: originalHeight } = img;
+
+            // 간혹 isAI가 true인 박스들 중에서
+            // x, y 값이 user.beforeCanvas.width, user.beforeCanvas.height에 맞춰서 조정된 좌표가 아니라
+            // originalWidth 와 originalHeight에 맞춰서 조정된 좌표가 들어가 있는 경우가 있음
+            // 이를 다시 user.beforeCanvas.width, user.beforeCanvas.height에 맞춰서 조정된 좌표로 변환
+            // 아니라면 그대로 사용
+            const { x, y } = this.convertToOriginalImageCoordinates(
+              square.x,
+              square.y,
+              originalWidth,
+              originalHeight,
+              user.beforeCanvas.width,
+              user.beforeCanvas.height
+            );
+
+            square.x = x;
+            square.y = y;
+          }
+        });
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -642,11 +643,11 @@ export default {
             annotation: overlapGroups.map((group) => {
               const x = Math.round(
                 group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
-                  12.5
+                12.5
               );
               const y = Math.round(
                 group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
-                  12.5
+                12.5
               );
 
               return [x, y, 25, 25];
@@ -809,7 +810,7 @@ export default {
   font-size: 14px;
 }
 
-.completed-status > strong {
+.completed-status>strong {
   color: var(--blue);
   font-size: 20px;
 }
@@ -842,7 +843,7 @@ tr.active {
   background-color: var(--blue);
 }
 
-td > img {
+td>img {
   width: 25px;
 }
 
@@ -853,7 +854,7 @@ td > img {
   margin-right: 46px;
 }
 
-.image-box > img {
+.image-box>img {
   width: 100%;
   margin: auto;
   object-fit: contain;
@@ -866,6 +867,7 @@ td > img {
   background-color: var(--white);
   bottom: 0;
 }
+
 .table-head {
   top: 0;
 }
@@ -878,19 +880,22 @@ td > img {
   background-color: var(--pink);
 }
 
-tfoot > tr > th {
+tfoot>tr>th {
   border: 0;
 }
 
 .fa-robot.active {
   color: var(--blue);
 }
+
 .fa-robot:hover {
   cursor: pointer;
 }
+
 .fa-robot.active:hover {
   color: var(--blue-hover);
 }
+
 .fa-robot:active {
   color: var(--blue-active);
 }
