@@ -197,41 +197,32 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
 
-        // 성능 최적화: flatSquares를 한 번만 계산
         this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
 
-        // userSquaresList 생성 및 좌표 변환을 동시에 수행
+        // 이미지 크기 정보를 미리 계산
+        const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
+          const { width, height } = await this.getImageDimensions(question.questionImage);
+          return { questionId: question.questionId, width, height };
+        }));
+
         this.userSquaresList = await Promise.all(this.data.map(async (person, index) => {
           const color = this.colorList[index % this.colorList.length].backgroundColor;
           const { width: canvasWidth, height: canvasHeight } = person.beforeCanvas;
 
-          // 각 질문에 대한 이미지 크기를 한 번만 계산
-          const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
-            const { width, height } = await this.getImageDimensions(question.questionImage);
-            return { questionId: question.questionId, width, height };
-          }));
-
-          // 각 square에 대해 좌표 변환 수행
           const processedSquares = person.squares.map(square => {
-            if (!square.isAI) return square;
-
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
-
-            console.log(imageSize);
-
             if (!imageSize) return square;
 
-            const { x: canvasX, y: canvasY } = this.convertCoordinates(
-              square.x,
-              square.y,
+            // 좌표 시스템 판별 및 필요시 변환
+            const { x: adjustedX, y: adjustedY, wasConverted } = this.detectAndConvertCoordinates(
+              square,
               imageSize.width,
               imageSize.height,
               canvasWidth,
-              canvasHeight,
-              square.isAI
+              canvasHeight
             );
 
-            return { ...square, x: canvasX, y: canvasY };
+            return { ...square, x: adjustedX, y: adjustedY, wasConverted };
           });
 
           return {
@@ -246,6 +237,46 @@ export default {
       }
     },
 
+    detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
+      // 1. 좌표의 범위 확인
+      const isWithinCanvas = square.x <= canvasWidth && square.y <= canvasHeight;
+
+      // 2. 좌표의 비율 확인
+      const squareRatio = square.width / square.height;
+      const imageRatio = imageWidth / imageHeight;
+      const canvasRatio = canvasWidth / canvasHeight;
+
+      // 3. 좌표의 스케일 확인
+      const imageScale = square.width / imageWidth;
+      const canvasScale = square.width / canvasWidth;
+
+      // imageSize를 기반으로 만들어진 것으로 판단되는 경우
+      if (isWithinCanvas && Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) && Math.abs(imageScale - 1) < Math.abs(canvasScale - 1)) {
+        // imageSize 기반 좌표를 userBeforeCanvas 기반으로 변환
+        const scaleX = canvasWidth / imageWidth;
+        const scaleY = canvasHeight / imageHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        const adjustedX = (square.x * scale) + (canvasWidth - imageWidth * scale) / 2;
+        const adjustedY = (square.y * scale) + (canvasHeight - imageHeight * scale) / 2;
+        const adjustedWidth = square.width * scale;
+        const adjustedHeight = square.height * scale;
+
+        return {
+          x: adjustedX,
+          y: adjustedY,
+          width: adjustedWidth,
+          height: adjustedHeight,
+          wasConverted: true
+        };
+      }
+
+      // 변환이 필요 없는 경우
+      return { ...square, wasConverted: false };
+    },
+
+
+
     getImageDimensions(src) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -254,6 +285,7 @@ export default {
         img.src = src;
       });
     },
+
 
     convertCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight, isAI) {
       if (isAI) {
