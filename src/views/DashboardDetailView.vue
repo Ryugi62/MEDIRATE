@@ -527,15 +527,6 @@ export default {
       );
     },
 
-    async getImageDimensions(imageUrl) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-    },
-
     convertToOriginalImageCoordinates(
       x,
       y,
