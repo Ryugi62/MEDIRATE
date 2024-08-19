@@ -1,12 +1,8 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__body">
-      <canvas
-        ref="canvas"
-        @mousemove="handleCanvasMouseMove"
-        @resize="resizeCanvas"
-        @mouseleave="redrawSquares"
-      ></canvas>
+      <canvas ref="canvas" @mousemove="handleCanvasMouseMove" @resize="resizeCanvas"
+        @mouseleave="redrawSquares"></canvas>
     </div>
     <div class="bbox-component__footer">
       <strong>{{ getFileNameFromSrc() }}</strong>
@@ -42,7 +38,7 @@ export default {
     updateSquares: {
       type: Function,
       required: true,
-      default: () => {},
+      default: () => { },
     },
     aiData: {
       type: Array,
@@ -77,6 +73,13 @@ export default {
       this.localBeforeCanvas = { width, height };
 
       for (const user of this.userSquaresList) {
+        console.log(user);
+
+        if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
+          user.beforeCanvas.width = img.width;
+          user.beforeCanvas.height = img.height;
+        }
+
         const beforePosition = this.calculateImagePosition(width, height);
         const userBeforePosition = this.calculateImagePosition(
           user.beforeCanvas.width,
@@ -84,7 +87,9 @@ export default {
         );
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
-        for (const square of user.squares) {
+        const tempUserSquares = JSON.parse(JSON.stringify(user.squares));
+
+        for (const square of tempUserSquares) {
           square.color = user.color;
           square.x =
             (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
@@ -94,15 +99,18 @@ export default {
         }
       }
 
-      const {
-        x: imgX,
-        y: imgY,
-        scale,
-      } = this.calculateImagePosition(width, height);
+      // AI squares 처리
+      const userBeforePosition = this.calculateImagePosition(
+        this.userSquaresList[0].beforeCanvas.width,
+        this.userSquaresList[0].beforeCanvas.height
+      );
+      const canvasPosition = this.calculateImagePosition(width, height);
+      const scaleRatio = canvasPosition.scale / userBeforePosition.scale;
+
       this.aiSquares = this.aiData.map((square) => ({
-        x: square.x * scale + imgX,
-        y: square.y * scale + imgY,
-        questionIndex: square.questionIndex, // 원본 questionIndex 유지
+        x: (square.x * userBeforePosition.scale + userBeforePosition.x - canvasPosition.x) / scaleRatio + canvasPosition.x,
+        y: (square.y * userBeforePosition.scale + userBeforePosition.y - canvasPosition.y) / scaleRatio + canvasPosition.y,
+        questionIndex: square.questionIndex,
         isAI: true,
         color: "#FFFF00", // Yellow color for AI squares
       }));
@@ -110,6 +118,7 @@ export default {
       this.originalLocalSquares = [...this.localSquares];
       this.updateSquares([...this.localSquares]);
     },
+
 
     async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
