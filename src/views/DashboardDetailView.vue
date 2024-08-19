@@ -202,6 +202,43 @@ export default {
           squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
+
+        console.log(this.userSquaresList);
+
+        this.userSquaresList.forEach((user) => {
+          const beforeCanvas = user.beforeCanvas;
+          const aiSquares = user.squares.filter((square) => square.isAI);
+
+          // 각 이미지에 대해 원본 크기를 가져옴
+          aiSquares.forEach((square) => {
+            const question = this.data[0].questions.find(
+              (q) => q.questionId === square.questionIndex
+            );
+
+            const img = new Image();
+            img.src = question.questionImage;
+
+            img.onload = () => {
+              const originalWidth = img.width;
+              const originalHeight = img.height;
+
+              // 현재 square의 좌표가 원본 이미지 크기에 맞춰 조정되었는지 확인
+              const currentX = square.x;
+              const currentY = square.y;
+
+              const expectedX = (currentX / originalWidth) * beforeCanvas.width;
+              const expectedY = (currentY / originalHeight) * beforeCanvas.height;
+
+              // 현재 좌표가 beforeCanvas에 맞춰 조정되지 않았다면, 수정
+              if (Math.abs(square.x - expectedX) > 1 || Math.abs(square.y - expectedY) > 1) {
+                square.x = expectedX;
+                square.y = expectedY;
+              }
+            };
+          });
+        });
+
+
       } catch (error) {
         console.error("Failed to load data:", error);
       }
