@@ -9,9 +9,20 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <i class="fa-solid fa-robot" :class="{ active: isAiMode }" @click="isAiMode = !isAiMode"></i>
+            <i
+              class="fa-solid fa-robot"
+              :class="{ active: isAiMode }"
+              @click="isAiMode = !isAiMode"
+            ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
-            <input type="range" min="1" :max="data.length" class="slider" id="slider" v-model="sliderValue" />
+            <input
+              type="range"
+              min="1"
+              :max="data.length"
+              class="slider"
+              id="slider"
+              v-model="sliderValue"
+            />
           </div>
           <span class="completed-status">
             <strong>{{ completionPercentage }}</strong>
@@ -29,20 +40,30 @@
               <thead class="table-head">
                 <tr>
                   <th>이미지</th>
-                  <th v-for="(person, index) in data" :key="person.name" :style="getStyleForPerson(index)">
+                  <th
+                    v-for="(person, index) in data"
+                    :key="person.name"
+                    :style="getStyleForPerson(index)"
+                  >
                     {{ person.name }}
                   </th>
                   <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="index in [null, ...Array(data.length - 1).keys()]"
-                      :key="index === null ? 'none' : index">
+                    <th
+                      v-for="index in [null, ...Array(data.length - 1).keys()]"
+                      :key="index === null ? 'none' : index"
+                    >
                       {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
                     </th>
                   </template>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in data[0].questions" :key="index" :class="{ active: index === activeIndex }"
-                  @click="setActiveImage(item.questionImage, index)">
+                <tr
+                  v-for="(item, index) in data[0].questions"
+                  :key="index"
+                  :class="{ active: index === activeIndex }"
+                  @click="setActiveImage(item.questionImage, index)"
+                >
                   <td>
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
@@ -57,7 +78,10 @@
                   </td>
                   <template v-if="assignmentMode === 'BBox'">
                     <td>{{ getTotalBboxes(item.questionId) }}</td>
-                    <td v-for="overlapCount in Array(data.length - 1).keys()" :key="overlapCount">
+                    <td
+                      v-for="overlapCount in Array(data.length - 1).keys()"
+                      :key="overlapCount"
+                    >
                       {{ getOverlaps(item.questionId, overlapCount + 2) }}
                     </td>
                   </template>
@@ -90,11 +114,19 @@
             </table>
           </div>
           <div class="image-box">
-            <component :is="assignmentMode === 'TextBox'
-              ? 'ImageComponent'
-              : 'BBoxViewerComponent'
-              " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
+            <component
+              :is="
+                assignmentMode === 'TextBox'
+                  ? 'ImageComponent'
+                  : 'BBoxViewerComponent'
+              "
+              :src="activeImageUrl"
+              :questionIndex="activeQuestionIndex"
+              :userSquaresList="userSquaresList"
+              :sliderValue="Number(sliderValue)"
+              :updateSquares="updateSquares"
+              :aiData="isAiMode ? aiData : []"
+            />
           </div>
         </div>
       </div>
@@ -113,7 +145,11 @@ import JSZip from "jszip";
 
 export default {
   name: "DashboardDetailView",
-  components: { ImageComponent, BBoxViewerComponent },
+
+  components: {
+    ImageComponent,
+    BBoxViewerComponent,
+  },
 
   data() {
     return {
@@ -140,15 +176,15 @@ export default {
       keyRepeatDelay: 200,
       isAiMode: true,
       aiData: [],
-      cachedOverlaps: new Map(),
-      cachedImageDimensions: new Map(),
     };
   },
 
   async created() {
     this.isExporting = true;
+
     try {
-      await Promise.all([this.loadData(), this.loadAiData()]);
+      await this.loadData();
+      await this.loadAiData();
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -157,8 +193,10 @@ export default {
   },
 
   mounted() {
-    window.addEventListener("keydown", this.handleKeyDown);
-    window.addEventListener("keyup", this.handleKeyUp);
+    this.$nextTick(() => {
+      window.addEventListener("keydown", this.handleKeyDown);
+      window.addEventListener("keyup", this.handleKeyUp);
+    });
   },
 
   beforeUnmount() {
@@ -176,23 +214,26 @@ export default {
   methods: {
     async loadData() {
       try {
-        const { data } = await this.$axios.get(`/api/dashboard/${this.assignmentId}`, {
-          headers: { Authorization: `Bearer ${this.$store.getters.getJwtToken}` },
-        });
+        const { data } = await this.$axios.get(
+          `/api/dashboard/${this.assignmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.originalData = JSON.parse(JSON.stringify(data.assignment));
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
-        this.flatSquares = this.data.flatMap(person => person.squares);
+        this.flatSquares = this.data.map((person) => person.squares).flat();
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
           squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
-
-        await this.adjustAiSquares();
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -200,42 +241,40 @@ export default {
 
     async loadAiData() {
       try {
-        const { data } = await this.$axios.get(`/api/assignments/${this.assignmentId}/ai/`, {
-          headers: { Authorization: `Bearer ${this.$store.getters.getJwtToken}` },
-        });
-        this.aiData = data.map(ai => ({ ...ai, x: ai.x + 12.5, y: ai.y + 12.5 }));
+        const { data } = await this.$axios.get(
+          `/api/assignments/${this.assignmentId}/ai/`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        this.aiData = data.map((ai) => ({
+          ...ai,
+          x: ai.x + 12.5,
+          y: ai.y + 12.5,
+        }));
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
     },
 
-    async adjustAiSquares() {
-      const adjustSquare = async (square, beforeCanvas, questionImage) => {
-        const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(questionImage);
-        const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
-          square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
-        );
-        return { ...square, x: adjustedX, y: adjustedY };
-      };
-
-      const adjustments = this.userSquaresList.flatMap(user =>
-        user.squares
-          .filter(square => square.isAI)
-          .map(square => {
-            const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
-            return adjustSquare(square, user.beforeCanvas, question.questionImage);
-          })
-      );
-
-      await Promise.all(adjustments);
-    },
-
     handleKeyDown(event) {
       if (event.repeat) return;
+
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         this.moveQuestion(event.key);
-        this.keyPressInterval = setInterval(() => this.moveQuestion(event.key), this.keyRepeatDelay);
+        this.keyPressInterval = setInterval(() => {
+          this.moveQuestion(event.key);
+        }, this.keyRepeatDelay);
       }
+    },
+
+    getValidSquaresCount(squares, questionId) {
+      const count = squares.filter(
+        (square) => square.questionIndex === questionId && !square.isTemporary
+      ).length;
+      return count;
     },
 
     handleKeyUp() {
@@ -252,16 +291,17 @@ export default {
     moveQuestion(key) {
       const currentIndex = this.activeIndex;
       const questionsLength = this.data[0].questions.length;
-      let newIndex = currentIndex;
 
       if (key === "ArrowDown" && currentIndex < questionsLength - 1) {
-        newIndex = currentIndex + 1;
+        this.setActiveImage(
+          this.data[0].questions[currentIndex + 1].questionImage,
+          currentIndex + 1
+        );
       } else if (key === "ArrowUp" && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      }
-
-      if (newIndex !== currentIndex) {
-        this.setActiveImage(this.data[0].questions[newIndex].questionImage, newIndex);
+        this.setActiveImage(
+          this.data[0].questions[currentIndex - 1].questionImage,
+          currentIndex - 1
+        );
       }
     },
 
@@ -271,7 +311,9 @@ export default {
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
 
       this.$nextTick(() => {
-        const activeRow = this.$el.querySelector(".assignment-table tbody tr.active");
+        const activeRow = this.$el.querySelector(
+          ".assignment-table tbody tr.active"
+        );
         if (activeRow) {
           activeRow.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -286,284 +328,11 @@ export default {
 
     updateActiveRowValues() {
       const currentRow = this.data[0].questions[this.activeIndex];
-      this.data.forEach(person => {
+
+      this.data.forEach((person) => {
         person.questions[this.activeIndex].questionSelection =
           this.getValidSquaresCount(person.squares, currentRow.questionId);
       });
-    },
-
-    getValidSquaresCount(squares, questionId) {
-      return squares.filter(square => square.questionIndex === questionId && !square.isTemporary).length;
-    },
-
-    getTotalBboxes(questionId) {
-      if (this.assignmentMode !== "BBox") return "";
-      return this.data.reduce((acc, person) =>
-        acc + this.getValidSquaresCount(person.squares, questionId), 0);
-    },
-
-    getOverlaps(questionId, overlapCount) {
-      if (this.assignmentMode !== "BBox") return "";
-
-      const cacheKey = `${questionId}-${overlapCount}`;
-      if (this.cachedOverlaps.has(cacheKey)) {
-        return this.cachedOverlaps.get(cacheKey);
-      }
-
-      const squares = this.flatSquares.filter(square =>
-        square.questionIndex === questionId && !square.isTemporary);
-
-      if (overlapCount === 1) {
-        const result = squares.length;
-        this.cachedOverlaps.set(cacheKey, result);
-        return result;
-      }
-
-      const groups = this.findOverlapGroups(squares);
-      const result = groups.filter(group => group.length >= overlapCount).length;
-
-      this.cachedOverlaps.set(cacheKey, result);
-      return result;
-    },
-
-    findOverlapGroups(squares) {
-      const groups = [];
-      const visited = new Set();
-
-      const dfs = (square, group) => {
-        if (visited.has(square)) return;
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach(otherSquare => {
-          if (!visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5) {
-            dfs(otherSquare, group);
-          }
-        });
-      };
-
-      squares.forEach(square => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          groups.push(group);
-        }
-      });
-
-      return groups;
-    },
-
-    async getImageDimensions(imageUrl) {
-      if (this.cachedImageDimensions.has(imageUrl)) {
-        return this.cachedImageDimensions.get(imageUrl);
-      }
-
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const dimensions = { width: img.width, height: img.height };
-          this.cachedImageDimensions.set(imageUrl, dimensions);
-          resolve(dimensions);
-        };
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-    },
-
-    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
-      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
-      const scaleRatio = 1 / currentPosition.scale;
-      return {
-        x: (x - currentPosition.x) * scaleRatio,
-        y: (y - currentPosition.y) * scaleRatio
-      };
-    },
-
-    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
-      const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
-      return {
-        x: (canvasWidth - imageWidth * scale) / 2,
-        y: (canvasHeight - imageHeight * scale) / 2,
-        scale
-      };
-    },
-
-    async exportToExcel() {
-      this.isExporting = true;
-      this.startExportingAnimation();
-
-      try {
-        const ExcelJS = await import("exceljs");
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet("Assignment Responses");
-
-        this.setupWorksheetColumns(worksheet);
-        await this.populateWorksheetData(worksheet);
-
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        saveAs(blob, `${this.assignmentTitle}.xlsx`);
-      } catch (error) {
-        console.error("Failed to export to Excel:", error);
-      } finally {
-        this.isExporting = false;
-        this.stopExportingAnimation();
-      }
-    },
-
-    setupWorksheetColumns(worksheet) {
-      const columns = [
-        { header: "문제 번호", key: "questionNumber", width: 10 },
-        ...this.data.map(user => ({ header: user.name, key: user.name, width: 15 })),
-      ];
-
-      if (this.assignmentMode === "BBox") {
-        const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
-        columns.push(
-          { header: `+${halfRoundedEvaluatorCount}인`, key: `overlap${halfRoundedEvaluatorCount}`, width: 10 },
-          { header: `AI개수`, key: `aiCount`, width: 10 },
-          { header: `${halfRoundedEvaluatorCount}일치`, key: `matched${halfRoundedEvaluatorCount}`, width: 10 },
-          { header: `FN`, key: `fn${halfRoundedEvaluatorCount}`, width: 10 },
-          { header: `FP`, key: `fp${halfRoundedEvaluatorCount}`, width: 10 },
-          { header: `JSON`, key: `json`, width: 30 },
-        );
-      }
-
-      worksheet.columns = columns;
-      worksheet.getRow(1).font = { bold: true };
-    },
-
-    async populateWorksheetData(worksheet) {
-      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
-
-      for (const question of this.data[0].questions) {
-        const questionImageFileName = question.questionImage.split("/").pop();
-        const row = { questionNumber: questionImageFileName };
-
-        this.data.forEach(user => {
-          row[user.name] = this.getValidSquaresCount(user.squares, question.questionId);
-        });
-
-        if (this.assignmentMode === "BBox") {
-          const adjustedSquares = await this.getAdjustedSquares(this.originalData, question);
-          const relevantAiData = this.aiData.filter(ai => ai.questionIndex === question.questionId);
-          const overlapGroups = this.getOverlapsBBoxes(adjustedSquares, halfRoundedEvaluatorCount);
-          const overlapCount = overlapGroups.length;
-          const matchedCount = this.getMatchedCount(overlapGroups, relevantAiData);
-
-          Object.assign(row, {
-            [`overlap${halfRoundedEvaluatorCount}`]: overlapCount,
-            aiCount: relevantAiData.length,
-            [`matched${halfRoundedEvaluatorCount}`]: matchedCount,
-            [`fn${halfRoundedEvaluatorCount}`]: overlapCount - matchedCount,
-            [`fp${halfRoundedEvaluatorCount}`]: relevantAiData.length - matchedCount,
-            json: JSON.stringify({
-              fileName: questionImageFileName,
-              annotation: this.getAnnotations(overlapGroups),
-            }),
-          });
-        }
-
-        worksheet.addRow(row);
-      }
-    },
-
-    async getAdjustedSquares(users, question) {
-      const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
-
-      return users.flatMap(user =>
-        user.squares
-          .filter(square => square.questionIndex === question.questionId && !square.isTemporary)
-          .map(square => {
-            const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
-              square.x, square.y, user.beforeCanvas.width, user.beforeCanvas.height, originalWidth, originalHeight
-            );
-            return { ...square, x: adjustedX, y: adjustedY, width: 25, height: 25 };
-          })
-      );
-    },
-
-    getOverlapsBBoxes(squares, overlapCount) {
-      if (overlapCount === 1) {
-        return squares.map(square => [square]);
-      }
-
-      return this.findOverlapGroups(squares).filter(group => group.length >= overlapCount);
-    },
-
-    getMatchedCount(overlapGroups, aiData) {
-      return overlapGroups.filter(group =>
-        group.some(bbox =>
-          aiData.some(ai => Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5)
-        )
-      ).length;
-    },
-
-    getAnnotations(overlapGroups) {
-      return overlapGroups.map(group => {
-        const x = Math.round(group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length - 12.5);
-        const y = Math.round(group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length - 12.5);
-        return [x, y, 25, 25];
-      });
-    },
-
-    async exportImage() {
-      this.isExporting = true;
-      this.startExportingAnimation();
-
-      try {
-        const zip = new JSZip();
-        for (const question of this.data[0].questions) {
-          const blob = await this.getImageBlob(question.questionImage);
-          zip.file(question.questionImage.split("/").pop(), blob);
-        }
-
-        const content = await zip.generateAsync({ type: "blob" });
-        saveAs(content, "images.zip");
-
-        alert("이미지 다운로드가 완료되었습니다.");
-      } catch (error) {
-        console.error("Failed to export images:", error);
-        alert("이미지 다운로드 중 오류가 발생했습니다.");
-      } finally {
-        this.isExporting = false;
-        this.stopExportingAnimation();
-      }
-    },
-
-    async getImageBlob(imageUrl) {
-      return new Promise((resolve, reject) => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          canvas.toBlob(resolve);
-        };
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-    },
-
-    getStyleForPerson(index) {
-      return this.assignmentMode === "BBox" ? this.colorList[index] : {};
-    },
-
-    startExportingAnimation() {
-      this.exportingInterval = setInterval(() => {
-        this.exportingMessageIndex = (this.exportingMessageIndex + 1) % 4;
-      }, 500);
-    },
-
-    stopExportingAnimation() {
-      clearInterval(this.exportingInterval);
     },
 
     moveToAssignmentManagement() {
@@ -571,22 +340,377 @@ export default {
     },
 
     async deleteAssignment() {
-      if (!confirm("정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.")) return;
-
+      if (
+        !confirm(
+          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
+        )
+      )
+        return;
       try {
         await this.$axios.delete(`/api/assignments/${this.assignmentId}`, {
-          headers: { Authorization: `Bearer ${this.$store.getters.getJwtToken}` },
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
         });
         this.$router.push({ name: "dashboard" });
       } catch (error) {
         console.error("과제 삭제 중 오류 발생:", error);
-        alert("과제 삭제 중 오류가 발생했습니다.");
       }
     },
 
     updateSquares(squares) {
       this.tempSquares = squares;
-      this.flatSquares = this.data.flatMap(person => person.squares);
+      this.flatSquares = this.data.map((person) => person.squares).flat();
+    },
+
+    getTotalBboxes(questionId) {
+      if (this.assignmentMode !== "BBox") return "";
+      return this.data.reduce((acc, person) => {
+        const count = person.squares.filter(
+          (square) => square.questionIndex === questionId && !square.isTemporary
+        ).length;
+        return acc + count;
+      }, 0);
+    },
+
+    getOverlaps(questionId, overlapCount) {
+      if (this.assignmentMode !== "BBox") return "";
+      let squares = [];
+      this.data.forEach((person) => {
+        squares = squares.concat(
+          person.squares.filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
+          )
+        );
+      });
+
+      if (overlapCount === 1) {
+        return squares.length;
+      }
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups.length;
+    },
+
+    getMatchedCount(overlapGroups, aiData) {
+      let matchedCount = 0;
+      overlapGroups.forEach((group) => {
+        if (
+          group.some((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          )
+        ) {
+          matchedCount++;
+        }
+      });
+      return matchedCount;
+    },
+
+    getOverlapsBBoxes(squares, overlapCount) {
+      if (overlapCount === 1) {
+        return squares.map((square) => [square]);
+      }
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups;
+    },
+
+    async getAdjustedSquares(users, question) {
+      const { width: originalWidth, height: originalHeight } =
+        await this.getImageDimensions(question.questionImage);
+
+      return users.flatMap((user) =>
+        user.squares
+          .filter(
+            (square) =>
+              square.questionIndex === question.questionId &&
+              !square.isTemporary
+          )
+          .map((square) => {
+            const { x: adjustedX, y: adjustedY } =
+              this.convertToOriginalImageCoordinates(
+                square.x,
+                square.y,
+                user.beforeCanvas.width,
+                user.beforeCanvas.height,
+                originalWidth,
+                originalHeight
+              );
+            return {
+              ...square,
+              x: adjustedX,
+              y: adjustedY,
+              width: 25,
+              height: 25,
+            };
+          })
+      );
+    },
+
+    async getImageDimensions(imageUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+    },
+
+    convertToOriginalImageCoordinates(
+      x,
+      y,
+      canvasWidth,
+      canvasHeight,
+      originalWidth,
+      originalHeight
+    ) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight,
+        originalWidth,
+        originalHeight
+      );
+
+      const scaleRatio = 1 / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
+    },
+
+    calculateImagePosition(canvasWidth, canvasHeight, imageWidth, imageHeight) {
+      const scale = Math.min(
+        canvasWidth / imageWidth,
+        canvasHeight / imageHeight
+      );
+      const x = (canvasWidth - imageWidth * scale) / 2;
+      const y = (canvasHeight - imageHeight * scale) / 2;
+      return { x, y, scale };
+    },
+
+    async exportToExcel() {
+      this.isExporting = true;
+      const aiData = this.aiData;
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignment Responses");
+      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
+      const columns = [
+        { header: "문제 번호", key: "questionNumber", width: 10 },
+        ...this.data.map((user) => ({
+          header: user.name,
+          key: user.name,
+          width: 15,
+        })),
+      ];
+
+      if (this.assignmentMode === "BBox") {
+        columns.push(
+          {
+            header: `+${halfRoundedEvaluatorCount}인`,
+            key: `overlap${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `AI개수`,
+            key: `aiCount`,
+            width: 10,
+          },
+          {
+            header: `${halfRoundedEvaluatorCount}일치`,
+            key: `matched${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `FN`,
+            key: `fn${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `FP`,
+            key: `fp${halfRoundedEvaluatorCount}`,
+            width: 10,
+          },
+          {
+            header: `JSON`,
+            key: `json`,
+            width: 30,
+          }
+        );
+      }
+      worksheet.columns = columns;
+
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
+        const questionImageFileName = question.questionImage.split("/").pop();
+        const row = { questionNumber: questionImageFileName };
+        this.data.forEach((user) => {
+          row[user.name] = this.getValidSquaresCount(
+            user.squares,
+            question.questionId
+          );
+        });
+
+        if (this.assignmentMode === "BBox") {
+          const adjustedSquares = await this.getAdjustedSquares(
+            this.originalData,
+            question
+          );
+          const relevantAiData = aiData.filter(
+            (ai) => ai.questionIndex === question.questionId
+          );
+          const overlapGroups = this.getOverlapsBBoxes(
+            adjustedSquares,
+            halfRoundedEvaluatorCount
+          );
+          const overlapCount = overlapGroups.length;
+          const matchedCount = this.getMatchedCount(
+            overlapGroups,
+            relevantAiData
+          );
+
+          row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+          row["aiCount"] = relevantAiData.length;
+          row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
+          row[`fn${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
+          row[`fp${halfRoundedEvaluatorCount}`] =
+            relevantAiData.length - matchedCount;
+          row["json"] = JSON.stringify({
+            fileName: questionImageFileName,
+            annotation: overlapGroups.map((group) => {
+              const x = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
+                  12.5
+              );
+              const y = Math.round(
+                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
+                  12.5
+              );
+
+              return [x, y, 25, 25];
+            }),
+          });
+        }
+
+        worksheet.addRow(row);
+      }
+
+      worksheet.getRow(1).font = { bold: true };
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(blob, `${this.assignmentTitle}.xlsx`);
+      this.isExporting = false;
+    },
+
+    async exportImage() {
+      this.isExporting = true;
+      this.startExportingAnimation();
+
+      const zip = new JSZip();
+      for (let index = 0; index < this.data[0].questions.length; index++) {
+        const question = this.data[0].questions[index];
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+        image.src = question.questionImage;
+        await new Promise((resolve) => {
+          image.onload = () => {
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+            canvas.toBlob((blob) => {
+              zip.file(`${question.questionImage.split("/").pop()}`, blob);
+              resolve();
+            });
+          };
+        });
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "images.zip");
+
+      this.isExporting = false;
+      this.stopExportingAnimation();
+      alert("이미지 다운로드가 완료되었습니다.");
+    },
+
+    getStyleForPerson(index) {
+      return this.assignmentMode === "BBox" ? this.colorList[index] : {};
+    },
+
+    startExportingAnimation() {
+      this.interval = setInterval(() => {
+        this.exportingMessageIndex++;
+      }, 500);
+    },
+
+    stopExportingAnimation() {
+      clearInterval(this.interval);
     },
   },
 
@@ -594,12 +718,25 @@ export default {
     completionPercentage() {
       if (this.assignmentMode === "TextBox") {
         if (!this.data.length) return "0%";
-        const totalAnswered = this.data.reduce((acc, user) => acc + user.answeredCount, 0);
-        const totalUnanswered = this.data.reduce((acc, user) => acc + user.unansweredCount, 0);
+        const totalAnswered = this.data.reduce(
+          (acc, user) => acc + user.answeredCount,
+          0
+        );
+        const totalUnanswered = this.data.reduce(
+          (acc, user) => acc + user.unansweredCount,
+          0
+        );
         const totalQuestions = totalAnswered + totalUnanswered;
-        return totalQuestions ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%" : "0%";
+        return totalQuestions
+          ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
+          : "0%";
       } else {
-        return this.getOverlaps(this.activeQuestionIndex, Number(this.sliderValue)).toString();
+        const count = this.getOverlaps(
+          this.activeQuestionIndex,
+          Number(this.sliderValue)
+        );
+
+        return count.toString();
       }
     },
 
@@ -607,18 +744,23 @@ export default {
       if (this.assignmentMode === "TextBox") {
         return "100%";
       } else {
-        return this.flatSquares.filter(s => s.questionIndex === this.activeQuestionIndex && !s.isTemporary).length;
+        return this.flatSquares.filter(
+          (s) => s.questionIndex === this.activeQuestionIndex && !s.isTemporary
+        ).length;
       }
     },
 
     sliderRange() {
-      const rangeValues = Array.from({ length: this.data.length }, (_, i) => i + 1);
+      const rangeValues = Array.from(
+        { length: this.data.length },
+        (_, i) => i + 1
+      );
       return rangeValues[this.sliderValue - 1] || "";
     },
 
     exportingMessage() {
-      const baseMessage = "잠시만 기다려주세요. 데이터를 다운로드 중입니다";
-      const dots = ".".repeat(this.exportingMessageIndex);
+      const baseMessage = "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
+      const dots = ".".repeat((this.exportingMessageIndex % 3) + 1);
       return `${baseMessage}${dots}`;
     },
   },
@@ -667,7 +809,7 @@ export default {
   font-size: 14px;
 }
 
-.completed-status>strong {
+.completed-status > strong {
   color: var(--blue);
   font-size: 20px;
 }
@@ -700,7 +842,7 @@ tr.active {
   background-color: var(--blue);
 }
 
-td>img {
+td > img {
   width: 25px;
 }
 
@@ -711,7 +853,7 @@ td>img {
   margin-right: 46px;
 }
 
-.image-box>img {
+.image-box > img {
   width: 100%;
   margin: auto;
   object-fit: contain;
@@ -724,7 +866,6 @@ td>img {
   background-color: var(--white);
   bottom: 0;
 }
-
 .table-head {
   top: 0;
 }
@@ -737,22 +878,19 @@ td>img {
   background-color: var(--pink);
 }
 
-tfoot>tr>th {
+tfoot > tr > th {
   border: 0;
 }
 
 .fa-robot.active {
   color: var(--blue);
 }
-
 .fa-robot:hover {
   cursor: pointer;
 }
-
 .fa-robot.active:hover {
   color: var(--blue-hover);
 }
-
 .fa-robot:active {
   color: var(--blue-active);
 }
