@@ -209,45 +209,25 @@ export default {
       }
     },
 
-    isSquareBasedOnOriginalImage(square, originalWidth, originalHeight) {
-      // square의 좌표가 원본 이미지 크기를 벗어나지 않는지 확인
-      return square.x <= originalWidth && square.y <= originalHeight;
-    },
-
-
-    convertToCanvasCoordinates(square, canvas, originalWidth, originalHeight) {
-      const scaleX = canvas.width / originalWidth;
-      const scaleY = canvas.height / originalHeight;
-
-      return {
-        ...square,
-        x: square.x * scaleX,
-        y: square.y * scaleY,
-        width: (square.width || 25) * scaleX,
-        height: (square.height || 25) * scaleY
-      };
-    },
-
     async adjustAiSquares() {
-      const adjustments = await Promise.all(this.userSquaresList.map(async (user) => {
-        const adjustedSquares = await Promise.all(user.squares.map(async (square) => {
-          const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
-          const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
+      const adjustSquare = async (square, beforeCanvas, questionImage) => {
+        const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(questionImage);
+        const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
+          square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
+        );
+        return { ...square, x: adjustedX, y: adjustedY };
+      };
 
-          if (square.isAI) {
-            // AI 생성 square: 원본 이미지 크기에서 canvas 크기로 변환
-            return this.convertToCanvasCoordinates(square, user.beforeCanvas, originalWidth, originalHeight);
-          } else {
-            // 사용자 생성 square: canvas 크기에서 원본 이미지 크기로 변환 후 다시 canvas 크기로
-            const originalCoords = this.convertToOriginalImageCoordinates(square, user.beforeCanvas, originalWidth, originalHeight);
-            return this.convertToCanvasCoordinates(originalCoords, user.beforeCanvas, originalWidth, originalHeight);
-          }
-        }));
+      const adjustments = this.userSquaresList.flatMap(user =>
+        user.squares
+          .filter(square => square.isAI)
+          .map(square => {
+            const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
+            return adjustSquare(square, user.beforeCanvas, question.questionImage);
+          })
+      );
 
-        return { ...user, squares: adjustedSquares };
-      }));
-
-      this.userSquaresList = adjustments;
+      await Promise.all(adjustments);
     },
 
     handleKeyDown(event) {
@@ -392,16 +372,12 @@ export default {
       });
     },
 
-    convertToOriginalImageCoordinates(square, canvas, originalWidth, originalHeight) {
-      const scaleX = originalWidth / canvas.width;
-      const scaleY = originalHeight / canvas.height;
-
+    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
+      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
+      const scaleRatio = 1 / currentPosition.scale;
       return {
-        ...square,
-        x: square.x * scaleX,
-        y: square.y * scaleY,
-        width: (square.width || 25) * scaleX,
-        height: (square.height || 25) * scaleY
+        x: (x - currentPosition.x) * scaleRatio,
+        y: (y - currentPosition.y) * scaleRatio
       };
     },
 
