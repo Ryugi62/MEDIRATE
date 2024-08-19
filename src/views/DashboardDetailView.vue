@@ -94,8 +94,7 @@
               ? 'ImageComponent'
               : 'BBoxViewerComponent'
               " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []
-                " />
+              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
           </div>
         </div>
       </div>
@@ -188,7 +187,7 @@ export default {
           {
             headers: {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            }
+            },
           }
         );
         this.assignmentTitle = data.FileName;
@@ -211,36 +210,16 @@ export default {
       }
     },
 
-    async loadAiData() {
-      try {
-        const { data } = await this.$axios.get(
-          `/api/assignments/${this.assignmentId}/ai/`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
-        this.aiData = data.map((ai) => ({
-          ...ai,
-          x: ai.x + 12.5,
-          y: ai.y + 12.5,
-        }));
-      } catch (error) {
-        console.error("Failed to load AI data:", error);
-      }
-    },
-
     adjustAiSquaresToBeforeCanvas() {
       this.userSquaresList.forEach((user) => {
         user.squares = user.squares.map((square) => {
           if (square.isAI) {
-            // AI 좌표가 원본 questionImage 크기에 맞춰져 있을 경우, 이를 beforeCanvas 크기에 맞게 변환
+            // AI square의 좌표를 user.beforeCanvas 기준으로 변환
             const { x, y } = this.convertToBeforeCanvasCoordinates(
               square.x,
               square.y,
-              square.originalImageWidth,  // square가 참조하고 있는 원본 이미지의 width
-              square.originalImageHeight, // square가 참조하고 있는 원본 이미지의 height
+              square.originalImageWidth,  // AI square가 참조하는 원본 이미지의 width
+              square.originalImageHeight, // AI square가 참조하는 원본 이미지의 height
               user.beforeCanvas.width,
               user.beforeCanvas.height
             );
@@ -265,6 +244,28 @@ export default {
       const adjustedY = y * scaleY;
 
       return { x: adjustedX, y: adjustedY };
+    },
+
+
+
+    async loadAiData() {
+      try {
+        const { data } = await this.$axios.get(
+          `/api/assignments/${this.assignmentId}/ai/`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        this.aiData = data.map((ai) => ({
+          ...ai,
+          x: ai.x + 12.5,
+          y: ai.y + 12.5,
+        }));
+      } catch (error) {
+        console.error("Failed to load AI data:", error);
+      }
     },
 
     handleKeyDown(event) {
