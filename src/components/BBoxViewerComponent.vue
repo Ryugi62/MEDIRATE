@@ -87,24 +87,9 @@ export default {
         );
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
-        const aiSquares = user.squares.filter((square) => square.isAI);
-
-        for (const square of aiSquares) {
-          const currentPosition = this.calculateImagePosition(
-            user.beforeCanvas.width,
-            user.beforeCanvas.height
-          );
-
-          const scaleRatio = 1 / currentPosition.scale;
-
-          const adjustedX = (square.x - currentPosition.x) * scaleRatio;
-          const adjustedY = (square.y - currentPosition.y) * scaleRatio;
-
-          square.x = (adjustedX != square.x) ? adjustedX : square.x;
-          square.y = (adjustedY != square.y) ? adjustedY : square.y;
-        }
-
-        for (const square of user.squares) {
+        const tempUserSquares = JSON.parse(JSON.stringify(user.squares));
+        
+        for (const square of tempUserSquares) {
           square.color = user.color;
           square.x =
             (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
@@ -114,15 +99,18 @@ export default {
         }
       }
 
-      const {
-        x: imgX,
-        y: imgY,
-        scale,
-      } = this.calculateImagePosition(width, height);
+      // AI squares 처리
+      const userBeforePosition = this.calculateImagePosition(
+        this.userSquaresList[0].beforeCanvas.width,
+        this.userSquaresList[0].beforeCanvas.height
+      );
+      const canvasPosition = this.calculateImagePosition(width, height);
+      const scaleRatio = canvasPosition.scale / userBeforePosition.scale;
+
       this.aiSquares = this.aiData.map((square) => ({
-        x: square.x * scale + imgX,
-        y: square.y * scale + imgY,
-        questionIndex: square.questionIndex, // 원본 questionIndex 유지
+        x: (square.x * userBeforePosition.scale + userBeforePosition.x - canvasPosition.x) / scaleRatio + canvasPosition.x,
+        y: (square.y * userBeforePosition.scale + userBeforePosition.y - canvasPosition.y) / scaleRatio + canvasPosition.y,
+        questionIndex: square.questionIndex,
         isAI: true,
         color: "#FFFF00", // Yellow color for AI squares
       }));
@@ -130,6 +118,7 @@ export default {
       this.originalLocalSquares = [...this.localSquares];
       this.updateSquares([...this.localSquares]);
     },
+
 
     async filterSquares() {
       this.localSquares = [...this.originalLocalSquares];
