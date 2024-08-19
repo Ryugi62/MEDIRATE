@@ -193,7 +193,6 @@ export default {
 
         console.log(data);
 
-
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -228,14 +227,13 @@ export default {
             );
           });
 
-          return { ...square, x: adjustedX, y: adjustedY, wasConverted };
+          return {
+            beforeCanvas: person.beforeCanvas,
+            squares: processedSquares,
+            color
+          };
         }));
 
-        return {
-          beforeCanvas: person.beforeCanvas,
-          squares: processedSquares,
-          color
-        };
       } catch (error) {
         console.error("Failed to load data:", error);
       }
