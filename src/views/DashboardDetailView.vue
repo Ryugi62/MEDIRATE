@@ -94,7 +94,8 @@
               ? 'ImageComponent'
               : 'BBoxViewerComponent'
               " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
+              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []
+                " />
           </div>
         </div>
       </div>
@@ -182,11 +183,14 @@ export default {
   methods: {
     async loadData() {
       try {
-        const { data } = await this.$axios.get(`/api/dashboard/${this.assignmentId}`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        });
+        const { data } = await this.$axios.get(
+          `/api/dashboard/${this.assignmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            }
+          }
+        );
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
@@ -194,40 +198,17 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
         this.flatSquares = this.data.map((person) => person.squares).flat();
-
-        const originalImageDimensions = await this.getImageDimensions(this.activeImageUrl);
-
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
-          squares: person.squares.map((square) =>
-            this.convertToCanvasCoordinates(square, person.beforeCanvas, originalImageDimensions)
-          ),
+          squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
+
+        // AI square 좌표를 모든 유저의 beforeCanvas 기준으로 변환
+        this.adjustAiSquaresToBeforeCanvas();
       } catch (error) {
         console.error("Failed to load data:", error);
       }
-    },
-
-    convertToCanvasCoordinates(square, beforeCanvas, originalImage) {
-      const scaleX = beforeCanvas.width / originalImage.width;
-      const scaleY = beforeCanvas.height / originalImage.height;
-
-      return {
-        ...square,
-        x: square.x * scaleX,
-        y: square.y * scaleY,
-      };
-    },
-
-
-    async getImageDimensions(imageUrl) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
     },
 
     async loadAiData() {
@@ -248,6 +229,42 @@ export default {
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
+    },
+
+    adjustAiSquaresToBeforeCanvas() {
+      this.userSquaresList.forEach((user) => {
+        user.squares = user.squares.map((square) => {
+          if (square.isAI) {
+            // AI 좌표가 원본 questionImage 크기에 맞춰져 있을 경우, 이를 beforeCanvas 크기에 맞게 변환
+            const { x, y } = this.convertToBeforeCanvasCoordinates(
+              square.x,
+              square.y,
+              square.originalImageWidth,  // square가 참조하고 있는 원본 이미지의 width
+              square.originalImageHeight, // square가 참조하고 있는 원본 이미지의 height
+              user.beforeCanvas.width,
+              user.beforeCanvas.height
+            );
+            return {
+              ...square,
+              x,
+              y,
+            };
+          } else {
+            // 이미 beforeCanvas 기준으로 되어 있는 경우 그대로 반환
+            return square;
+          }
+        });
+      });
+    },
+
+    convertToBeforeCanvasCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight) {
+      const scaleX = canvasWidth / originalWidth;
+      const scaleY = canvasHeight / originalHeight;
+
+      const adjustedX = x * scaleX;
+      const adjustedY = y * scaleY;
+
+      return { x: adjustedX, y: adjustedY };
     },
 
     handleKeyDown(event) {
@@ -497,6 +514,15 @@ export default {
             };
           })
       );
+    },
+
+    async getImageDimensions(imageUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
     },
 
     convertToOriginalImageCoordinates(
