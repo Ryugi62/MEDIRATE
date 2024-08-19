@@ -196,47 +196,53 @@ export default {
         this.originalData = JSON.parse(JSON.stringify(data.assignment));
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
-        this.flatSquares = this.data.map((person) => person.squares).flat();
-        this.userSquaresList = this.data.map((person, index) => ({
-          beforeCanvas: person.beforeCanvas,
-          squares: person.squares,
-          color: this.colorList[index % this.colorList.length].backgroundColor,
-        }));
 
-        // 각 사용자의 AI 생성 바운딩 박스에 대해 좌표 변환을 수행합니다.
-        for (const user of this.userSquaresList) {
-          for (const square of user.squares) {
-            if (!square.isAI) continue;
+        // 성능 최적화: flatSquares를 한 번만 계산
+        this.flatSquares = this.data.reduce((acc, person) => acc.concat(person.squares), []);
 
-            const src = this.data[0].questions.find(
-              (question) => question.questionId === square.questionIndex
-            ).questionImage;
+        // userSquaresList 생성 및 좌표 변환을 동시에 수행
+        this.userSquaresList = await Promise.all(this.data.map(async (person, index) => {
+          const color = this.colorList[index % this.colorList.length].backgroundColor;
+          const { width: canvasWidth, height: canvasHeight } = person.beforeCanvas;
 
-            const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(src);
+          // 각 질문에 대한 이미지 크기를 한 번만 계산
+          const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
+            const { width, height } = await this.getImageDimensions(question.questionImage);
+            return { questionId: question.questionId, width, height };
+          }));
 
-            // 원본 이미지 좌표를 캔버스 좌표로 변환
-            const { x: canvasX, y: canvasY } = this.convertToCanvasCoordinates(
+          // 각 square에 대해 좌표 변환 수행
+          const processedSquares = person.squares.map(square => {
+            if (!square.isAI) return square;
+
+            const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
+            if (!imageSize) return square;
+
+            const { x: canvasX, y: canvasY } = this.convertCoordinates(
               square.x,
               square.y,
-              originalWidth,
-              originalHeight,
-              user.beforeCanvas.width,
-              user.beforeCanvas.height
+              imageSize.width,
+              imageSize.height,
+              canvasWidth,
+              canvasHeight,
+              square.isAI
             );
 
-            // 변환된 좌표가 원래 좌표와 크게 다른 경우에만 업데이트
-            if (Math.abs(square.x - canvasX) > 1 || Math.abs(square.y - canvasY) > 1) {
-              square.x = canvasX;
-              square.y = canvasY;
-            }
-          }
-        }
+            return { ...square, x: canvasX, y: canvasY };
+          });
+
+          return {
+            beforeCanvas: person.beforeCanvas,
+            squares: processedSquares,
+            color
+          };
+        }));
+
       } catch (error) {
         console.error("Failed to load data:", error);
       }
     },
 
-    // 이미지 크기를 가져오는 메서드
     getImageDimensions(src) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -244,6 +250,23 @@ export default {
         img.onerror = reject;
         img.src = src;
       });
+    },
+
+    convertCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight, isAI) {
+      if (isAI) {
+        // AI 생성 박스의 경우 원본 이미지 좌표를 캔버스 좌표로 변환
+        const scaleX = canvasWidth / originalWidth;
+        const scaleY = canvasHeight / originalHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        const canvasX = (x * scale) + (canvasWidth - originalWidth * scale) / 2;
+        const canvasY = (y * scale) + (canvasHeight - originalHeight * scale) / 2;
+
+        return { x: canvasX, y: canvasY };
+      } else {
+        // 사용자 생성 박스의 경우 좌표를 그대로 반환
+        return { x, y };
+      }
     },
 
     // 원본 이미지 좌표를 캔버스 좌표로 변환하는 메서드
