@@ -212,7 +212,6 @@ export default {
           const processedSquares = person.squares.map(square => {
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
 
-            console.log(`imageSize: ${imageSize}`);
 
             if (!imageSize) return square;
 
@@ -225,7 +224,6 @@ export default {
               canvasHeight
             );
 
-            console.log(`adjustedX: ${adjustedX}, adjustedY: ${adjustedY}, wasConverted: ${wasConverted}`);
 
             return { ...square, x: adjustedX, y: adjustedY, wasConverted };
           });
@@ -237,7 +235,6 @@ export default {
           };
         }));
 
-        console.log("userSquaresList:", JSON.stringify(this.userSquaresList, null, 2));
 
       } catch (error) {
         console.error("Failed to load data:", error);
@@ -246,6 +243,9 @@ export default {
 
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
       if (!square.isAI) return { ...square, wasConverted: false };
+
+      console.log(JSON.stringify(square));
+
 
       // 1. 좌표의 범위 확인
       const isWithinCanvas = square.x <= canvasWidth && square.y <= canvasHeight;
@@ -258,9 +258,6 @@ export default {
       // 3. 좌표의 스케일 확인
       const imageScale = square.width / imageWidth;
       const canvasScale = square.width / canvasWidth;
-
-      console.log(`isWithinCanvas: ${isWithinCanvas}, squareRatio: ${squareRatio}, imageRatio: ${imageRatio}, canvasRatio: ${canvasRatio}, imageScale: ${imageScale}, canvasScale: ${canvasScale}`);
-
 
       // imageSize를 기반으로 만들어진 것으로 판단되는 경우
       if (isWithinCanvas && Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) && Math.abs(imageScale - 1) < Math.abs(canvasScale - 1)) {
