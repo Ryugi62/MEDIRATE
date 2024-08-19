@@ -215,57 +215,39 @@ export default {
     },
 
 
-    convertToCanvasCoordinates(square, beforeCanvas, originalWidth, originalHeight) {
-      const scaleX = beforeCanvas.width / originalWidth;
-      const scaleY = beforeCanvas.height / originalHeight;
+    convertToCanvasCoordinates(square, canvas, originalWidth, originalHeight) {
+      const scaleX = canvas.width / originalWidth;
+      const scaleY = canvas.height / originalHeight;
 
       return {
         ...square,
         x: square.x * scaleX,
         y: square.y * scaleY,
-        width: square.width * scaleX,
-        height: square.height * scaleY
+        width: (square.width || 25) * scaleX,
+        height: (square.height || 25) * scaleY
       };
     },
 
     async adjustAiSquares() {
-      const adjustSquare = async (square, beforeCanvas, questionImage) => {
-        const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(questionImage);
-
-        if (square.isAI) {
-          // AI square인 경우
-          if (this.isSquareBasedOnOriginalImage(square, originalWidth, originalHeight)) {
-            // 원본 이미지 크기 기반으로 생성된 경우, beforeCanvas 크기로 조정
-            return this.convertToCanvasCoordinates(square, beforeCanvas, originalWidth, originalHeight);
-          } else {
-            // 이미 beforeCanvas 크기에 맞춰져 있는 경우, 그대로 반환
-            return square;
-          }
-        } else {
-          // 사용자 생성 square의 경우, 기존 로직 유지
-          const { x: adjustedX, y: adjustedY } = this.convertToOriginalImageCoordinates(
-            square.x, square.y, beforeCanvas.width, beforeCanvas.height, originalWidth, originalHeight
-          );
-          return { ...square, x: adjustedX, y: adjustedY };
-        }
-      };
-
-      const adjustments = this.userSquaresList.flatMap(user =>
-        user.squares.map(square => {
+      const adjustments = await Promise.all(this.userSquaresList.map(async (user) => {
+        const adjustedSquares = await Promise.all(user.squares.map(async (square) => {
           const question = this.data[0].questions.find(q => q.questionId === square.questionIndex);
-          return adjustSquare(square, user.beforeCanvas, question.questionImage);
-        })
-      );
+          const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
 
-      await Promise.all(adjustments);
+          if (square.isAI) {
+            // AI 생성 square: 원본 이미지 크기에서 canvas 크기로 변환
+            return this.convertToCanvasCoordinates(square, user.beforeCanvas, originalWidth, originalHeight);
+          } else {
+            // 사용자 생성 square: canvas 크기에서 원본 이미지 크기로 변환 후 다시 canvas 크기로
+            const originalCoords = this.convertToOriginalImageCoordinates(square, user.beforeCanvas, originalWidth, originalHeight);
+            return this.convertToCanvasCoordinates(originalCoords, user.beforeCanvas, originalWidth, originalHeight);
+          }
+        }));
 
-      // 조정된 square들로 userSquaresList 업데이트
-      this.userSquaresList.forEach((user, index) => {
-        user.squares = adjustments.slice(
-          index * user.squares.length,
-          (index + 1) * user.squares.length
-        );
-      });
+        return { ...user, squares: adjustedSquares };
+      }));
+
+      this.userSquaresList = adjustments;
     },
 
     handleKeyDown(event) {
@@ -410,12 +392,16 @@ export default {
       });
     },
 
-    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight, originalWidth, originalHeight) {
-      const currentPosition = this.calculateImagePosition(canvasWidth, canvasHeight, originalWidth, originalHeight);
-      const scaleRatio = 1 / currentPosition.scale;
+    convertToOriginalImageCoordinates(square, canvas, originalWidth, originalHeight) {
+      const scaleX = originalWidth / canvas.width;
+      const scaleY = originalHeight / canvas.height;
+
       return {
-        x: (x - currentPosition.x) * scaleRatio,
-        y: (y - currentPosition.y) * scaleRatio
+        ...square,
+        x: square.x * scaleX,
+        y: square.y * scaleY,
+        width: (square.width || 25) * scaleX,
+        height: (square.height || 25) * scaleY
       };
     },
 
