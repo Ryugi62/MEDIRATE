@@ -1,8 +1,12 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__body">
-      <canvas ref="canvas" @mousemove="handleCanvasMouseMove" @resize="resizeCanvas"
-        @mouseleave="redrawSquares"></canvas>
+      <canvas
+        ref="canvas"
+        @mousemove="handleCanvasMouseMove"
+        @resize="resizeCanvas"
+        @mouseleave="redrawSquares"
+      ></canvas>
     </div>
     <div class="bbox-component__footer">
       <strong>{{ getFileNameFromSrc() }}</strong>
@@ -38,7 +42,7 @@ export default {
     updateSquares: {
       type: Function,
       required: true,
-      default: () => { },
+      default: () => {},
     },
     aiData: {
       type: Array,

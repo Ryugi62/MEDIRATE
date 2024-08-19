@@ -9,9 +9,20 @@
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
           <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <i class="fa-solid fa-robot" :class="{ active: isAiMode }" @click="isAiMode = !isAiMode"></i>
+            <i
+              class="fa-solid fa-robot"
+              :class="{ active: isAiMode }"
+              @click="isAiMode = !isAiMode"
+            ></i>
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
-            <input type="range" min="1" :max="data.length" class="slider" id="slider" v-model="sliderValue" />
+            <input
+              type="range"
+              min="1"
+              :max="data.length"
+              class="slider"
+              id="slider"
+              v-model="sliderValue"
+            />
           </div>
           <span class="completed-status">
             <strong>{{ completionPercentage }}</strong>
@@ -29,20 +40,30 @@
               <thead class="table-head">
                 <tr>
                   <th>이미지</th>
-                  <th v-for="(person, index) in data" :key="person.name" :style="getStyleForPerson(index)">
+                  <th
+                    v-for="(person, index) in data"
+                    :key="person.name"
+                    :style="getStyleForPerson(index)"
+                  >
                     {{ person.name }}
                   </th>
                   <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="index in [null, ...Array(data.length - 1).keys()]"
-                      :key="index === null ? 'none' : index">
-                      {{ index === null ? "전체 갯수" : `${index + 2}인 일치` }}
+                    <th
+                      v-for="index in [null, ...Array(data.length - 1).keys()]"
+                      :key="index === null ? 'none' : index"
+                    >
+                      {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
                     </th>
                   </template>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in data[0].questions" :key="index" :class="{ active: index === activeIndex }"
-                  @click="setActiveImage(item.questionImage, index)">
+                <tr
+                  v-for="(item, index) in data[0].questions"
+                  :key="index"
+                  :class="{ active: index === activeIndex }"
+                  @click="setActiveImage(item.questionImage, index)"
+                >
                   <td>
                     <img :src="item.questionImage" alt="과제 이야기 이미지" />
                   </td>
@@ -57,7 +78,10 @@
                   </td>
                   <template v-if="assignmentMode === 'BBox'">
                     <td>{{ getTotalBboxes(item.questionId) }}</td>
-                    <td v-for="overlapCount in Array(data.length - 1).keys()" :key="overlapCount">
+                    <td
+                      v-for="overlapCount in Array(data.length - 1).keys()"
+                      :key="overlapCount"
+                    >
                       {{ getOverlaps(item.questionId, overlapCount + 2) }}
                     </td>
                   </template>
@@ -90,11 +114,19 @@
             </table>
           </div>
           <div class="image-box">
-            <component v-if="dataLoaded" :is="assignmentMode === 'TextBox'
-              ? 'ImageComponent'
-              : 'BBoxViewerComponent'
-              " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
+            <component
+              :is="
+                assignmentMode === 'TextBox'
+                  ? 'ImageComponent'
+                  : 'BBoxViewerComponent'
+              "
+              :src="activeImageUrl"
+              :questionIndex="activeQuestionIndex"
+              :userSquaresList="userSquaresList"
+              :sliderValue="Number(sliderValue)"
+              :updateSquares="updateSquares"
+              :aiData="isAiMode ? aiData : []"
+            />
           </div>
         </div>
       </div>
@@ -122,7 +154,6 @@ export default {
   data() {
     return {
       data: [],
-      dataLoaded: false,
       originalData: [],
       activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
@@ -191,139 +222,21 @@ export default {
             },
           }
         );
-
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.originalData = JSON.parse(JSON.stringify(data.assignment));
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
-
-        const imageSizes = await Promise.all(this.data[0].questions.map(async (question) => {
-          const { width, height } = await this.getImageDimensions(question.questionImage);
-          return { questionId: question.questionId, width, height };
+        this.flatSquares = this.data.map((person) => person.squares).flat();
+        this.userSquaresList = this.data.map((person, index) => ({
+          beforeCanvas: person.beforeCanvas,
+          squares: person.squares,
+          color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
-
-        this.userSquaresList = await Promise.all(this.data.map((person, index) => {
-          const color = this.colorList[index % this.colorList.length].backgroundColor;
-          const { width: canvasWidth, height: canvasHeight } = person.beforeCanvas;
-
-          const processedSquares = person.squares.map(square => {
-            const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
-
-            return this.detectAndConvertCoordinates(square, imageSize.width, imageSize.height, canvasWidth, canvasHeight);
-          });
-
-          return {
-            beforeCanvas: person.beforeCanvas,
-            squares: processedSquares,
-            color
-          };
-        }));
-
-        this.dataLoaded = true;
       } catch (error) {
         console.error("Failed to load data:", error);
       }
-
-      console.log(`this.userSquaresList:`, this.userSquaresList);
-    },
-
-    detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
-      if (!square.isAI) return { ...square, wasConverted: false };
-
-      if (this.isDebugMode) {
-        console.log(`Input square:`, JSON.stringify(square));
-        console.log(`Image dimensions: ${imageWidth}x${imageHeight}, Canvas dimensions: ${canvasWidth}x${canvasHeight}`);
-      }
-
-      try {
-        const isWithinCanvas = this.checkWithinCanvas(square, canvasWidth, canvasHeight);
-        const { squareRatio, imageRatio, canvasRatio } = this.calculateRatios(square, imageWidth, imageHeight, canvasWidth, canvasHeight);
-        const { imageScale, canvasScale } = this.calculateScales(square, imageWidth, canvasWidth);
-
-        if (this.isDebugMode) {
-          console.log(`isWithinCanvas: ${isWithinCanvas}, squareRatio: ${squareRatio}, imageRatio: ${imageRatio}, canvasRatio: ${canvasRatio}, imageScale: ${imageScale}, canvasScale: ${canvasScale}`);
-        }
-
-        if (this.shouldConvertCoordinates(isWithinCanvas, squareRatio, imageRatio, canvasRatio, imageScale, canvasScale)) {
-          const convertedCoordinates = this.convertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight);
-          if (this.isDebugMode) {
-            console.log(`Converted coordinates:`, JSON.stringify(convertedCoordinates));
-          }
-          return convertedCoordinates;
-        }
-
-        return { ...square, wasConverted: false };
-      } catch (error) {
-        console.error('Error in detectAndConvertCoordinates:', error);
-        return { ...square, wasConverted: false, error: error.message };
-      }
-    },
-
-    checkWithinCanvas(square, canvasWidth, canvasHeight) {
-      return square.x <= canvasWidth && square.y <= canvasHeight;
-    },
-
-    calculateRatios(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
-      const squareRatio = (square.height && square.width) ? square.width / square.height : 1;
-      const imageRatio = imageHeight ? imageWidth / imageHeight : 1;
-      const canvasRatio = canvasHeight ? canvasWidth / canvasHeight : 1;
-      return { squareRatio, imageRatio, canvasRatio };
-    },
-
-    calculateScales(square, imageWidth, canvasWidth) {
-      const imageScale = (square.width && imageWidth) ? square.width / imageWidth : 1;
-      const canvasScale = (square.width && canvasWidth) ? square.width / canvasWidth : 1;
-      return { imageScale, canvasScale };
-    },
-
-    shouldConvertCoordinates(isWithinCanvas, squareRatio, imageRatio, canvasRatio, imageScale, canvasScale) {
-      return isWithinCanvas &&
-        Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) &&
-        Math.abs(imageScale - 1) < Math.abs(canvasScale - 1);
-    },
-
-    convertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
-      const scaleX = canvasWidth / imageWidth;
-      const scaleY = canvasHeight / imageHeight;
-      const scale = Math.min(scaleX, scaleY);
-
-      const adjustedX = (square.x * scale) + (canvasWidth - imageWidth * scale) / 2;
-      const adjustedY = (square.y * scale) + (canvasHeight - imageHeight * scale) / 2;
-      const adjustedWidth = (square.width || 25) * scale;
-      const adjustedHeight = (square.height || 25) * scale;
-
-      return {
-        ...square,
-        x: adjustedX,
-        y: adjustedY,
-        width: adjustedWidth,
-        height: adjustedHeight,
-        wasConverted: true
-      };
-    },
-
-    getImageDimensions(src) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = reject;
-        img.src = src;
-      });
-    },
-
-
-    // 원본 이미지 좌표를 캔버스 좌표로 변환하는 메서드
-    convertToCanvasCoordinates(x, y, originalWidth, originalHeight, canvasWidth, canvasHeight) {
-      const scaleX = canvasWidth / originalWidth;
-      const scaleY = canvasHeight / originalHeight;
-      const scale = Math.min(scaleX, scaleY);
-
-      const canvasX = (x * scale) + (canvasWidth - originalWidth * scale) / 2;
-      const canvasY = (y * scale) + (canvasHeight - originalHeight * scale) / 2;
-
-      return { x: canvasX, y: canvasY };
     },
 
     async loadAiData() {
@@ -595,6 +508,15 @@ export default {
       );
     },
 
+    async getImageDimensions(imageUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+    },
+
     convertToOriginalImageCoordinates(
       x,
       y,
@@ -720,11 +642,11 @@ export default {
             annotation: overlapGroups.map((group) => {
               const x = Math.round(
                 group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
-                12.5
+                  12.5
               );
               const y = Math.round(
                 group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
-                12.5
+                  12.5
               );
 
               return [x, y, 25, 25];
@@ -887,7 +809,7 @@ export default {
   font-size: 14px;
 }
 
-.completed-status>strong {
+.completed-status > strong {
   color: var(--blue);
   font-size: 20px;
 }
@@ -920,7 +842,7 @@ tr.active {
   background-color: var(--blue);
 }
 
-td>img {
+td > img {
   width: 25px;
 }
 
@@ -931,7 +853,7 @@ td>img {
   margin-right: 46px;
 }
 
-.image-box>img {
+.image-box > img {
   width: 100%;
   margin: auto;
   object-fit: contain;
@@ -944,7 +866,6 @@ td>img {
   background-color: var(--white);
   bottom: 0;
 }
-
 .table-head {
   top: 0;
 }
@@ -957,22 +878,19 @@ td>img {
   background-color: var(--pink);
 }
 
-tfoot>tr>th {
+tfoot > tr > th {
   border: 0;
 }
 
 .fa-robot.active {
   color: var(--blue);
 }
-
 .fa-robot:hover {
   cursor: pointer;
 }
-
 .fa-robot.active:hover {
   color: var(--blue-hover);
 }
-
 .fa-robot:active {
   color: var(--blue-active);
 }
