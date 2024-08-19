@@ -237,6 +237,8 @@ export default {
           };
         }));
 
+        console.log("userSquaresList:", JSON.stringify(this.userSquaresList, null, 2));
+
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -263,7 +265,7 @@ export default {
       // imageSize를 기반으로 만들어진 것으로 판단되는 경우
       if (isWithinCanvas && Math.abs(squareRatio - imageRatio) < Math.abs(squareRatio - canvasRatio) && Math.abs(imageScale - 1) < Math.abs(canvasScale - 1)) {
         console.log("imageSize 기반 좌표로 판단");
-        
+
         // imageSize 기반 좌표를 userBeforeCanvas 기반으로 변환
         const scaleX = canvasWidth / imageWidth;
         const scaleY = canvasHeight / imageHeight;
