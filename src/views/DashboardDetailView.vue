@@ -90,7 +90,7 @@
             </table>
           </div>
           <div class="image-box">
-            <component :is="assignmentMode === 'TextBox'
+            <component v-if="dataLoaded" :is="assignmentMode === 'TextBox'
               ? 'ImageComponent'
               : 'BBoxViewerComponent'
               " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
@@ -122,6 +122,7 @@ export default {
   data() {
     return {
       data: [],
+      dataLoaded: false,
       originalData: [],
       activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
@@ -209,6 +210,7 @@ export default {
 
           const processedSquares = person.squares.map(square => {
             const imageSize = imageSizes.find(size => size.questionId === square.questionIndex);
+
             return this.detectAndConvertCoordinates(square, imageSize.width, imageSize.height, canvasWidth, canvasHeight);
           });
 
@@ -219,11 +221,12 @@ export default {
           };
         }));
 
-        console.log("userSquaresList:", this.userSquaresList);
-
+        this.dataLoaded = true;
       } catch (error) {
         console.error("Failed to load data:", error);
       }
+
+      console.log(`this.userSquaresList:`, this.userSquaresList);
     },
 
     detectAndConvertCoordinates(square, imageWidth, imageHeight, canvasWidth, canvasHeight) {
