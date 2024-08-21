@@ -91,8 +91,8 @@
           </div>
           <div class="image-box">
             <component :is="assignmentMode === 'TextBox'
-              ? 'ImageComponent'
-              : 'BBoxViewerComponent'
+                ? 'ImageComponent'
+                : 'BBoxViewerComponent'
               " :src="activeImageUrl" :questionIndex="activeQuestionIndex" :userSquaresList="userSquaresList"
               :sliderValue="Number(sliderValue)" :updateSquares="updateSquares" :aiData="isAiMode ? aiData : []" />
           </div>
@@ -202,23 +202,6 @@ export default {
           squares: person.squares,
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
-
-        this.userSquaresList.forEach((user) => {
-          user.squares.forEach((square) => {
-            if (square.isAI) {
-              const question = user.questions.find((question) => question.questionId === square.questionIndex);
-              if (question) {
-                const image = question.questionImage;
-                const imageWidth = image.width;
-                const imageHeight = image.height;
-                square.x = (square.x / user.beforeCanvas.width) * imageWidth;
-                square.y = (square.y / user.beforeCanvas.height) * imageHeight;
-                square.width = (square.width / user.beforeCanvas.width) * imageWidth;
-                square.height = (square.height / user.beforeCanvas.height) * imageHeight;
-              }
-            }
-          });
-        });
       } catch (error) {
         console.error("Failed to load data:", error);
       }
