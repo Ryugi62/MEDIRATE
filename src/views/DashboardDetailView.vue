@@ -197,32 +197,44 @@ export default {
         this.activeImageUrl = this.data[0].questions[0].questionImage;
         this.activeQuestionIndex = this.data[0].questions[0].questionId;
         this.flatSquares = this.data.map((person) => person.squares).flat();
-        this.userSquaresList = this.data.map((person, index) => ({
-          beforeCanvas: person.beforeCanvas,
-          squares: person.squares,
-          color: this.colorList[index % this.colorList.length].backgroundColor,
-        }));
-
-        this.userSquaresList.forEach((user) => {
-          user.squares.forEach((square) => {
+        this.userSquaresList = await Promise.all(this.data.map(async (person, index) => {
+          const adjustedSquares = await Promise.all(person.squares.map(async (square) => {
             if (square.isAI) {
               const question = square.questionIndex
                 ? this.data[0].questions.find(
-                  (q) => q.questionId === square.questionIndex
-                )
+                    (q) => q.questionId === square.questionIndex
+                  )
                 : null;
               if (question) {
-                const image = question.questionImage;
-                const imageWidth = image.width;
-                const imageHeight = image.height;
-                square.x = (square.x / user.beforeCanvas.width) * imageWidth;
-                square.y = (square.y / user.beforeCanvas.height) * imageHeight;
-                square.width = (square.width / user.beforeCanvas.width) * imageWidth;
-                square.height = (square.height / user.beforeCanvas.height) * imageHeight;
+                const { width: originalWidth, height: originalHeight } = await this.getImageDimensions(question.questionImage);
+                const currentPosition = this.calculateImagePosition(
+                  person.beforeCanvas.width,
+                  person.beforeCanvas.height,
+                  originalWidth,
+                  originalHeight
+                );
+                
+                const adjustedX = (square.x * currentPosition.scale) + currentPosition.x;
+                const adjustedY = (square.y * currentPosition.scale) + currentPosition.y;
+                
+                return {
+                  ...square,
+                  x: adjustedX,
+                  y: adjustedY,
+                  width: square.width * currentPosition.scale,
+                  height: square.height * currentPosition.scale
+                };
               }
             }
-          });
-        });
+            return square;
+          }));
+
+          return {
+            beforeCanvas: person.beforeCanvas,
+            squares: adjustedSquares,
+            color: this.colorList[index % this.colorList.length].backgroundColor,
+          };
+        }));
       } catch (error) {
         console.error("Failed to load data:", error);
       }
