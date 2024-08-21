@@ -206,7 +206,11 @@ export default {
         this.userSquaresList.forEach((user) => {
           user.squares.forEach((square) => {
             if (square.isAI) {
-              const question = user.questions.find((question) => question.questionId === square.questionIndex);
+              const question = square.questionIndex
+                ? this.data[0].questions.find(
+                  (q) => q.questionId === square.questionIndex
+                )
+                : null;
               if (question) {
                 const image = question.questionImage;
                 const imageWidth = image.width;
