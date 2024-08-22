@@ -64,8 +64,6 @@ app.get("/api/assets", listAssetFolders);
 app.get("/api/assets/:foldername", listFilesInFolder);
 app.get("/api/assets/:foldername/:filename", serveFileFromFolder);
 
-const archiver = require("archiver");
-
 // 경로: /api/download-assets
 app.get("/api/download-assets", async (req, res) => {
   try {
