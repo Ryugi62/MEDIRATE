@@ -77,8 +77,6 @@ export default {
       this.localBeforeCanvas = { width, height };
 
       for (const user of this.userSquaresList) {
-        console.log(user);
-
         if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
           user.beforeCanvas.width = img.width;
           user.beforeCanvas.height = img.height;

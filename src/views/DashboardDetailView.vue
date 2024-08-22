@@ -185,6 +185,7 @@ export default {
     try {
       await this.loadData();
       await this.loadAiData();
+      await this.fix_loadData();
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -256,6 +257,87 @@ export default {
         }));
       } catch (error) {
         console.error("Failed to load AI data:", error);
+      }
+    },
+
+    async fix_loadData() {
+      try {
+        let dataChanged = false;
+
+        console.log(this.aiData);
+
+        for (
+          let userIndex = 0;
+          userIndex < this.userSquaresList.length;
+          userIndex++
+        ) {
+          const user = this.userSquaresList[userIndex];
+          const originalUser = this.originalData[userIndex];
+
+          for (let i = 0; i < user.squares.length; i++) {
+            const square = user.squares[i];
+
+            if (square.isAI) {
+              const matchingAiData = this.aiData.find(
+                (ai) =>
+                  ai.questionIndex === square.questionIndex &&
+                  Math.abs(ai.x - square.x) <= 0.9 &&
+                  Math.abs(ai.y - square.y) <= 0.9
+              );
+
+              if (matchingAiData) {
+                const { width: originalWidth, height: originalHeight } =
+                  await this.getImageDimensions(
+                    this.data[0].questions.find(
+                      (q) => q.questionId === square.questionIndex
+                    ).questionImage
+                  );
+
+                const { x: adjustedX, y: adjustedY } =
+                  this.convertToOriginalImageCoordinates(
+                    matchingAiData.x,
+                    matchingAiData.y,
+                    originalWidth,
+                    originalHeight,
+                    user.beforeCanvas.width,
+                    user.beforeCanvas.height
+                  );
+
+                const currentPosition = this.calculateImagePosition(
+                  user.beforeCanvas.width,
+                  user.beforeCanvas.height,
+                  originalWidth,
+                  originalHeight
+                );
+
+                const newX =
+                  (adjustedX - currentPosition.x) / currentPosition.scale;
+                const newY =
+                  (adjustedY - currentPosition.y) / currentPosition.scale;
+
+                if (
+                  Math.abs(square.x - newX) > 0.1 ||
+                  Math.abs(square.y - newY) > 0.1
+                ) {
+                  square.x = newX;
+                  square.y = newY;
+                  originalUser.squares[i].x = newX;
+                  originalUser.squares[i].y = newY;
+                  dataChanged = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (dataChanged) {
+          this.flatSquares = this.data.map((person) => person.squares).flat();
+          console.log("Coordinates have been updated.");
+        } else {
+          console.log("No changes were necessary.");
+        }
+      } catch (error) {
+        console.error("Failed to update data:", error);
       }
     },
 
