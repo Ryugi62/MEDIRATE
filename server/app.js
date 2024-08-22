@@ -6,7 +6,6 @@ const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
 const unzipper = require("unzipper");
-const archiver = require("archiver");
 const fs = require("fs");
 const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
@@ -63,61 +62,6 @@ app.get("/uploads/:filename", serveUploadedFile);
 app.get("/api/assets", listAssetFolders);
 app.get("/api/assets/:foldername", listFilesInFolder);
 app.get("/api/assets/:foldername/:filename", serveFileFromFolder);
-
-// 경로: /api/download-assets
-app.get("/api/download-assets", async (req, res) => {
-  try {
-    const { keyword } = req.query; // 필터링을 위한 키워드
-    const targetDir = path.join(__dirname, "../assets");
-
-    // 폴더 목록 가져오기
-    const folders = fs
-      .readdirSync(targetDir, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory())
-      .map((dirent) => dirent.name)
-      .filter((folderName) => !keyword || folderName.includes(keyword)); // 키워드 필터링
-
-    if (folders.length === 0) {
-      return res.status(404).send("No folders matched the given keyword.");
-    }
-
-    const zipFilename = `assets_${Date.now()}.zip`;
-    const outputPath = path.join(__dirname, "../", zipFilename);
-
-    // 압축 파일 생성
-    const output = fs.createWriteStream(outputPath);
-    const archive = archiver("zip", { zlib: { level: 9 } });
-
-    output.on("close", () => {
-      // 압축이 완료되면 클라이언트에게 파일 제공
-      res.download(outputPath, (err) => {
-        if (err) {
-          console.error("Error while sending the file:", err);
-        } else {
-          // 다운로드 후 압축 파일 삭제
-          fs.unlinkSync(outputPath);
-        }
-      });
-    });
-
-    archive.on("error", (err) => {
-      throw err;
-    });
-
-    archive.pipe(output);
-
-    // 선택된 폴더를 압축에 추가
-    folders.forEach((folderName) => {
-      const folderPath = path.join(targetDir, folderName);
-      archive.directory(folderPath, folderName);
-    });
-
-    await archive.finalize();
-  } catch (error) {
-    console.error("Error creating zip file:", error);
-    res.status(500).send("An error occurred while creating the zip file.");
-  }
-});
 
 // Route for uploading and extracting task data
 app.post("/api/taskdata", upload.single("zipdata"), handleTaskDataUpload);
