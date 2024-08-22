@@ -6,6 +6,7 @@ const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
 const unzipper = require("unzipper");
+const archiver = require("archiver");
 const fs = require("fs");
 const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
