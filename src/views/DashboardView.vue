@@ -11,6 +11,16 @@
       class="dashboard-search-input"
       :class="{ 'search-input-focused': isFocused }"
     >
+      <!-- slider -->
+      <span class="slider-value">{{ sliderValue }}인 일치</span>
+      <input
+        type="range"
+        min="1"
+        max="5"
+        class="slider"
+        :value="sliderValue"
+        @input="changeSliderValue"
+      />
       <div class="search-input-container">
         <i
           class="fa-solid fa-rotate-left reset-button"
@@ -148,6 +158,7 @@ export default {
       searchQuery: "",
       isFocused: false, // 추가
       isExporting: false,
+      sliderValue: 1,
     };
   },
 
@@ -279,6 +290,10 @@ export default {
       this.$router.push({ name: "dashboardDetail", params: { id } });
     },
 
+    changeSliderValue(event) {
+      this.sliderValue = event.target.value;
+    },
+
     searchDashboard() {
       if (this.searchQuery === "") {
         this.resetSearch();
@@ -307,6 +322,7 @@ export default {
           "/api/download/download-searched-assignments",
           {
             data: this.data,
+            sliderValue: this.sliderValue,
           },
           {
             headers: {
@@ -355,6 +371,12 @@ export default {
   height: 100%;
   overflow: hidden;
   margin-right: 22px;
+  gap: 8px;
+}
+
+.slider-value {
+  margin: auto;
+  display: flex;
 }
 
 .search-input-container {
@@ -410,7 +432,6 @@ export default {
 }
 
 .download-button {
-  margin-left: 8px;
   background-color: var(--green);
 }
 

@@ -15,6 +15,7 @@ router.post(
   async (req, res) => {
     try {
       const assignments = req.body.data;
+      const sliderValue = req.body.sliderValue;
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -24,7 +25,6 @@ router.post(
         const aiData = await getAIData(assignmentSummary.id);
 
         const users = assignmentData.assignment;
-        const halfRoundedEvaluatorCount = Math.round(users.length / 2);
 
         const columns = [
           {
@@ -43,8 +43,8 @@ router.post(
         if (assignmentData.assignmentMode === "BBox") {
           columns.push(
             {
-              header: `+${halfRoundedEvaluatorCount}인`,
-              key: `overlap${halfRoundedEvaluatorCount}`,
+              header: `+${sliderValue}인`,
+              key: `overlap${sliderValue}`,
               width: 10,
             },
             {
@@ -53,18 +53,18 @@ router.post(
               width: 10,
             },
             {
-              header: `${halfRoundedEvaluatorCount}일치`,
-              key: `matched${halfRoundedEvaluatorCount}`,
+              header: `${sliderValue}일치`,
+              key: `matched${sliderValue}`,
               width: 10,
             },
             {
               header: `FN`,
-              key: `fn${halfRoundedEvaluatorCount}`,
+              key: `fn${sliderValue}`,
               width: 10,
             },
             {
               header: `FP`,
-              key: `fp${halfRoundedEvaluatorCount}`,
+              key: `fp${sliderValue}`,
               width: 10,
             },
             {
@@ -108,17 +108,16 @@ router.post(
             );
             const overlapGroups = getOverlapsBBoxes(
               adjustedSquares,
-              halfRoundedEvaluatorCount
+              sliderValue
             );
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
 
-            row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+            row[`overlap${sliderValue}`] = overlapCount;
             row["aiCount"] = relevantAiData.length;
-            row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-            row[`fn${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
-            row[`fp${halfRoundedEvaluatorCount}`] =
-              relevantAiData.length - matchedCount;
+            row[`matched${sliderValue}`] = matchedCount;
+            row[`fn${sliderValue}`] = overlapCount - matchedCount;
+            row[`fp${sliderValue}`] = relevantAiData.length - matchedCount;
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
