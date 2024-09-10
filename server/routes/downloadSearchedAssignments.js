@@ -14,8 +14,8 @@ router.post(
   authenticateToken,
   async (req, res) => {
     try {
+      let sliderValue = req.body.sliderValue;
       const assignments = req.body.data;
-      const sliderValue = req.body.sliderValue;
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -25,6 +25,13 @@ router.post(
         const aiData = await getAIData(assignmentSummary.id);
 
         const users = assignmentData.assignment;
+        // const sliderValue = Math.round(users.length / 2);
+
+        const max_slider_value = users.length;
+
+        if (sliderValue > max_slider_value) {
+          sliderValue = max_slider_value;
+        }
 
         const columns = [
           {
