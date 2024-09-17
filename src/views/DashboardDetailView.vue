@@ -1,139 +1,167 @@
 <template>
-  <div v-if="data.length" class="dashboard">
-    <div v-if="isExporting" class="exporting-message">
-      {{ exportingMessage }}
-    </div>
-    <h1 class="title">대시보드</h1>
-    <div class="dashboard-content">
-      <div class="table-box">
-        <div class="table-header">
-          <span class="table-title">{{ assignmentTitle }}</span>
-          <div v-if="assignmentMode === 'BBox'" class="slider-container">
-            <i
-              class="fa-solid fa-robot"
-              :class="{ active: isAiMode }"
-              @click="isAiMode = !isAiMode"
-            ></i>
-            <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
-            <input
-              type="range"
-              min="1"
-              :max="data.length"
-              class="slider"
-              id="slider"
-              v-model="sliderValue"
-            />
+  <div>
+    <div v-if="data.length" class="dashboard">
+      <div v-if="isExporting" class="exporting-message">
+        {{ exportingMessage }}
+      </div>
+      <h1 class="title">대시보드</h1>
+      <div class="dashboard-content">
+        <div class="table-box">
+          <div class="table-header">
+            <span class="table-title">{{ assignmentTitle }}</span>
+            <div v-if="assignmentMode === 'BBox'" class="slider-container">
+              <!-- #인일치 슬라이더 -->
+              <i
+                class="fa-solid fa-robot"
+                :class="{ active: isAiMode }"
+                @click="toggleAiMode"
+              ></i>
+              <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
+              <input
+                type="range"
+                min="1"
+                :max="data.length"
+                class="slider"
+                id="slider"
+                v-model="sliderValue"
+              />
+
+              <!-- Score 슬라이더 추가 -->
+              <div class="slider-container">
+                <span class="slider-label">Score</span>
+                <span class="slider-value">{{ scoreValue }}%</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  class="slider"
+                  v-model="scoreValue"
+                />
+              </div>
+            </div>
+            <span class="completed-status">
+              <strong>{{ completionPercentage }}</strong>
+            </span>
+            <button class="edit-button" @click="moveToAssignmentManagement">
+              과제수정
+            </button>
+            <button class="delete" @click="deleteAssignment">과제삭제</button>
+            <button class="export-button" @click="exportToExcel">
+              내보내기
+            </button>
+            <button @click="exportImage">이미지 다운로드</button>
           </div>
-          <span class="completed-status">
-            <strong>{{ completionPercentage }}</strong>
-          </span>
-          <button class="edit-button" @click="moveToAssignmentManagement">
-            과제수정
-          </button>
-          <button class="delete" @click="deleteAssignment">과제삭제</button>
-          <button class="export-button" @click="exportToExcel">내보내기</button>
-          <button @click="exportImage">이미지 다운로드</button>
-        </div>
-        <div class="table-body">
-          <div class="table-section">
-            <table class="assignment-table">
-              <thead class="table-head">
-                <tr>
-                  <th>이미지</th>
-                  <th
-                    v-for="(person, index) in data"
-                    :key="person.name"
-                    :style="getStyleForPerson(index)"
-                  >
-                    {{ person.name }}
-                  </th>
-                  <template v-if="assignmentMode === 'BBox'">
+          <div class="table-body">
+            <div class="table-section">
+              <table class="assignment-table">
+                <thead class="table-head">
+                  <tr>
+                    <th>이미지</th>
                     <th
-                      v-for="index in [null, ...Array(data.length - 1).keys()]"
-                      :key="index === null ? 'none' : index"
+                      v-for="(person, index) in data"
+                      :key="person.name"
+                      :style="getStyleForPerson(index)"
                     >
-                      {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
+                      {{ person.name }}
                     </th>
-                  </template>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(item, index) in data[0].questions"
-                  :key="index"
-                  :class="{ active: index === activeIndex }"
-                  @click="setActiveImage(item.questionImage, index)"
-                >
-                  <td>
-                    <img :src="item.questionImage" alt="과제 이야기 이미지" />
-                  </td>
-                  <td v-for="person in data" :key="person.name">
-                    {{
-                      assignmentMode === "TextBox"
-                        ? person.questions[index].questionSelection === -1
-                          ? "선택되지 않음"
-                          : person.questions[index].questionSelection
-                        : getValidSquaresCount(person.squares, item.questionId)
-                    }}
-                  </td>
-                  <template v-if="assignmentMode === 'BBox'">
-                    <td>{{ getTotalBboxes(item.questionId) }}</td>
-                    <td
-                      v-for="overlapCount in Array(data.length - 1).keys()"
-                      :key="overlapCount"
-                    >
-                      {{ getOverlaps(item.questionId, overlapCount + 2) }}
+                    <template v-if="assignmentMode === 'BBox'">
+                      <th
+                        v-for="index in [
+                          null,
+                          ...Array(data.length - 1).keys(),
+                        ]"
+                        :key="index === null ? 'none' : index"
+                      >
+                        {{
+                          index === null ? "일치 없음" : `${index + 2}인 일치`
+                        }}
+                      </th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(item, index) in data[0].questions"
+                    :key="index"
+                    :class="{ active: index === activeIndex }"
+                    @click="setActiveImage(item.questionImage, index)"
+                  >
+                    <td>
+                      <img :src="item.questionImage" alt="과제 이야기 이미지" />
                     </td>
-                  </template>
-                </tr>
-              </tbody>
-              <tfoot class="table-footer">
-                <tr>
-                  <th>답변</th>
-                  <th v-for="person in data" :key="person.name">
-                    {{ person.answeredCount }}
-                  </th>
-                  <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="i in data.length" :key="i">
-                      <i class="fa-solid fa-xmark"></i>
+                    <td v-for="person in data" :key="person.name">
+                      {{
+                        assignmentMode === "TextBox"
+                          ? person.questions[index].questionSelection === -1
+                            ? "선택되지 않음"
+                            : person.questions[index].questionSelection
+                          : getValidSquaresCount(
+                              person.squares,
+                              item.questionId
+                            )
+                      }}
+                    </td>
+                    <template v-if="assignmentMode === 'BBox'">
+                      <td>{{ getTotalBboxes(item.questionId) }}</td>
+                      <td
+                        v-for="overlapCount in Array(data.length - 1).keys()"
+                        :key="overlapCount"
+                      >
+                        {{ getOverlaps(item.questionId, overlapCount + 2) }}
+                      </td>
+                    </template>
+                  </tr>
+                </tbody>
+                <tfoot class="table-footer">
+                  <tr>
+                    <th>답변</th>
+                    <th v-for="person in data" :key="person.name">
+                      {{ person.answeredCount }}
                     </th>
-                  </template>
-                </tr>
-                <tr>
-                  <th>미답변</th>
-                  <th v-for="person in data" :key="person.name">
-                    {{ person.unansweredCount }}
-                  </th>
-                  <template v-if="assignmentMode === 'BBox'">
-                    <th v-for="i in data.length" :key="i">
-                      <i class="fa-solid fa-xmark"></i>
+                    <template v-if="assignmentMode === 'BBox'">
+                      <th v-for="i in data.length" :key="i">
+                        <i class="fa-solid fa-xmark"></i>
+                      </th>
+                    </template>
+                  </tr>
+                  <tr>
+                    <th>미답변</th>
+                    <th v-for="person in data" :key="person.name">
+                      {{ person.unansweredCount }}
                     </th>
-                  </template>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="image-box">
-            <component
-              :is="
-                assignmentMode === 'TextBox'
-                  ? 'ImageComponent'
-                  : 'BBoxViewerComponent'
-              "
-              :src="activeImageUrl"
-              :questionIndex="activeQuestionIndex"
-              :userSquaresList="userSquaresList"
-              :sliderValue="Number(sliderValue)"
-              :updateSquares="updateSquares"
-              :aiData="isAiMode ? aiData : []"
-            />
+                    <template v-if="assignmentMode === 'BBox'">
+                      <th v-for="i in data.length" :key="i">
+                        <i class="fa-solid fa-xmark"></i>
+                      </th>
+                    </template>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div class="image-box">
+              <component
+                :is="
+                  assignmentMode === 'TextBox'
+                    ? 'ImageComponent'
+                    : 'BBoxViewerComponent'
+                "
+                :src="activeImageUrl"
+                :questionIndex="activeQuestionIndex"
+                :userSquaresList="userSquaresList"
+                :sliderValue="Number(sliderValue)"
+                :updateSquares="updateSquares"
+                :aiData="isAiMode ? aiData : []"
+                :scoreValue="scoreValue"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-  <div v-else-if="!data.length" class="loading-message">
-    <p>과제를 불러오는 중입니다...</p>
+    <!-- v-if 바로 다음에 v-else-if가 오도록 위치 수정 -->
+    <div v-else-if="!data.length" class="loading-message">
+      <p>과제를 불러오는 중입니다...</p>
+    </div>
   </div>
 </template>
 
@@ -167,6 +195,7 @@ export default {
         { backgroundColor: "#FFA07A", color: "white" },
       ],
       sliderValue: 1,
+      scoreValue: 50, // Score 슬라이더 기본값
       userSquaresList: [],
       tempSquares: [],
       flatSquares: [],
@@ -210,9 +239,16 @@ export default {
     sliderValue() {
       this.updateActiveRowValues();
     },
+    scoreValue() {
+      // 필요 시 추가적인 반응 로직을 여기에 작성
+    },
   },
 
   methods: {
+    toggleAiMode() {
+      this.isAiMode = !this.isAiMode;
+    },
+
     async loadData() {
       try {
         const { data } = await this.$axios.get(
@@ -640,11 +676,11 @@ export default {
       const worksheet = workbook.addWorksheet("Assignment Responses");
       const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
       const columns = [
-        { header: "문제 번호", key: "questionNumber", width: 10 },
+        { header: "문제 번호", key: "questionNumber", width: 20 },
         ...this.data.map((user) => ({
           header: user.name,
           key: user.name,
-          width: 15,
+          width: 20,
         })),
       ];
 
@@ -653,7 +689,7 @@ export default {
           {
             header: `+${halfRoundedEvaluatorCount}인`,
             key: `overlap${halfRoundedEvaluatorCount}`,
-            width: 10,
+            width: 15,
           },
           {
             header: `AI개수`,
@@ -663,7 +699,7 @@ export default {
           {
             header: `${halfRoundedEvaluatorCount}일치`,
             key: `matched${halfRoundedEvaluatorCount}`,
-            width: 10,
+            width: 15,
           },
           {
             header: `FN`,
@@ -705,8 +741,8 @@ export default {
           );
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,
-            halfRoundedEvaluatorCount
-          );
+            Number(this.sliderValue)
+          ); // Score 슬라이더 값 사용
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(
             overlapGroups,
@@ -872,6 +908,8 @@ export default {
 }
 
 .table-body {
+  display: flex;
+  gap: 16px;
   padding-left: 24px;
 }
 
@@ -884,7 +922,17 @@ export default {
 
 .slider-container {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.slider-label {
+  margin-right: 4px;
+}
+
+.slider-value {
+  margin: auto;
+  display: flex;
 }
 
 .completed-status {
@@ -954,14 +1002,68 @@ td > img {
 
 .export-button {
   background-color: var(--green);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.export-button:hover {
+  background-color: var(--green-hover);
 }
 
 .delete {
   background-color: var(--pink);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
-tfoot > tr > th {
-  border: 0;
+.delete:hover {
+  background-color: var(--pink-hover);
+}
+
+.edit-button {
+  background-color: var(--blue);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.edit-button:hover {
+  background-color: var(--blue-hover);
+}
+
+.exporting-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 8px;
+  font-size: 18px;
+  z-index: 1000;
+}
+
+.loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 20px;
+}
+
+.table-head th,
+.table-footer th {
+  position: sticky;
+  background-color: var(--white);
 }
 
 .fa-robot.active {
