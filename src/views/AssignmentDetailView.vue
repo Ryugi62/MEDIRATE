@@ -16,6 +16,34 @@
       </div>
 
       <div class="evaluation-actions">
+        <div class="slider-group">
+          <!-- 기존 #인일치 슬라이더 -->
+          <label for="match-slider">#인일치:</label>
+          <input
+            type="range"
+            id="match-slider"
+            v-model="matchSliderValue"
+            min="1"
+            max="100"
+            step="1"
+          />
+          <span>{{ matchSliderValue }}/100</span>
+        </div>
+
+        <div class="slider-group">
+          <!-- 새로운 Score 슬라이더 -->
+          <label for="score-slider">Score:</label>
+          <input
+            type="range"
+            id="score-slider"
+            v-model="scoreSliderValue"
+            min="1"
+            max="100"
+            step="1"
+          />
+          <span>{{ scoreSliderValue }}/100</span>
+        </div>
+
         <span class="evaluation-score">
           <strong v-if="isTextBoxMode">
             {{ currentAssignmentDetails.score }}
@@ -32,6 +60,15 @@
           @click="commitAssignmentChanges"
         >
           저장
+        </button>
+
+        <!-- 내보내기 버튼 -->
+        <button
+          type="button"
+          class="export-button"
+          @click="exportAssignmentResults"
+        >
+          내보내기
         </button>
       </div>
     </div>
@@ -101,7 +138,7 @@
         v-else
         :src="activeQuestionImageUrl"
         :questionIndex="activeQuestionId"
-        :squares="currentAssignmentDetails.squares"
+        :squares="filteredSquares"
         :beforeCanvas="currentAssignmentDetails.beforeCanvas"
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
@@ -116,6 +153,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxComponent from "@/components/BBoxComponent.vue";
+import * as XLSX from "xlsx"; // SheetJS 라이브러리 임포트
 
 export default {
   name: "AssignmentEvaluationView",
@@ -130,7 +168,9 @@ export default {
       isSaving: false,
       isOut: false,
       keyPressInterval: null,
-      keyRepeatDelay: 200, // 밀리초 단위, 필요에 따라 조정
+      keyRepeatDelay: 200, // milliseconds
+      matchSliderValue: 50, // 기존 #인일치 슬라이더 값
+      scoreSliderValue: 50, // 새로운 Score 슬라이더 값 (기본값 50, 즉 0.5)
     };
   },
 
@@ -166,6 +206,35 @@ export default {
         (question) => question.isInspected
       ).length;
     },
+    filteredSquares() {
+      // 슬라이더 값을 소수로 변환 (1~100 -> 0.01~1.00)
+      const threshold = this.scoreSliderValue / 100;
+      return this.currentAssignmentDetails.squares
+        .map((square) => {
+          // score가 없는 경우 0.6으로 설정
+          if (square.score === undefined || square.score === null) {
+            return { ...square, score: 0.6 };
+          }
+          return square;
+        })
+        .filter((square) => square.score >= threshold);
+    },
+    truePositives() {
+      // #인일치 bboxes와 비교하여 TP 계산
+      const matchedBBoxes = this.currentAssignmentDetails.inMatchBboxes || [];
+      return this.filteredSquares.filter((aiBox) => {
+        return matchedBBoxes.some((matchBox) =>
+          this.isBBoxMatching(aiBox, matchBox)
+        );
+      }).length;
+    },
+    falsePositives() {
+      return this.filteredSquares.length - this.truePositives;
+    },
+    falseNegatives() {
+      const matchedBBoxes = this.currentAssignmentDetails.inMatchBboxes || [];
+      return matchedBBoxes.length - this.truePositives;
+    },
   },
 
   methods: {
@@ -183,6 +252,17 @@ export default {
           JSON.stringify(response.data)
         );
         this.currentAssignmentDetails = response.data;
+
+        // 각 annotation에 score가 없으면 0.6으로 설정
+        this.currentAssignmentDetails.questions.forEach((question) => {
+          if (question.annotations) {
+            question.annotations.forEach((annotation) => {
+              if (annotation.score === undefined || annotation.score === null) {
+                annotation.score = 0.6;
+              }
+            });
+          }
+        });
 
         const score = this.currentAssignmentDetails.score || 0;
         this.currentAssignmentDetails.score = score;
@@ -203,11 +283,14 @@ export default {
           this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
         }
 
-        // Find the active row and ensure it is visible by scrolling it into view
+        // 활성화된 행을 스크롤하여 보기
         this.$nextTick(() => {
           const activeRow = this.$el.querySelector("tbody tr.active");
           if (activeRow) {
-            activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+            activeRow.scrollIntoView({
+              block: "center",
+              behavior: "smooth",
+            });
           } else {
             console.warn("Active row not found!");
           }
@@ -225,7 +308,7 @@ export default {
 
       console.log(this.currentAssignmentDetails.squares);
 
-      // 현재 활성화된 질문에 대한 박스가 없는 경우 더미 박스 추가
+      // 현재 질문에 대한 임시 박스가 없는 경우 더미 박스 추가
       const currentQuestionSquares =
         this.currentAssignmentDetails.squares.filter(
           (square) =>
@@ -233,7 +316,7 @@ export default {
             !square.isTemporary
         );
 
-      // currentQuestionSquares에서 isTemporaryAi가 true이면 제거
+      // 임시 AI 박스 제거
       currentQuestionSquares.forEach((square) => {
         if (square.isTemporaryAI) {
           this.currentAssignmentDetails.squares.splice(
@@ -287,7 +370,7 @@ export default {
         this.isSaving = true;
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
         if (!this.isOut && mode == "bbox" && goNext) {
-          // 다음 문제로 이동 만약 마지막 문제라면 이동하지 않음
+          // 다음 문제로 이동 (마지막 문제가 아니면)
           const currentIndex =
             this.currentAssignmentDetails.questions.findIndex(
               (q) => q.id === this.activeQuestionId
@@ -423,7 +506,6 @@ export default {
       }
     },
 
-    // 기존 onRowClick 메서드 업데이트
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
       this.activeQuestionImageUrl = question.image;
@@ -435,7 +517,10 @@ export default {
 
         if (activeRow) {
           activeRow.classList.add("active");
-          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+          activeRow.scrollIntoView({
+            block: "center",
+            behavior: "smooth",
+          });
         }
       });
 
@@ -464,20 +549,105 @@ export default {
     toggleFullScreenImage() {
       this.isFullScreenImage = !this.isFullScreenImage;
     },
+
+    isBBoxMatching(boxA, boxB, iouThreshold = 0.5) {
+      const iou = this.calculateIoU(boxA.bbox, boxB.bbox);
+      return iou >= iouThreshold;
+    },
+
+    calculateIoU(bboxA, bboxB) {
+      const [xA, yA, wA, hA] = bboxA;
+      const [xB, yB, wB, hB] = bboxB;
+
+      const x1 = Math.max(xA, xB);
+      const y1 = Math.max(yA, yB);
+      const x2 = Math.min(xA + wA, xB + wB);
+      const y2 = Math.min(yA + hA, yB + hB);
+
+      const intersectionArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+      const boxAArea = wA * hA;
+      const boxBArea = wB * hB;
+
+      const unionArea = boxAArea + boxBArea - intersectionArea;
+
+      return unionArea === 0 ? 0 : intersectionArea / unionArea;
+    },
+
+    exportAssignmentResults() {
+      // 엑셀 데이터 준비
+      const exportData = [];
+
+      // 각 질문에 대해 TP, FP, FN 계산
+      this.currentAssignmentDetails.questions.forEach((question) => {
+        // 질문에 관련된 AI 탐지 바운딩 박스를 필터링합니다.
+        const aiBoxes = (this.currentAssignmentDetails.squares || []).filter(
+          (square) =>
+            square.questionIndex === question.id &&
+            (square.score || 0.6) >= this.scoreSliderValue / 100
+        );
+
+        // #인일치 바운딩 박스 (매칭된 바운딩 박스) 데이터가 없는 경우 빈 배열로 설정
+        const matchBBoxes =
+          (this.currentAssignmentDetails.inMatchBboxes || []).filter(
+            (matchBox) => matchBox.questionIndex === question.id
+          ) || [];
+
+        // TP, FP, FN 계산
+        let TP = 0;
+        let FP = 0;
+        let FN = 0;
+
+        aiBoxes.forEach((aiBox) => {
+          const isTP = matchBBoxes.some((matchBox) =>
+            this.isBBoxMatching(aiBox, matchBox)
+          );
+          if (isTP) {
+            TP += 1;
+          } else {
+            FP += 1;
+          }
+        });
+
+        FN = matchBBoxes.length - TP;
+
+        exportData.push({
+          파일명: this.currentAssignmentDetails.FileName,
+          "질문 ID": question.id,
+          "질문 이미지": question.image,
+          TP: TP,
+          FP: FP,
+          FN: FN,
+        });
+      });
+
+      // 엑셀 워크북과 시트 생성
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
+
+      // 엑셀 파일 생성 및 다운로드
+      XLSX.writeFile(
+        workbook,
+        `${this.currentAssignmentDetails.FileName}-results.xlsx`
+      );
+    },
   },
 
   watch: {
-    // index 변경 시, 해당 질문으로 스크롤
     activeQuestionId() {
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector("tbody tr.active");
         if (activeRow) {
-          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+          activeRow.scrollIntoView({
+            block: "center",
+            behavior: "smooth",
+          });
         } else {
           console.warn("Active row not found!");
         }
       });
     },
+    // scoreSliderValue에 대한 watcher 제거
   },
 };
 </script>
@@ -518,6 +688,16 @@ export default {
   align-items: center;
   margin-right: 46px;
   gap: 16px;
+}
+
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-group label {
+  margin-right: 4px;
 }
 
 .evaluation-score {
@@ -610,12 +790,11 @@ td {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 100;
+  z-index: 1000;
   background-color: var(--black);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
   transition: all 1s;
 }
 
@@ -631,19 +810,27 @@ td {
   background-color: #333;
 }
 
-/* BBox 개수 셀에 대한 스타일 추가 */
+/* BBox count cell styling */
 td:nth-child(2) {
   font-weight: bold;
   color: var(--blue);
-
-  /* 만약 셀렉트와 active는 font-color 변경 */
-  &.active {
-    color: var(--white);
-  }
 }
 
 tr.isInspected > *,
 tr.active > * {
   color: white;
+}
+
+.export-button {
+  padding: 8px 16px;
+  background-color: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.export-button:hover {
+  background-color: darken(var(--blue), 10%);
 }
 </style>
