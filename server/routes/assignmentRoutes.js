@@ -1,15 +1,22 @@
+// assignmentRoutes.js
+
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
 const fs = require("fs");
-
+const path = require("path");
 const router = express.Router();
+const ExcelJS = require("exceljs"); // 엑셀 파일 생성을 위해 추가
 
+// 에러 핸들링 함수
 const handleError = (res, message, error) => {
   console.error(message, error);
   res.status(500).send(message);
 };
 
+// 기존 라우트들
+
+// 과제 생성 라우트
 router.post("/", authenticateToken, async (req, res) => {
   const {
     title,
@@ -65,6 +72,7 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
+// AI BBox 데이터 가져오기 라우트
 router.get("/ai", authenticateToken, async (req, res) => {
   try {
     const { src, assignmentType, questionIndex } = req.query;
@@ -87,6 +95,7 @@ router.get("/ai", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제의 AI BBox 데이터 가져오기 라우트
 router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assigmentId } = req.params;
@@ -131,6 +140,7 @@ router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
   }
 });
 
+// 사용자별 과제 목록 가져오기 라우트
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -158,8 +168,8 @@ router.get("/", authenticateToken, async (req, res) => {
       assignments.map(async (assignment) => {
         const { id } = assignment;
 
-        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ?`;
-        const [canvas] = await db.query(canvasQuery, [id]);
+        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
+        const [canvas] = await db.query(canvasQuery, [id, userId]);
 
         if (canvas.length > 0) {
           const squaresQuery = `
@@ -182,6 +192,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제 상세 정보 가져오기 라우트
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -289,6 +300,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제 전체 정보 가져오기 라우트
 router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -350,6 +362,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제 응답 업데이트 라우트
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId;
   const { questions, beforeCanvas, squares, lastQuestionIndex } = req.body;
@@ -422,6 +435,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제 수정 라우트
 router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   const { assignmentId } = req.params;
   const {
@@ -460,7 +474,216 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
-// 질문을 업데이트하는 함수
+// 과제 삭제 라우트
+router.delete("/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [assignment] = await db.query(
+      `SELECT * FROM assignments WHERE id = ?`,
+      [id]
+    );
+
+    if (!assignment.length) {
+      return res.status(404).send({ message: "Assignment not found." });
+    } else {
+      const assignmentType = assignment[0].assignment_type;
+
+      console.log(`./assets/${assignmentType}`);
+
+      if (fs.existsSync(`./assets/${assignmentType}`)) {
+        fs.rmSync(`./assets/${assignmentType}`, { recursive: true });
+      }
+    }
+
+    await db.query(
+      `DELETE FROM question_responses WHERE question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+      [id]
+    );
+
+    await db.query(`DELETE FROM assignments WHERE id = ?`, [id]);
+    res.send("Assignment successfully deleted.");
+  } catch (error) {
+    handleError(res, "Error deleting assignment", error);
+  }
+});
+
+// **새로운 다운로드 라우트 추가**
+// 다운로드 라우트: 검색된 과제를 엑셀 파일로 다운로드 (TP, FN, FP 포함)
+router.post(
+  "/download/download-searched-assignments",
+  authenticateToken,
+  async (req, res) => {
+    const { data, sliderValue, scoreValue } = req.body;
+
+    // scoreValue는 1-100 범위, 0.6을 기본값으로 설정
+    const scoreThreshold = scoreValue ? scoreValue / 100 : 0.6;
+
+    try {
+      // 엑셀 워크북과 워크시트 생성
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignments");
+
+      // 헤더 추가
+      worksheet.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "제목", key: "title", width: 30 },
+        { header: "생성일", key: "createdAt", width: 15 },
+        { header: "종료일", key: "endAt", width: 15 },
+        { header: "평가자 수", key: "evaluatorCount", width: 15 },
+        { header: "답변완료율", key: "answerRate", width: 15 },
+        { header: "미답변율", key: "unansweredRate", width: 15 },
+        // TP, FN, FP 추가
+        { header: "TP", key: "TP", width: 10 },
+        { header: "FN", key: "FN", width: 10 },
+        { header: "FP", key: "FP", width: 10 },
+      ];
+
+      // 각 과제에 대해 TP, FN, FP 계산
+      for (const assignment of data) {
+        const assignmentId = assignment.id;
+
+        // JSON 파일 경로 설정
+        const assignmentType = assignment.assignment_type;
+        const jsonPath = path.join(
+          __dirname,
+          `../assets/${assignmentType}/assignment_${assignmentId}.json`
+        );
+
+        let aiBBoxes = [];
+        if (fs.existsSync(jsonPath)) {
+          const jsonContent = fs.readFileSync(jsonPath, "utf8");
+          const parsedJson = JSON.parse(jsonContent);
+
+          aiBBoxes = parsedJson.annotation
+            .filter((annotation) => annotation.score >= scoreThreshold)
+            .map((annotation) => ({
+              x: annotation.bbox[0],
+              y: annotation.bbox[1],
+            }));
+        } else {
+          // 초창기 업로드된 과제의 경우 score가 없으므로 기본값 0.6 적용
+          // 여기서는 AI BBox 데이터가 데이터베이스에 저장되어 있다고 가정
+          const [defaultAIBBoxes] = await db.query(
+            `SELECT x, y FROM ai_bboxes WHERE assignment_id = ?`,
+            [assignmentId]
+          );
+          aiBBoxes = defaultAIBBoxes;
+        }
+
+        // #인일치 BBox 데이터를 가져옵니다.
+        const [matchBBoxes] = await db.query(
+          `SELECT x, y FROM match_bboxes WHERE assignment_id = ?`,
+          [assignmentId]
+        );
+
+        // TP, FP 계산
+        let TP = 0;
+        let FP = 0;
+        let FN = 0;
+
+        aiBBoxes.forEach((aiBox) => {
+          const matched = matchBBoxes.some((matchBox) => {
+            // 매칭 조건 정의 (예: 좌표 근접성 등)
+            // 여기서는 단순히 동일한 x, y 좌표를 가정
+            return aiBox.x === matchBox.x && aiBox.y === matchBox.y;
+          });
+          if (matched) {
+            TP++;
+          } else {
+            FP++;
+          }
+        });
+
+        // FN은 #인일치 중 AI에 의해 탐지되지 않은 수
+        FN = matchBBoxes.length - TP;
+
+        // 워크시트에 행 추가
+        worksheet.addRow({
+          id: assignment.id,
+          title: assignment.title,
+          createdAt: assignment.createdAt,
+          endAt: assignment.endAt,
+          evaluatorCount: assignment.evaluatorCount,
+          answerRate: assignment.answerRate,
+          unansweredRate: assignment.unansweredRate,
+          TP,
+          FN,
+          FP,
+        });
+      }
+
+      // 엑셀 파일 스트림 설정
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=" + "Assignments.xlsx"
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error("Error generating Excel file:", error);
+      res.status(500).send("Failed to generate Excel file.");
+    }
+  }
+);
+
+// **추가된 함수들**
+
+// 할당된 유저에게 캔버스 정보 생성
+const createCanvasForUsers = async (assignmentId, users) => {
+  await Promise.all(
+    users.map((userId) =>
+      db.query(
+        `INSERT INTO canvas_info (assignment_id, width, height, user_id) VALUES (?, 0, 0, ?)`,
+        [assignmentId, userId]
+      )
+    )
+  );
+};
+
+// 과제 업데이트 함수
+const updateAssignment = async (params) => {
+  const {
+    assignmentId,
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    mode,
+  } = params;
+
+  const updateQuery = `
+    UPDATE assignments
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?
+    WHERE id = ?`;
+
+  const [originalAssignment] = await db.query(
+    `SELECT * FROM assignments WHERE id = ?`,
+    [assignmentId]
+  );
+
+  await db.query(updateQuery, [
+    title,
+    deadline,
+    assignment_type,
+    selection_type,
+    mode,
+    assignmentId,
+  ]);
+
+  return (
+    originalAssignment[0].selection_type !== selection_type ||
+    originalAssignment[0].assignment_type !== assignment_type ||
+    originalAssignment[0].assignment_mode !== mode
+  );
+};
+
+// 질문 업데이트 함수
 const updateQuestions = async (assignmentId, questions) => {
   const [existingQuestions] = await db.query(
     `SELECT id, image FROM questions WHERE assignment_id = ?`,
@@ -502,7 +725,7 @@ const updateQuestions = async (assignmentId, questions) => {
   );
 };
 
-// 할당된 유저를 업데이트하는 함수
+// 유저 할당 업데이트 함수
 const updateUserAssignments = async (assignmentId, users) => {
   const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
@@ -560,53 +783,7 @@ const updateUserAssignments = async (assignmentId, users) => {
   }
 };
 
-const createCanvasForUsers = async (assignmentId, users) => {
-  await Promise.all(
-    users.map((userId) =>
-      db.query(
-        `INSERT INTO canvas_info (assignment_id, width, height, user_id) VALUES (?, 0, 0, ?)`,
-        [assignmentId, userId]
-      )
-    )
-  );
-};
-
-const updateAssignment = async (params) => {
-  const {
-    assignmentId,
-    title,
-    deadline,
-    assignment_type,
-    selection_type,
-    mode,
-  } = params;
-
-  const updateQuery = `
-    UPDATE assignments
-    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?
-    WHERE id = ?`;
-
-  const [originalAssignment] = await db.query(
-    `SELECT * FROM assignments WHERE id = ?`,
-    [assignmentId]
-  );
-
-  await db.query(updateQuery, [
-    title,
-    deadline,
-    assignment_type,
-    selection_type,
-    mode,
-    assignmentId,
-  ]);
-
-  return (
-    originalAssignment[0].selection_type !== selection_type ||
-    originalAssignment[0].assignment_type !== assignment_type ||
-    originalAssignment[0].assignment_mode !== mode
-  );
-};
-
+// 질문 응답 및 BBox 삭제 함수
 const deleteResponsesAndQuestions = async (assignmentId) => {
   await db.query(
     `DELETE qr FROM question_responses qr JOIN questions q ON qr.question_id = q.id WHERE q.assignment_id = ?`,
@@ -617,6 +794,7 @@ const deleteResponsesAndQuestions = async (assignmentId) => {
   ]);
 };
 
+// 질문 추가 함수
 const addQuestions = async (assignmentId, questions) => {
   await Promise.all(
     questions.map((question) =>
@@ -628,6 +806,7 @@ const addQuestions = async (assignmentId, questions) => {
   );
 };
 
+// BBox 정보 삭제 함수
 const deleteSquareInfo = async (assignmentId) => {
   await db.query(
     `DELETE si FROM squares_info si JOIN canvas_info ci ON si.canvas_id = ci.id WHERE ci.assignment_id = ?`,
@@ -635,38 +814,130 @@ const deleteSquareInfo = async (assignmentId) => {
   );
 };
 
-// Delete assignment
-router.delete("/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
+// **다운로드 라우트**
+// 검색된 과제를 엑셀 파일로 다운로드 (TP, FN, FP 포함)
+router.post(
+  "/download/download-searched-assignments",
+  authenticateToken,
+  async (req, res) => {
+    const { data, sliderValue, scoreValue } = req.body;
 
-    const [assignment] = await db.query(
-      `SELECT * FROM assignments WHERE id = ?`,
-      [id]
-    );
+    // scoreValue는 1-100 범위, 0.6을 기본값으로 설정
+    const scoreThreshold = scoreValue ? scoreValue / 100 : 0.6;
 
-    if (!assignment.length) {
-      return res.status(404).send({ message: "Assignment not found." });
-    } else {
-      const assignmentType = assignment[0].assignment_type;
+    try {
+      // 엑셀 워크북과 워크시트 생성
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Assignments");
 
-      console.log(`./assets/${assignmentType}`);
+      // 헤더 추가
+      worksheet.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "제목", key: "title", width: 30 },
+        { header: "생성일", key: "createdAt", width: 15 },
+        { header: "종료일", key: "endAt", width: 15 },
+        { header: "평가자 수", key: "evaluatorCount", width: 15 },
+        { header: "답변완료율", key: "answerRate", width: 15 },
+        { header: "미답변율", key: "unansweredRate", width: 15 },
+        // TP, FN, FP 추가
+        { header: "TP", key: "TP", width: 10 },
+        { header: "FN", key: "FN", width: 10 },
+        { header: "FP", key: "FP", width: 10 },
+      ];
 
-      if (fs.existsSync(`./assets/${assignmentType}`)) {
-        fs.rmSync(`./assets/${assignmentType}`, { recursive: true });
+      // 각 과제에 대해 TP, FN, FP 계산
+      for (const assignment of data) {
+        const assignmentId = assignment.id;
+
+        // JSON 파일 경로 설정
+        const assignmentType = assignment.assignment_type;
+        const jsonPath = path.join(
+          __dirname,
+          `../assets/${assignmentType}/assignment_${assignmentId}.json`
+        );
+
+        let aiBBoxes = [];
+        if (fs.existsSync(jsonPath)) {
+          const jsonContent = fs.readFileSync(jsonPath, "utf8");
+          const parsedJson = JSON.parse(jsonContent);
+
+          aiBBoxes = parsedJson.annotation
+            .filter((annotation) => annotation.score >= scoreThreshold)
+            .map((annotation) => ({
+              x: annotation.bbox[0],
+              y: annotation.bbox[1],
+            }));
+        } else {
+          // 초창기 업로드된 과제의 경우 score가 없으므로 기본값 0.6 적용
+          // 여기서는 AI BBox 데이터가 데이터베이스에 저장되어 있다고 가정
+          const [defaultAIBBoxes] = await db.query(
+            `SELECT x, y FROM ai_bboxes WHERE assignment_id = ?`,
+            [assignmentId]
+          );
+          aiBBoxes = defaultAIBBoxes;
+        }
+
+        // #인일치 BBox 데이터를 가져옵니다.
+        const [matchBBoxes] = await db.query(
+          `SELECT x, y FROM match_bboxes WHERE assignment_id = ?`,
+          [assignmentId]
+        );
+
+        // TP, FP 계산
+        let TP = 0;
+        let FP = 0;
+        let FN = 0;
+
+        aiBBoxes.forEach((aiBox) => {
+          const matched = matchBBoxes.some((matchBox) => {
+            // 매칭 조건 정의 (예: 좌표 근접성 등)
+            // 여기서는 단순히 동일한 x, y 좌표를 가정
+            return aiBox.x === matchBox.x && aiBox.y === matchBox.y;
+          });
+          if (matched) {
+            TP++;
+          } else {
+            FP++;
+          }
+        });
+
+        // FN은 #인일치 중 AI에 의해 탐지되지 않은 수
+        FN = matchBBoxes.length - TP;
+
+        // 워크시트에 행 추가
+        worksheet.addRow({
+          id: assignment.id,
+          title: assignment.title,
+          createdAt: assignment.createdAt,
+          endAt: assignment.endAt,
+          evaluatorCount: assignment.evaluatorCount,
+          answerRate: assignment.answerRate,
+          unansweredRate: assignment.unansweredRate,
+          TP,
+          FN,
+          FP,
+        });
       }
+
+      // 엑셀 파일 스트림 설정
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=" + "Assignments.xlsx"
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error("Error generating Excel file:", error);
+      res.status(500).send("Failed to generate Excel file.");
     }
-
-    await db.query(
-      `DELETE FROM question_responses WHERE question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
-      [id]
-    );
-
-    await db.query(`DELETE FROM assignments WHERE id = ?`, [id]);
-    res.send("Assignment successfully deleted.");
-  } catch (error) {
-    handleError(res, "Error deleting assignment", error);
   }
-});
+);
+
+// **추가된 라우트 끝**
 
 module.exports = router;
