@@ -79,6 +79,20 @@
           </div>
 
           <div
+            class="assignment-info is-score-field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
+            <input
+              type="checkbox"
+              name="is_score"
+              id="is_score"
+              class="is_score"
+              v-model="assignmentDetails.is_score"
+            />
+            <label for="is_score"> Socre </label>
+          </div>
+
+          <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
@@ -218,6 +232,7 @@ export default {
         questions: [],
         gradingScale: null,
         mode: "TextBox",
+        is_score: true,
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -367,6 +382,7 @@ export default {
           questions: this.assignmentDetails.questions,
           users: this.addedUsers.map((user) => user.id),
           mode: this.assignmentDetails.mode,
+          is_score: this.assignmentDetails.is_score,
         };
 
         this.$axios
@@ -701,9 +717,15 @@ hr {
 
 /* 과제 정보 섹션 */
 .assignment-info {
-  display: flex;
   gap: 16px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+}
+
+.is-score-field {
+  align-items: center;
+  gap: 5px;
 }
 
 /* 과제 필드 */
