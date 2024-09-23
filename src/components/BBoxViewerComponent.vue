@@ -280,7 +280,11 @@ export default {
       console.log(`
       ==================
 
-      this.localSquares : ${JSON.stringify(this.localSquares)}
+      this.localSquares : ${JSON.stringify(
+        this.localSquares.filter((s) => {
+          s.questionIndex === this.questionIndex && !s.isTemporary;
+        })
+      )}
       
       ==================
       `);
