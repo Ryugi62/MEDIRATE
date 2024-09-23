@@ -516,6 +516,14 @@ export default {
         }
       });
 
+      console.log(`
+      ===================
+
+      과제테이블 group = ${JSON.stringify(groups)}
+      
+      ===================
+      `);
+
       return groups.length;
     },
 
@@ -562,14 +570,6 @@ export default {
         });
       }
 
-      console.log(`
-      ====================
-
-      squares[0] = ${JSON.stringify(squares)}
-      
-      ====================
-      `);
-
       squares.forEach((square) => {
         if (!visited.has(square)) {
           const group = [];
@@ -579,6 +579,14 @@ export default {
           }
         }
       });
+
+      console.log(`
+      ===================
+
+      엑셀 group = ${JSON.stringify(groups)}
+      
+      ===================
+      `);
 
       return groups;
     },
@@ -613,14 +621,6 @@ export default {
             };
           })
       );
-
-      console.log(`
-      ==================
-
-      squares = ${JSON.stringify(squares)}
-
-      ==================
-      `);
 
       return squares;
     },
