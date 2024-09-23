@@ -79,6 +79,21 @@
           </div>
 
           <div
+            class="assignment-field is_score_field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
+            <span>
+              <input
+                type="checkbox"
+                name="is_score"
+                id="is_score"
+                v-model="assignmentDetails.is_score"
+              />
+              <label for="is_score">SCORE</label>
+            </span>
+          </div>
+
+          <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
@@ -353,8 +368,6 @@ export default {
         input.disabled = true;
       });
 
-      alert("새로운 과제를 생성합니다");
-
       const newAssignment = {
         id: this.assignmentDetails.id,
         title: this.assignmentDetails.title,
@@ -367,6 +380,7 @@ export default {
         questions: this.assignmentDetails.questions,
         users: this.addedUsers.map((user) => user.id),
         mode: this.assignmentDetails.mode,
+        is_score: this.assignmentDetails.is_score,
         gradingScale:
           this.assignmentDetails.mode === "TextBox"
             ? this.assignmentDetails.gradingScale
@@ -503,6 +517,8 @@ export default {
           this.assignmentDetails.questions = response.data.questions;
           this.assignmentDetails.gradingScale = response.data.gradingScale;
           this.assignmentDetails.mode = response.data.assigment_mode;
+          this.assignmentDetails.is_score =
+            response.data.is_score === 1 ? true : false;
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
@@ -751,6 +767,7 @@ hr {
   align-items: center;
 }
 
+.is_score_field,
 .mode-field {
   flex: 0;
 
