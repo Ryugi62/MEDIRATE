@@ -11,7 +11,18 @@
       class="dashboard-search-input"
       :class="{ 'search-input-focused': isFocused }"
     >
-      <!-- slider -->
+      <span class="slider-value">
+        {{ score_value }}
+      </span>
+      <input
+        type="range"
+        name="score_value"
+        id="score_value"
+        v-model="score_value"
+        min="0"
+        max="100"
+      />
+
       <span class="slider-value">{{ sliderValue }}인 일치</span>
       <input
         type="range"
@@ -21,6 +32,7 @@
         :value="sliderValue"
         @input="changeSliderValue"
       />
+
       <div class="search-input-container">
         <i
           class="fa-solid fa-rotate-left reset-button"
@@ -159,6 +171,7 @@ export default {
       isFocused: false, // 추가
       isExporting: false,
       sliderValue: 1,
+      score_value: 50,
     };
   },
 
@@ -323,6 +336,7 @@ export default {
           {
             data: this.data,
             sliderValue: this.sliderValue,
+            score_value: this.score_value / 100,
           },
           {
             headers: {

@@ -16,6 +16,7 @@ router.post(
     try {
       let sliderValue = req.body.sliderValue;
       const assignments = req.body.data;
+      const score_value = req.body.score_value;
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
@@ -25,7 +26,6 @@ router.post(
         const aiData = await getAIData(assignmentSummary.id);
 
         const users = assignmentData.assignment;
-        // const sliderValue = Math.round(users.length / 2);
 
         const max_slider_value = users.length;
 
@@ -110,8 +110,11 @@ router.post(
 
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
+
             const relevantAiData = aiData.filter(
-              (ai) => ai.questionIndex === question.questionId
+              (ai) =>
+                ai.questionIndex === question.questionId &&
+                ai.score >= score_value
             );
             const overlapGroups = getOverlapsBBoxes(
               adjustedSquares,
@@ -426,7 +429,13 @@ async function getAIData(assignmentId) {
         const jsonContent = await fs.readFile(jsonPath, "utf8");
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
-          return { x: x + 12.5, y: y + 12.5, questionIndex: question.id };
+          const score = annotation.score ? annotation.score : 0.6;
+          return {
+            x: x + 12.5,
+            y: y + 12.5,
+            questionIndex: question.id,
+            score: score,
+          };
         });
         AI_BBOX.push(...bbox);
       } catch (error) {
