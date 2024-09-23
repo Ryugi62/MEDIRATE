@@ -107,6 +107,7 @@
         :assignmentIndex="currentAssignmentDetails.id"
         @update:squares="currentAssignmentDetails.squares = $event"
         :commitAssignmentChanges="commitAssignmentChanges"
+        :is_score="currentAssignmentDetails.is_score"
       />
     </div>
   </div>
@@ -179,6 +180,7 @@ export default {
             },
           }
         );
+
         this.originalAssignmentDetails = JSON.parse(
           JSON.stringify(response.data)
         );

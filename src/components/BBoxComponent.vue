@@ -25,6 +25,17 @@
       </div>
 
       <div class="bbox-component__actions">
+        <div class="is_score_field" v-if="is_score">
+          <label for="is_score">{{ score_value }}%</label>
+          <input
+            type="range"
+            name="is_score"
+            id="is_score"
+            min="0"
+            max="100"
+            v-model="score_value"
+          />
+        </div>
         <button @click="applyMitosis">AI Apply</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
@@ -58,6 +69,7 @@ export default {
     assignmentType: { type: String, required: true, default: "" },
     assignmentIndex: { type: Number, required: true, default: 0 },
     commitAssignmentChanges: { type: Function, required: true },
+    is_score: { type: Boolean, required: true, default: true },
   },
 
   data() {
@@ -78,6 +90,7 @@ export default {
       showAiAlert: false,
       temporarySquares: [], // 임시 사각형 배열 추가
       goNext: true,
+      score_value: 50,
     };
   },
 
@@ -181,6 +194,7 @@ export default {
             originalX: e.x + 12.5,
             originalY: e.y + 12.5,
             isAI: true,
+            score: e.score,
           }));
 
           const originalLocalSquares = this.temporarySquares.map((square) => ({
@@ -424,6 +438,22 @@ export default {
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary) return; // 임시 박스는 그리지 않음
+
+        if (square.isAI)
+          console.log(`
+        ======================
+
+        square : ${JSON.stringify(square)}
+        
+        ======================
+        `);
+
+        if (
+          square.isAI &&
+          this.is_score &&
+          this.score_value / 100 > square.score
+        )
+          return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
         ctx.globalAlpha = square.isTemporaryAI ? 0.7 : 1;
@@ -586,12 +616,8 @@ export default {
       this.resizeCanvas();
     },
 
-    // 사각형이 추가되거나 삭제될 때마다 로그를 찍어줌
-    temporarySquares: {
-      handler(newVal) {
-        console.log("temporarySquares", newVal);
-      },
-      deep: true,
+    score_value() {
+      this.redrawSquares();
     },
   },
 };
@@ -641,6 +667,11 @@ export default {
 .bbox-component__actions {
   display: flex;
   gap: 10px;
+}
+
+.is_score_field {
+  gap: 4px;
+  display: flex;
 }
 
 .bbox-component__body {
