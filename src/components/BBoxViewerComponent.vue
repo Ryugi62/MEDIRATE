@@ -277,6 +277,14 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
+      console.log(`
+      ==================
+
+      this.localSquares : ${JSON.stringify(this.localSquares)}
+      
+      ==================
+      `);
+
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
