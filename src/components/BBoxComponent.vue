@@ -25,6 +25,16 @@
       </div>
 
       <div class="bbox-component__actions">
+        <label for="is_score_range" class="is_score_range_label"
+          >{{ sliderValue }}%</label
+        >
+        <input
+          type="range"
+          name="is_score_range"
+          id="is_score_range"
+          class="is_score_range"
+          v-model="sliderValue"
+        />
         <button @click="applyMitosis">AI Apply</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
@@ -78,6 +88,7 @@ export default {
       showAiAlert: false,
       temporarySquares: [], // 임시 사각형 배열 추가
       goNext: true,
+      sliderValue: 50,
     };
   },
 
@@ -173,6 +184,14 @@ export default {
             alert("AI 데이터가 없습니다.");
           }
 
+          console.log(`
+          ========================
+
+          response.data : ${JSON.stringify(response.data)}
+          
+          ========================
+          `);
+
           let newAiSquares = response.data.map((e) => ({
             x: e.x + 12.5,
             y: e.y + 12.5,
@@ -181,6 +200,7 @@ export default {
             originalX: e.x + 12.5,
             originalY: e.y + 12.5,
             isAI: true,
+            score: e.score,
           }));
 
           const originalLocalSquares = this.temporarySquares.map((square) => ({
@@ -424,6 +444,8 @@ export default {
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary) return; // 임시 박스는 그리지 않음
+        if (square.isAI && this.sliderValue / 100 > square.score) return;
+
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
         ctx.globalAlpha = square.isTemporaryAI ? 0.7 : 1;
@@ -593,6 +615,10 @@ export default {
       },
       deep: true,
     },
+
+    sliderValue() {
+      this.redrawSquares();
+    },
   },
 };
 </script>
@@ -641,6 +667,11 @@ export default {
 .bbox-component__actions {
   display: flex;
   gap: 10px;
+}
+
+.is_score_range_label {
+  width: 50px;
+  text-align: right;
 }
 
 .bbox-component__body {

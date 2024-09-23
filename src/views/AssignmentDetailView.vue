@@ -248,9 +248,19 @@ export default {
             },
           }
         );
+
+        console.log(`
+        ========================
+
+        response.data : ${JSON.stringify(response.data)}
+        
+        ========================
+        `);
+
         this.originalAssignmentDetails = JSON.parse(
           JSON.stringify(response.data)
         );
+
         this.currentAssignmentDetails = response.data;
 
         // 각 annotation에 score가 없으면 0.6으로 설정

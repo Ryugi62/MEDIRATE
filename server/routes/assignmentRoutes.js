@@ -88,7 +88,8 @@ router.get("/ai", authenticateToken, async (req, res) => {
 
     const AI_BBOX = JSON.parse(jsonContent).annotation.map((annotation) => {
       const [x, y] = annotation.bbox;
-      return { x, y, questionIndex: Number(questionIndex) };
+      const score = annotation.score ? annotation.score : 0.6;
+      return { x, y, questionIndex: Number(questionIndex), score };
     });
 
     res.json(AI_BBOX);
@@ -124,6 +125,14 @@ router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
         if (!jsonContent) {
           return;
         }
+
+        console.log(`
+          ======================
+
+          jsonContent : ${JSON.stringify(jsonContent)}
+          
+          ======================
+          `);
 
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
@@ -208,7 +217,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.deadline AS Deadline,
         a.selection_type AS selectionType,
         a.assignment_mode AS assignmentMode,
-        a.assignment_type AS assignmentType
+        a.assignment_type AS assignmentType,
+        a.is_score
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
