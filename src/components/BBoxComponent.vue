@@ -394,8 +394,6 @@ export default {
       );
       if (checkSameCoordinate) return;
 
-      console.log("test");
-
       this.temporarySquares.push({
         x,
         y,
@@ -438,15 +436,6 @@ export default {
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary) return; // 임시 박스는 그리지 않음
-
-        if (square.isAI)
-          console.log(`
-        ======================
-
-        square : ${JSON.stringify(square)}
-        
-        ======================
-        `);
 
         if (
           square.isAI &&

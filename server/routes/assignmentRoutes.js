@@ -662,8 +662,6 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     } else {
       const assignmentType = assignment[0].assignment_type;
 
-      console.log(`./assets/${assignmentType}`);
-
       if (fs.existsSync(`./assets/${assignmentType}`)) {
         fs.rmSync(`./assets/${assignmentType}`, { recursive: true });
       }

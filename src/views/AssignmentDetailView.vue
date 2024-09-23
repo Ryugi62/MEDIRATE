@@ -225,8 +225,6 @@ export default {
       );
       radioButtons.forEach((radio) => (radio.disabled = true));
 
-      console.log(this.currentAssignmentDetails.squares);
-
       // 현재 활성화된 질문에 대한 박스가 없는 경우 더미 박스 추가
       const currentQuestionSquares =
         this.currentAssignmentDetails.squares.filter(

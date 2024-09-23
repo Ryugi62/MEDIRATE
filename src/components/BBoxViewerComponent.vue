@@ -49,6 +49,11 @@ export default {
       required: true,
       default: () => [],
     },
+    score_percent: {
+      type: Number,
+      required: true,
+      default: 50,
+    },
   },
 
   data() {
@@ -110,6 +115,7 @@ export default {
         questionIndex: square.questionIndex, // 원본 questionIndex 유지
         isAI: true,
         color: "#FFFF00", // Yellow color for AI squares
+        score: square.score,
       }));
 
       this.originalLocalSquares = [...this.localSquares];
@@ -283,6 +289,7 @@ export default {
 
       this.aiSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
+        if (square.score < this.score_percent / 100) return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
@@ -430,10 +437,15 @@ export default {
           questionIndex: square.questionIndex, // 원본 questionIndex 유지
           isAI: true,
           color: "#FFFF00", // Yellow color for AI squares
+          score: square.score,
         }));
         this.redrawSquares();
       },
       deep: true,
+    },
+
+    score_percent() {
+      this.redrawSquares();
     },
   },
 };

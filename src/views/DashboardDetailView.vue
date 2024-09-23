@@ -14,6 +14,17 @@
               :class="{ active: isAiMode }"
               @click="isAiMode = !isAiMode"
             ></i>
+            <span id="sliderValue" class="score_percent"
+              >{{ score_percent }}%</span
+            >
+            <input
+              type="range"
+              name="score_percent"
+              id="score_percent"
+              min="0"
+              max="100"
+              v-model="score_percent"
+            />
             <span id="sliderValue">{{ `${sliderRange}인 일치` }}</span>
             <input
               type="range"
@@ -23,10 +34,10 @@
               id="slider"
               v-model="sliderValue"
             />
+            <span class="completed-status">
+              <strong>{{ completionPercentage }}</strong>
+            </span>
           </div>
-          <span class="completed-status">
-            <strong>{{ completionPercentage }}</strong>
-          </span>
           <button class="edit-button" @click="moveToAssignmentManagement">
             과제수정
           </button>
@@ -126,6 +137,7 @@
               :sliderValue="Number(sliderValue)"
               :updateSquares="updateSquares"
               :aiData="isAiMode ? aiData : []"
+              :score_percent="score_percent"
             />
           </div>
         </div>
@@ -176,6 +188,7 @@ export default {
       keyRepeatDelay: 200,
       isAiMode: true,
       aiData: [],
+      score_percent: 50,
     };
   },
 
@@ -250,10 +263,12 @@ export default {
             },
           }
         );
+
         this.aiData = data.map((ai) => ({
           ...ai,
           x: ai.x + 12.5,
           y: ai.y + 12.5,
+          score: ai.score ? ai.score : 0.6,
         }));
       } catch (error) {
         console.error("Failed to load AI data:", error);
@@ -263,8 +278,6 @@ export default {
     async fix_loadData() {
       try {
         let dataChanged = false;
-
-        console.log(this.aiData);
 
         for (
           let userIndex = 0;
@@ -701,7 +714,9 @@ export default {
             question
           );
           const relevantAiData = aiData.filter(
-            (ai) => ai.questionIndex === question.questionId
+            (ai) =>
+              ai.questionIndex === question.questionId &&
+              ai.score >= this.score_percent
           );
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,

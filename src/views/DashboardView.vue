@@ -11,9 +11,7 @@
       class="dashboard-search-input"
       :class="{ 'search-input-focused': isFocused }"
     >
-      <span class="slider-value">
-        {{ score_value }}
-      </span>
+      <span class="slider-value"> {{ score_value }}% </span>
       <input
         type="range"
         name="score_value"

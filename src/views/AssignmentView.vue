@@ -237,9 +237,6 @@ export default {
         return `${obj.completed || 0} / ${obj.total || 0}`;
       }
       if (key === "CreationDate" || key === "dueDate") {
-        console.log(
-          `obj[key]: ${obj[key]}, Date.parse(obj[key]): ${Date.parse(obj[key])}`
-        );
         if (obj[key] && !isNaN(Date.parse(obj[key]))) {
           const date = new Date(obj[key]);
           return date.toISOString().split("T")[0]; // YYYY-MM-DD 형식으로 반환
