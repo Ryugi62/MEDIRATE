@@ -482,6 +482,15 @@ export default {
         );
       });
 
+      console.log(`
+      =================
+
+      squares : ${JSON.stringify(squares)}
+      overlapCount : ${overlapCount}
+      
+      =================
+      `);
+
       if (overlapCount === 1) {
         return squares.length;
       }
@@ -579,7 +588,7 @@ export default {
       const { width: originalWidth, height: originalHeight } =
         await this.getImageDimensions(question.questionImage);
 
-      return users.flatMap((user) =>
+      const squares = users.flatMap((user) =>
         user.squares
           .filter(
             (square) =>
@@ -605,6 +614,16 @@ export default {
             };
           })
       );
+
+      console.log(`
+      ==================
+
+      squares = ${JSON.stringify(squares)}
+
+      ==================
+      `);
+
+      return squares;
     },
 
     async getImageDimensions(imageUrl) {
