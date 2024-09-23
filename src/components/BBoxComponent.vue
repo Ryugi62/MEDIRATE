@@ -670,7 +670,7 @@ export default {
 }
 
 .is_score_range_label {
-  width: 50px;
+  min-width: 40px;
   text-align: right;
 }
 
