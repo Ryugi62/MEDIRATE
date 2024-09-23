@@ -11,34 +11,16 @@
       class="dashboard-search-input"
       :class="{ 'search-input-focused': isFocused }"
     >
-      <!-- #인일치 슬라이더 -->
-      <div class="slider-container">
-        <span class="slider-label">#인일치</span>
-        <span class="slider-value">{{ sliderValue }}인 일치</span>
-        <input
-          type="range"
-          min="1"
-          max="5"
-          class="slider"
-          :value="sliderValue"
-          @input="changeSliderValue"
-        />
-      </div>
-
-      <!-- Score 슬라이더 -->
-      <div class="slider-container">
-        <span class="slider-label">Score</span>
-        <span class="slider-value">{{ scoreValue }}%</span>
-        <input
-          type="range"
-          min="1"
-          max="100"
-          class="slider"
-          :value="scoreValue"
-          @input="changeScoreValue"
-        />
-      </div>
-
+      <!-- slider -->
+      <span class="slider-value">{{ sliderValue }}인 일치</span>
+      <input
+        type="range"
+        min="1"
+        max="5"
+        class="slider"
+        :value="sliderValue"
+        @input="changeSliderValue"
+      />
       <div class="search-input-container">
         <i
           class="fa-solid fa-rotate-left reset-button"
@@ -177,7 +159,6 @@ export default {
       isFocused: false, // 추가
       isExporting: false,
       sliderValue: 1,
-      scoreValue: 50, // 새로운 데이터 속성 추가
     };
   },
 
@@ -313,10 +294,6 @@ export default {
       this.sliderValue = event.target.value;
     },
 
-    changeScoreValue(event) {
-      this.scoreValue = event.target.value;
-    },
-
     searchDashboard() {
       if (this.searchQuery === "") {
         this.resetSearch();
@@ -346,7 +323,6 @@ export default {
           {
             data: this.data,
             sliderValue: this.sliderValue,
-            scoreValue: this.scoreValue, // Score 값 추가
           },
           {
             headers: {
@@ -396,16 +372,6 @@ export default {
   overflow: hidden;
   margin-right: 22px;
   gap: 8px;
-}
-
-.slider-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.slider-label {
-  margin-right: 4px;
 }
 
 .slider-value {
