@@ -79,6 +79,20 @@
           </div>
 
           <div
+            class="assignment-info is-score-field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
+            <input
+              type="checkbox"
+              name="is_score"
+              id="is_score"
+              class="is_score"
+              v-model="assignmentDetails.is_score"
+            />
+            <label for="is_score">score</label>
+          </div>
+
+          <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
@@ -210,6 +224,7 @@ export default {
         questions: [],
         gradingScale: null,
         mode: "TextBox",
+        is_score: true,
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -371,6 +386,7 @@ export default {
           this.assignmentDetails.mode === "TextBox"
             ? this.assignmentDetails.gradingScale
             : [],
+        is_score: this.assignmentDetails.is_score,
       };
 
       this.$axios
@@ -489,6 +505,14 @@ export default {
           },
         })
         .then((response) => {
+          console.log(`
+          =============
+
+          response : ${JSON.stringify(response.data)}
+          
+          =============
+          `);
+
           this.activeQuestionId = 0;
           this.addedUsers = response.data.assignedUsers;
           this.assignmentDetails.id = response.data.id;
@@ -503,6 +527,8 @@ export default {
           this.assignmentDetails.questions = response.data.questions;
           this.assignmentDetails.gradingScale = response.data.gradingScale;
           this.assignmentDetails.mode = response.data.assigment_mode;
+          this.assignmentDetails.is_score =
+            response.data.is_score === 1 ? true : false;
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
@@ -737,9 +763,14 @@ hr {
 
 /* 과제 정보 섹션 */
 .assignment-info {
-  display: flex;
   gap: 16px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+}
+
+.is-score-field {
+  gap: 5px;
 }
 
 /* 과제 필드 */

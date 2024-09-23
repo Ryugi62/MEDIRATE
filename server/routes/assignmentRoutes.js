@@ -29,14 +29,6 @@ router.post("/", authenticateToken, async (req, res) => {
     is_score,
   } = req.body;
 
-  console.log(`
-    ======================
-
-    req.body : ${JSON.stringify(is_score)}
-    
-    ======================
-    `);
-
   try {
     const insertAssignmentQuery = `
       INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score)
@@ -322,7 +314,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.deadline,
         a.assignment_type AS selectedAssignmentType,
         a.selection_type AS selectedAssignmentId,
-        a.assignment_mode AS mode
+        a.assignment_mode AS mode,
+        a.is_score
       FROM assignments a
       WHERE a.id = ?`;
     const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
@@ -364,6 +357,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         realname: user.realname,
         organization: user.organization,
       })),
+      is_score: assignment.is_score,
     };
 
     res.json(transformedAssignmentDetails);
@@ -456,6 +450,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     questions,
     users,
     mode,
+    is_score,
   } = req.body;
 
   try {
@@ -466,6 +461,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       assignment_type,
       selection_type,
       mode,
+      is_score,
     });
 
     if (assignmentChanged) {
@@ -665,11 +661,12 @@ const updateAssignment = async (params) => {
     assignment_type,
     selection_type,
     mode,
+    is_score,
   } = params;
 
   const updateQuery = `
     UPDATE assignments
-    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?
     WHERE id = ?`;
 
   const [originalAssignment] = await db.query(
@@ -683,13 +680,15 @@ const updateAssignment = async (params) => {
     assignment_type,
     selection_type,
     mode,
+    is_score,
     assignmentId,
   ]);
 
   return (
     originalAssignment[0].selection_type !== selection_type ||
     originalAssignment[0].assignment_type !== assignment_type ||
-    originalAssignment[0].assignment_mode !== mode
+    originalAssignment[0].assignment_mode !== mode ||
+    originalAssignment[0].is_score !== is_score
   );
 };
 
