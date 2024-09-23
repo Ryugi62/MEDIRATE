@@ -482,15 +482,6 @@ export default {
         );
       });
 
-      console.log(`
-      =================
-
-      squares : ${JSON.stringify(squares)}
-      overlapCount : ${overlapCount}
-      
-      =================
-      `);
-
       if (overlapCount === 1) {
         return squares.length;
       }
@@ -570,6 +561,14 @@ export default {
           }
         });
       }
+
+      console.log(`
+      ====================
+
+      squares[0] = ${JSON.stringify(squares)}
+      
+      ====================
+      `);
 
       squares.forEach((square) => {
         if (!visited.has(square)) {
@@ -741,10 +740,12 @@ export default {
               ai.questionIndex === question.questionId &&
               ai.score >= this.score_percent / 100
           );
+
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,
             this.sliderValue
           );
+
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(
             overlapGroups,
