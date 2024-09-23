@@ -268,6 +268,7 @@ function getOverlapsBBoxes(squares, overlapCount) {
 
   function dfs(square, group) {
     if (visited.has(square)) return;
+
     visited.add(square);
     group.push(square);
 

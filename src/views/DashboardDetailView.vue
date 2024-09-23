@@ -470,6 +470,7 @@ export default {
 
     getOverlaps(questionId, overlapCount) {
       if (this.assignmentMode !== "BBox") return "";
+
       let squares = [];
       this.data.forEach((person) => {
         squares = squares.concat(
@@ -489,6 +490,7 @@ export default {
 
       function dfs(square, group) {
         if (visited.has(square)) return;
+
         visited.add(square);
         group.push(square);
 
@@ -713,10 +715,11 @@ export default {
             this.originalData,
             question
           );
+
           const relevantAiData = aiData.filter(
             (ai) =>
               ai.questionIndex === question.questionId &&
-              ai.score >= this.score_percent
+              ai.score >= this.score_percent / 100
           );
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,
