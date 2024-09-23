@@ -116,10 +116,12 @@ router.post(
                 ai.questionIndex === question.questionId &&
                 ai.score >= score_value
             );
+
             const overlapGroups = getOverlapsBBoxes(
               adjustedSquares,
               sliderValue
             );
+
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
 
@@ -357,7 +359,7 @@ async function fetchAssignmentData(assignmentId) {
       `SELECT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
        FROM squares_info si
        JOIN questions q ON si.question_id = q.id
-       WHERE q.assignment_id = ?`,
+       WHERE q.assignment_id = ? AND si.isTemporary = 0`,
       [assignmentId]
     );
 

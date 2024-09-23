@@ -89,6 +89,7 @@
                   </td>
                   <template v-if="assignmentMode === 'BBox'">
                     <td>{{ getTotalBboxes(item.questionId) }}</td>
+
                     <td
                       v-for="overlapCount in Array(data.length - 1).keys()"
                       :key="overlapCount"
@@ -546,6 +547,7 @@ export default {
 
       function dfs(square, group) {
         if (visited.has(square)) return;
+
         visited.add(square);
         group.push(square);
 
