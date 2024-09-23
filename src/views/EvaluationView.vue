@@ -83,8 +83,12 @@
             v-if="assignmentDetails.mode === 'BBox'"
           >
             <span>
-              <input type="checkbox" name="is_score" id="is_score" />
-
+              <input
+                type="checkbox"
+                name="is_score"
+                id="is_score"
+                v-model="assignmentDetails.is_score"
+              />
               <label for="is_score">SCORE</label>
             </span>
           </div>
@@ -229,6 +233,7 @@ export default {
         questions: [],
         gradingScale: null,
         mode: "TextBox",
+        is_score: true,
       },
       activeQuestionId: null,
       assignmentFields: {
