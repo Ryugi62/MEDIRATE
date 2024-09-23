@@ -79,6 +79,17 @@
           </div>
 
           <div
+            class="assignment-field is_score_field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
+            <span>
+              <input type="checkbox" name="is_score" id="is_score" />
+
+              <label for="is_score">SCORE</label>
+            </span>
+          </div>
+
+          <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
             class="assignment-field"
@@ -367,6 +378,7 @@ export default {
           questions: this.assignmentDetails.questions,
           users: this.addedUsers.map((user) => user.id),
           mode: this.assignmentDetails.mode,
+          is_score: this.assignmentDetails.is_score,
         };
 
         this.$axios
@@ -715,6 +727,7 @@ hr {
   align-items: center;
 }
 
+.is_score_field,
 .mode-field {
   flex: 0;
 

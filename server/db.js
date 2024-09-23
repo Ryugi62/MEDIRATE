@@ -32,6 +32,7 @@ const createTablesSQL = {
         assignment_type VARCHAR(255),
         selection_type VARCHAR(255),
         assignment_mode ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
+        is_score BOOLEAN NOT NULL DEFAULT 1,
         UNIQUE KEY title_deadline_unique (title, deadline)
     )`,
   assignment_user: `

@@ -19,18 +19,20 @@ router.post("/", authenticateToken, async (req, res) => {
     questions,
     users,
     mode,
+    is_score,
   } = req.body;
 
   try {
     const insertAssignmentQuery = `
       INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode)
-      VALUES (?, ?, ?, ?, ?)`;
+      VALUES (?, ?, ?, ?, ?, ?)`;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
       deadline,
       assignment_type,
       selection_type,
       mode,
+      is_score,
     ]);
     const assignmentId = assignmentResult.insertId;
 
