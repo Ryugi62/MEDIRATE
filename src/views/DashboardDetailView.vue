@@ -655,7 +655,6 @@ export default {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
-      const halfRoundedEvaluatorCount = Math.round(this.data.length / 2);
       const columns = [
         { header: "문제 번호", key: "questionNumber", width: 10 },
         ...this.data.map((user) => ({
@@ -668,8 +667,8 @@ export default {
       if (this.assignmentMode === "BBox") {
         columns.push(
           {
-            header: `+${halfRoundedEvaluatorCount}인`,
-            key: `overlap${halfRoundedEvaluatorCount}`,
+            header: `+${this.sliderValue}인`,
+            key: `overlap${this.sliderValue}`,
             width: 10,
           },
           {
@@ -678,18 +677,18 @@ export default {
             width: 10,
           },
           {
-            header: `${halfRoundedEvaluatorCount}일치`,
-            key: `matched${halfRoundedEvaluatorCount}`,
+            header: `${this.sliderValue}일치`,
+            key: `matched${this.sliderValue}`,
             width: 10,
           },
           {
             header: `FN`,
-            key: `fn${halfRoundedEvaluatorCount}`,
+            key: `fn${this.sliderValue}`,
             width: 10,
           },
           {
             header: `FP`,
-            key: `fp${halfRoundedEvaluatorCount}`,
+            key: `fp${this.sliderValue}`,
             width: 10,
           },
           {
@@ -725,7 +724,7 @@ export default {
           );
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,
-            halfRoundedEvaluatorCount
+            this.sliderValue
           );
           const overlapCount = overlapGroups.length;
           const matchedCount = this.getMatchedCount(
@@ -733,12 +732,11 @@ export default {
             relevantAiData
           );
 
-          row[`overlap${halfRoundedEvaluatorCount}`] = overlapCount;
+          row[`overlap${this.sliderValue}`] = overlapCount;
           row["aiCount"] = relevantAiData.length;
-          row[`matched${halfRoundedEvaluatorCount}`] = matchedCount;
-          row[`fn${halfRoundedEvaluatorCount}`] = overlapCount - matchedCount;
-          row[`fp${halfRoundedEvaluatorCount}`] =
-            relevantAiData.length - matchedCount;
+          row[`matched${this.sliderValue}`] = matchedCount;
+          row[`fn${this.sliderValue}`] = overlapCount - matchedCount;
+          row[`fp${this.sliderValue}`] = relevantAiData.length - matchedCount;
           row["json"] = JSON.stringify({
             fileName: questionImageFileName,
             annotation: overlapGroups.map((group) => {
