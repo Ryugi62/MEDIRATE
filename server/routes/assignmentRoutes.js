@@ -24,7 +24,7 @@ router.post("/", authenticateToken, async (req, res) => {
 
   try {
     const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode)
+      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score)
       VALUES (?, ?, ?, ?, ?, ?)`;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
