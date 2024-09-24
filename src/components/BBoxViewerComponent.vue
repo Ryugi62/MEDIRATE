@@ -81,6 +81,8 @@ export default {
       this.setBackgroundImage(img);
       this.localBeforeCanvas = { width, height };
 
+      this.localSquares = []; // 기존 데이터 초기화
+
       for (const user of this.userSquaresList) {
         if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
           user.beforeCanvas.width = img.width;
@@ -95,12 +97,13 @@ export default {
         const scaleRatio = beforePosition.scale / userBeforePosition.scale;
 
         for (const square of user.squares) {
-          square.color = user.color;
-          square.x =
+          const localSquare = JSON.parse(JSON.stringify(square)); // 깊은 복사
+          localSquare.color = user.color;
+          localSquare.x =
             (square.x - userBeforePosition.x) * scaleRatio + beforePosition.x;
-          square.y =
+          localSquare.y =
             (square.y - userBeforePosition.y) * scaleRatio + beforePosition.y;
-          this.localSquares.push(square);
+          this.localSquares.push(localSquare);
         }
       }
 
@@ -112,18 +115,38 @@ export default {
       this.aiSquares = this.aiData.map((square) => ({
         x: square.x * scale + imgX,
         y: square.y * scale + imgY,
-        questionIndex: square.questionIndex, // 원본 questionIndex 유지
+        questionIndex: square.questionIndex,
         isAI: true,
-        color: "#FFFF00", // Yellow color for AI squares
+        color: "#FFFF00",
         score: square.score,
       }));
 
-      this.originalLocalSquares = [...this.localSquares];
+      this.originalLocalSquares = this.localSquares.map((square) =>
+        JSON.parse(JSON.stringify(square))
+      ); // 깊은 복사
       this.updateSquares([...this.localSquares]);
     },
 
     async filterSquares() {
-      this.localSquares = [...this.originalLocalSquares];
+      // 원본 이미지 좌표로 변환
+      const adjustedSquares = this.originalLocalSquares
+        .filter(
+          (square) =>
+            square.questionIndex === this.questionIndex && !square.isTemporary
+        )
+        .map((square) => {
+          const { x, y } = this.convertToOriginalImageCoordinates(
+            square.x,
+            square.y,
+            this.localBeforeCanvas.width,
+            this.localBeforeCanvas.height,
+            this.originalWidth,
+            this.originalHeight
+          );
+          return { ...square, x, y };
+        });
+
+      // 그룹화 진행
       const groups = [];
       const visited = new Set();
 
@@ -132,12 +155,11 @@ export default {
         visited.add(square);
         group.push(square);
 
-        this.localSquares.forEach((otherSquare) => {
+        adjustedSquares.forEach((otherSquare) => {
           if (
             !visited.has(otherSquare) &&
             Math.abs(square.x - otherSquare.x) <= 12.5 &&
             Math.abs(square.y - otherSquare.y) <= 12.5 &&
-            square.questionIndex === otherSquare.questionIndex &&
             square.color !== otherSquare.color
           ) {
             dfs(otherSquare, group);
@@ -145,7 +167,7 @@ export default {
         });
       };
 
-      this.localSquares.forEach((square) => {
+      adjustedSquares.forEach((square) => {
         if (!visited.has(square)) {
           const group = [];
           dfs(square, group);
@@ -157,15 +179,46 @@ export default {
         (group) => group.length >= this.sliderValue
       );
 
-      this.localSquares = filteredGroups.flat();
-
-      this.localSquares = this.localSquares.filter(
-        (square, index, self) =>
-          index === self.findIndex((s) => s.x === square.x && s.y === square.y)
-      );
+      // 다시 캔버스 좌표로 변환하여 렌더링
+      this.localSquares = filteredGroups.flat().map((square) => {
+        const { x, y } = this.convertToCanvasCoordinates(
+          square.x,
+          square.y,
+          this.localBeforeCanvas.width,
+          this.localBeforeCanvas.height,
+          this.originalWidth,
+          this.originalHeight
+        );
+        return { ...square, x, y };
+      });
 
       this.redrawSquares();
       this.updateSquares([...this.localSquares]);
+    },
+
+    convertToOriginalImageCoordinates(x, y, canvasWidth, canvasHeight) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight
+      );
+      const scaleRatio = 1 / currentPosition.scale;
+
+      const adjustedX = (x - currentPosition.x) * scaleRatio;
+      const adjustedY = (y - currentPosition.y) * scaleRatio;
+
+      return { x: adjustedX, y: adjustedY };
+    },
+
+    convertToCanvasCoordinates(x, y, canvasWidth, canvasHeight) {
+      const currentPosition = this.calculateImagePosition(
+        canvasWidth,
+        canvasHeight
+      );
+
+      const adjustedX = x * currentPosition.scale + currentPosition.x;
+      const adjustedY = y * currentPosition.scale + currentPosition.y;
+
+      return { x: adjustedX, y: adjustedY };
     },
 
     async loadBackgroundImage() {
@@ -280,14 +333,6 @@ export default {
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
-
-        console.log(`
-        ==================
-
-        square = ${JSON.stringify(square)}
-        
-        ==================
-        `);
 
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.color || "#FF0000";
@@ -417,10 +462,12 @@ export default {
   },
 
   watch: {
-    src(newVal, oldVal) {
+    async src(newVal, oldVal) {
       if (newVal !== oldVal) {
-        this.loadBackgroundImage();
-        this.updateSquares([...this.localSquares]);
+        await this.fetchLocalInfo();
+        await this.filterSquares();
+        await this.loadBackgroundImage();
+        this.redrawSquares();
       }
     },
 
@@ -430,6 +477,7 @@ export default {
 
     async sliderValue() {
       await this.filterSquares();
+      this.redrawSquares();
     },
 
     aiData: {
@@ -443,9 +491,9 @@ export default {
         this.aiSquares = newAiData.map((square) => ({
           x: square.x * scale + imgX,
           y: square.y * scale + imgY,
-          questionIndex: square.questionIndex, // 원본 questionIndex 유지
+          questionIndex: square.questionIndex,
           isAI: true,
-          color: "#FFFF00", // Yellow color for AI squares
+          color: "#FFFF00",
           score: square.score,
         }));
         this.redrawSquares();

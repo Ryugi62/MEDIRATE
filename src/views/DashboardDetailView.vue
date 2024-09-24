@@ -14,9 +14,9 @@
               :class="{ active: isAiMode }"
               @click="isAiMode = !isAiMode"
             ></i>
-            <span id="sliderValue" class="score_percent"
-              >{{ score_percent }}%</span
-            >
+            <span id="sliderValue" class="score_percent">
+              {{ score_percent }}%
+            </span>
             <input
               type="range"
               name="score_percent"
@@ -87,14 +87,17 @@
                         : getValidSquaresCount(person.squares, item.questionId)
                     }}
                   </td>
-                  <template v-if="assignmentMode === 'BBox'">
-                    <td>{{ getTotalBboxes(item.questionId) }}</td>
-
+                  <template
+                    v-if="
+                      assignmentMode === 'BBox' && overlaps[item.questionId]
+                    "
+                  >
+                    <td>{{ getOverlapValue(item.questionId, 1) }}</td>
                     <td
                       v-for="overlapCount in Array(data.length - 1).keys()"
                       :key="overlapCount"
                     >
-                      {{ getOverlaps(item.questionId, overlapCount + 2) }}
+                      {{ getOverlapValue(item.questionId, overlapCount + 2) }}
                     </td>
                   </template>
                 </tr>
@@ -171,6 +174,8 @@ export default {
       activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
       activeIndex: 0,
+      activeQuestionIndex: null, // 추가
+      assignmentTitle: "", // 추가
       assignmentMode: "",
       colorList: [
         { backgroundColor: "#F70101", color: "white" },
@@ -190,6 +195,7 @@ export default {
       isAiMode: true,
       aiData: [],
       score_percent: 50,
+      overlaps: {},
     };
   },
 
@@ -200,6 +206,7 @@ export default {
       await this.loadData();
       await this.loadAiData();
       await this.fix_loadData();
+      await this.calculateOverlaps();
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -355,6 +362,107 @@ export default {
       }
     },
 
+    async calculateOverlaps() {
+      this.overlaps = {};
+
+      for (const question of this.data[0].questions) {
+        const questionId = question.questionId;
+        this.overlaps[questionId] = {};
+
+        for (
+          let overlapCount = 1;
+          overlapCount <= this.data.length;
+          overlapCount++
+        ) {
+          const count = await this.getOverlaps(questionId, overlapCount);
+          this.overlaps[questionId][overlapCount] = count;
+        }
+      }
+    },
+
+    async getOverlaps(questionId, overlapCount) {
+      if (this.assignmentMode !== "BBox") return "";
+
+      const question = this.data[0].questions.find(
+        (q) => q.questionId === questionId
+      );
+      const { width: originalWidth, height: originalHeight } =
+        await this.getImageDimensions(question.questionImage);
+
+      let squares = [];
+      this.data.forEach((person) => {
+        const adjustedSquares = person.squares
+          .filter(
+            (square) =>
+              square.questionIndex === questionId && !square.isTemporary
+          )
+          .map((square) => {
+            const { x: adjustedX, y: adjustedY } =
+              this.convertToOriginalImageCoordinates(
+                square.x,
+                square.y,
+                person.beforeCanvas.width,
+                person.beforeCanvas.height,
+                originalWidth,
+                originalHeight
+              );
+            return {
+              ...square,
+              x: adjustedX,
+              y: adjustedY,
+            };
+          });
+        squares = squares.concat(adjustedSquares);
+      });
+
+      if (overlapCount === 1) {
+        return squares.length;
+      }
+
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups.length;
+    },
+
+    getOverlapValue(questionId, overlapCount) {
+      if (
+        this.overlaps &&
+        this.overlaps[questionId] &&
+        this.overlaps[questionId][overlapCount] !== undefined
+      ) {
+        return this.overlaps[questionId][overlapCount];
+      }
+      return "";
+    },
+
     handleKeyDown(event) {
       if (event.repeat) return;
 
@@ -467,128 +575,6 @@ export default {
         ).length;
         return acc + count;
       }, 0);
-    },
-
-    getOverlaps(questionId, overlapCount) {
-      if (this.assignmentMode !== "BBox") return "";
-
-      let squares = [];
-      this.data.forEach((person) => {
-        squares = squares.concat(
-          person.squares.filter(
-            (square) =>
-              square.questionIndex === questionId && !square.isTemporary
-          )
-        );
-      });
-
-      if (overlapCount === 1) {
-        return squares.length;
-      }
-
-      const groups = [];
-      const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
-        }
-      });
-
-      console.log(`
-      ===================
-
-      과제테이블 group = ${JSON.stringify(groups)}
-      
-      ===================
-      `);
-
-      return groups.length;
-    },
-
-    getMatchedCount(overlapGroups, aiData) {
-      let matchedCount = 0;
-      overlapGroups.forEach((group) => {
-        if (
-          group.some((bbox) =>
-            aiData.some(
-              (ai) =>
-                Math.abs(bbox.x - ai.x) <= 12.5 &&
-                Math.abs(bbox.y - ai.y) <= 12.5
-            )
-          )
-        ) {
-          matchedCount++;
-        }
-      });
-      return matchedCount;
-    },
-
-    getOverlapsBBoxes(squares, overlapCount) {
-      if (overlapCount === 1) {
-        return squares.map((square) => [square]);
-      }
-
-      const groups = [];
-      const visited = new Set();
-
-      function dfs(square, group) {
-        if (visited.has(square)) return;
-
-        visited.add(square);
-        group.push(square);
-
-        squares.forEach((otherSquare) => {
-          if (
-            !visited.has(otherSquare) &&
-            Math.abs(square.x - otherSquare.x) <= 12.5 &&
-            Math.abs(square.y - otherSquare.y) <= 12.5
-          ) {
-            dfs(otherSquare, group);
-          }
-        });
-      }
-
-      squares.forEach((square) => {
-        if (!visited.has(square)) {
-          const group = [];
-          dfs(square, group);
-          if (group.length >= overlapCount) {
-            groups.push(group);
-          }
-        }
-      });
-
-      console.log(`
-      ===================
-
-      엑셀 group = ${JSON.stringify(groups)}
-      
-      ===================
-      `);
-
-      return groups;
     },
 
     async getAdjustedSquares(users, question) {
@@ -851,11 +837,14 @@ export default {
           ? ((totalAnswered / totalQuestions) * 100).toFixed(2) + "%"
           : "0%";
       } else {
-        const count = this.getOverlaps(
-          this.activeQuestionIndex,
-          Number(this.sliderValue)
-        );
-
+        const overlapsForQuestion = this.overlaps[this.activeQuestionIndex];
+        if (
+          !overlapsForQuestion ||
+          overlapsForQuestion[Number(this.sliderValue)] === undefined
+        ) {
+          return "0";
+        }
+        const count = overlapsForQuestion[Number(this.sliderValue)] || 0;
         return count.toString();
       }
     },
