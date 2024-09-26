@@ -438,10 +438,6 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
-      console.log(`
-      temporarySquares = ${JSON.stringify(this.temporarySquares)}
-      `);
-
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary) return; // 임시 박스는 그리지 않음

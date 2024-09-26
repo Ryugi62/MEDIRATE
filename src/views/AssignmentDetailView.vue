@@ -197,10 +197,16 @@ export default {
           this.makeTdClickable();
         });
 
-        this.activeQuestionImageUrl =
-          this.currentAssignmentDetails.questions[0].image;
         this.activeQuestionId =
           this.currentAssignmentDetails.beforeCanvas.lastQuestionIndex;
+
+        const last_index = this.currentAssignmentDetails.questions.findIndex(
+          (q) => q.id === this.activeQuestionId
+        );
+
+        this.activeQuestionImageUrl =
+          this.currentAssignmentDetails.questions[last_index].image;
+
         if (this.activeQuestionId === 1) {
           this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
         }
