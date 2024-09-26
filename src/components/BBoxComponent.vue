@@ -186,11 +186,7 @@ export default {
             alert("AI 데이터가 없습니다.");
           }
 
-          const filter_response = response.data.filter((s) => {
-            s.score >= this.score_value / 100;
-          });
-
-          let newAiSquares = filter_response.map((e) => ({
+          let newAiSquares = response.data.map((e) => ({
             x: e.x + 12.5,
             y: e.y + 12.5,
             questionIndex: this.questionIndex,
@@ -214,8 +210,7 @@ export default {
                   Math.abs(square.originalX - aiSquare.originalX) <= 5 &&
                   Math.abs(square.originalY - aiSquare.originalY) <= 5 &&
                   square.questionIndex === this.questionIndex &&
-                  square.isAI && // 이 조건을 추가하여 isAI가 true인 경우만 필터링
-                  square.score >= this.score_value / 100
+                  square.isAI // 이 조건을 추가하여 isAI가 true인 경우만 필터링
               )
           );
 
@@ -557,8 +552,12 @@ export default {
     },
 
     applyMitosis() {
+      const filter_temporarySquares = this.temporarySquares.filter((s) => {
+        return !s.isAI || s.score >= this.score_value / 100;
+      });
+
       // 만약 isTemporaryAI가 true인 경우는 false로 변경
-      this.temporarySquares = this.temporarySquares.map((square) => {
+      this.temporarySquares = filter_temporarySquares.map((square) => {
         if (square.isTemporaryAI) {
           return {
             ...square,
