@@ -17,6 +17,7 @@
         placeholder="검색어를 입력하세요"
         @focus="isFocused = true"
         @blur="isFocused = false"
+        @keypress.enter="searchAssignment"
       />
       <i
         class="fa-solid fa-magnifying-glass search-icon"

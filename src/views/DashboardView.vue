@@ -43,6 +43,7 @@
           placeholder="검색어를 입력하세요"
           @focus="isFocused = true"
           @blur="isFocused = false"
+          @keypress.enter="searchDashboard"
         />
         <i
           class="fa-solid fa-magnifying-glass search-button"
