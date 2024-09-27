@@ -75,12 +75,13 @@
                 <input type="text" v-model="user.realname" />
                 <input
                   type="password"
-                  v-model="user.password"
+                  v-model.trim="user.password"
+                  @keydown.=""
                   placeholder="변경할 비밀번호를 입력해주세요. "
                 />
                 <input
                   type="password"
-                  v-model="user.passwordMatch"
+                  v-model.trim="user.passwordMatch"
                   placeholder="변경할 비밀번호를 입력해주세요. "
                 />
               </template>
@@ -203,11 +204,15 @@ export default {
       this.userList[index].editMode = true;
     },
     saveUser(index) {
+      const user = this.userList[index];
       try {
-        const user = this.userList[index];
-
         if (user.password && user.password !== user.passwordMatch)
-          return alert("비밀번호가 비밀번호 확인과 일치하지 않습니다.");
+          throw new Error(
+            alert("비밀번호가 비밀번호 확인과 일치하지 않습니다.")
+          );
+
+        if (user.password.length < 8)
+          throw new Error(alert("비밀번호를 8자리 이상 입력해주세요."));
 
         this.$axios
           .put(
@@ -223,13 +228,14 @@ export default {
           )
           .then(() => {
             user.editMode = false;
-            user.password = "";
-            user.passwordMatch = "";
             alert("성공적으로 정보를 변경하였습니다.");
           });
       } catch (error) {
         // console.log(`hi ${error}`);
         console.error("Error editing user:", error);
+      } finally {
+        user.password = "";
+        user.passwordMatch = "";
       }
     },
     cancelEdit(index) {
