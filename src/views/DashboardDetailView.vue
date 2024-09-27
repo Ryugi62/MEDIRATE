@@ -63,7 +63,7 @@
                       v-for="index in [null, ...Array(data.length - 1).keys()]"
                       :key="index === null ? 'none' : index"
                     >
-                      {{ index === null ? "일치 없음" : `${index + 2}인 일치` }}
+                      {{ index === null ? "전체개수" : `${index + 2}인 일치` }}
                     </th>
                   </template>
                 </tr>
@@ -147,6 +147,7 @@
         </div>
       </div>
     </div>
+    <img src="../assets/dashboard_detial_guide.png" alt="" width="600" />
   </div>
   <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
