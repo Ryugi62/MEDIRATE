@@ -119,6 +119,7 @@ export default {
           this.$router.push({ name: "assignment" });
         })
         .catch((err) => {
+          alert("로그인에 실패하였습니다.");
           console.error(err);
         });
     },
