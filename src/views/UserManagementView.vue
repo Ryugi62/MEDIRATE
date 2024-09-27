@@ -74,12 +74,12 @@
               <template v-else>
                 <input type="text" v-model="user.realname" />
                 <input
-                  type="text"
+                  type="password"
                   v-model="user.password"
                   placeholder="변경할 비밀번호를 입력해주세요. "
                 />
                 <input
-                  type="text"
+                  type="password"
                   v-model="user.passwordMatch"
                   placeholder="변경할 비밀번호를 입력해주세요. "
                 />
@@ -151,6 +151,8 @@ export default {
         this.originalUserList = response.data.map((user) => ({
           ...user,
           editMode: false,
+          password: "",
+          passwordMatch: "",
         }));
         this.userList = [...JSON.parse(JSON.stringify(this.originalUserList))];
       } catch (error) {
@@ -202,11 +204,16 @@ export default {
     },
     saveUser(index) {
       try {
+        const user = this.userList[index];
+
+        if (user.password && user.password !== user.passwordMatch)
+          return alert("비밀번호가 비밀번호 확인과 일치하지 않습니다.");
+
         this.$axios
           .put(
-            `/api/auth/edit-user/${this.userList[index].id}`,
+            `/api/auth/edit-user/${user.id}`,
             {
-              userList: this.userList[index],
+              userList: user,
             },
             {
               headers: {
@@ -215,9 +222,13 @@ export default {
             }
           )
           .then(() => {
-            this.userList[index].editMode = false;
+            user.editMode = false;
+            user.password = "";
+            user.passwordMatch = "";
+            alert("성공적으로 정보를 변경하였습니다.");
           });
       } catch (error) {
+        // console.log(`hi ${error}`);
         console.error("Error editing user:", error);
       }
     },
