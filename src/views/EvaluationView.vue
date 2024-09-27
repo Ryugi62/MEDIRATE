@@ -741,14 +741,12 @@ hr {
 .assignment-info {
   display: flex;
   gap: 16px;
-  justify-content: space-between;
   flex-wrap: wrap;
 }
 
 /* 과제 필드 */
 .assignment-field {
   display: flex;
-  flex: 1;
   gap: 8px;
   text-wrap: nowrap;
   align-items: center;

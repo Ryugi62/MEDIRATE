@@ -52,6 +52,12 @@
             </div>
           </div>
         </div>
+        <div class="guide_container">
+          <img
+            src="../assets/evaluation_guide.png"
+            class="guide_container_image"
+          />
+        </div>
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
@@ -591,8 +597,9 @@ hr {
 
 /* 유저 추가 섹션 */
 .user-addition {
-  display: flex;
   gap: 16px;
+  width: 30%;
+  display: flex;
   flex-direction: column;
 }
 
@@ -743,25 +750,28 @@ hr {
   color: var(--pink-hover);
 }
 
+.guide_container_image {
+  width: 100%;
+}
+
 /* 과제 추가 섹션 */
 .assignment-addition {
-  flex: 1;
+  gap: 16px;
+  width: 70%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 /* 과제 정보 섹션 */
 .assignment-info {
-  display: flex;
   gap: 16px;
-  justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
 }
 
 /* 과제 필드 */
 .assignment-field {
   display: flex;
-  flex: 1;
   gap: 8px;
   text-wrap: nowrap;
   align-items: center;
