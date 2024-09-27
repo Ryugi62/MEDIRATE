@@ -110,6 +110,12 @@
         :is_score="currentAssignmentDetails.is_score"
       />
     </div>
+
+    <img
+      src="../assets/assignment_guide.png"
+      alt=""
+      class="assignment_detail_guide"
+    />
   </div>
   <div v-else class="loading-message">과제를 불러오는 중입니다...</div>
 </template>
@@ -653,5 +659,9 @@ td:nth-child(2) {
 tr.isInspected > *,
 tr.active > * {
   color: white;
+}
+
+.assignment_detail_guide {
+  width: 500px;
 }
 </style>
