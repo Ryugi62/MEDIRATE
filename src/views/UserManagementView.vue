@@ -73,6 +73,16 @@
               <template v-if="!user.editMode">{{ user.realname }}</template>
               <template v-else>
                 <input type="text" v-model="user.realname" />
+                <input
+                  type="text"
+                  v-model="user.password"
+                  placeholder="변경할 비밀번호를 입력해주세요. "
+                />
+                <input
+                  type="text"
+                  v-model="user.passwordMatch"
+                  placeholder="변경할 비밀번호를 입력해주세요. "
+                />
               </template>
             </td>
             <td>
@@ -272,7 +282,6 @@ export default {
 
 <style scoped>
 .user-management-container {
-  max-width: 900px;
   margin: 20px auto;
   padding: 30px;
   background-color: #ffffff;

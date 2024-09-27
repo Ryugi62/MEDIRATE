@@ -120,11 +120,21 @@ router.put("/edit-user/:id", authenticateToken, async (req, res) => {
   }
 
   const id = req.params.id;
-  const { realname, role } = req.body.userList;
+  const { realname, role, password, passwordCheck } = req.body.userList;
 
   try {
     const query = "UPDATE users SET realname = ?, role = ? WHERE id = ?";
     await db.query(query, [realname, role, id]);
+
+    if (password === "" && passwordCheck === "")
+      res.status(200).send("success");
+
+    if (password !== passwordCheck)
+      res.status(500).send("비밀번호가 일치하지 않습니다.");
+
+    const changePasswordQuery = "UPDATE users SET password = ? WHERE id = ?";
+    await db.query(changePasswordQuery, [password, id]);
+
     res.status(200).send("success");
   } catch (error) {
     console.error("Server error during update user:", error);
