@@ -205,7 +205,9 @@ export default {
         );
 
         this.activeQuestionImageUrl =
-          this.currentAssignmentDetails.questions[last_index].image;
+          this.currentAssignmentDetails.questions[
+            last_index >= 0 ? last_index : 0
+          ].image;
 
         if (this.activeQuestionId === 1) {
           this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
