@@ -663,6 +663,7 @@ hr {
   gap: 8px;
   width: 100%;
   height: fit-content;
+  cursor: pointer;
   justify-content: space-between;
 }
 
@@ -683,6 +684,14 @@ hr {
 
 .user-item-added {
   display: flex;
+}
+
+.user-item-add:hover {
+  color: var(--blue-hover);
+}
+
+.user-item-added:hover {
+  color: var(--pink-hover);
 }
 
 /* 유저 수 카운트 */
