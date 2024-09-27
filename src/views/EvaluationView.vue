@@ -52,6 +52,13 @@
             </div>
           </div>
         </div>
+
+        <div class="guide_container">
+          <img
+            src="../assets/evaluation_guide.png"
+            class="guide_container_image"
+          />
+        </div>
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
@@ -559,6 +566,7 @@ hr {
   display: flex;
   gap: 16px;
   flex-direction: column;
+  width: 30%;
 }
 
 /* 라벨 */
@@ -708,9 +716,13 @@ hr {
   color: var(--pink-hover);
 }
 
+.guide_container_image {
+  width: 100%;
+}
+
 /* 과제 추가 섹션 */
 .assignment-addition {
-  flex: 1;
+  width: 70%;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -721,6 +733,7 @@ hr {
   display: flex;
   gap: 16px;
   justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 /* 과제 필드 */
