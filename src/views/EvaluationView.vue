@@ -239,7 +239,7 @@ export default {
         selectedAssignmentType: "",
         questions: [],
         gradingScale: null,
-        mode: "TextBox",
+        mode: "BBox",
         is_score: true,
       },
       activeQuestionId: null,
