@@ -473,6 +473,7 @@ async function getAIData(assignmentId) {
         ".json"
       );
 
+      
       try {
         const jsonContent = await fs.readFile(jsonPath, "utf8");
         const jsonData = JSON.parse(jsonContent);
