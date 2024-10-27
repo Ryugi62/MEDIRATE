@@ -9,6 +9,23 @@ const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
 
+// 로그 큐와 유틸리티 함수
+async function logWithQueue(message, data = null) {
+  return new Promise((resolve) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+    
+    if (data) {
+      console.log(logMessage);
+      console.log(data);
+    } else {
+      console.log(logMessage);
+    }
+    
+    setTimeout(resolve, 10);
+  });
+}
+
 router.post(
   "/download-searched-assignments",
   authenticateToken,
@@ -18,19 +35,23 @@ router.post(
       const assignments = req.body.data;
       const score_value = req.body.score_value;
 
+      await logWithQueue("Starting download process");
+
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
       for (const assignmentSummary of assignments) {
+        await logWithQueue(`Processing Assignment ID: ${assignmentSummary.id}`);
+        
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
 
         const users = assignmentData.assignment;
-
         const max_slider_value = users.length;
 
         if (sliderValue > max_slider_value) {
           sliderValue = max_slider_value;
+          await logWithQueue(`Adjusted slider value to maximum: ${sliderValue}`);
         }
 
         const columns = [
@@ -86,6 +107,8 @@ router.post(
 
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
+          await logWithQueue(`Processing Question: ${questionImageFileName}`);
+          
           const row = {
             questionNumber: questionImageFileName,
           };
@@ -110,26 +133,29 @@ router.post(
 
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
+            await logWithQueue(`Adjusted Squares Count: ${adjustedSquares.length}`);
 
             const relevantAiData = aiData.filter(
               (ai) =>
                 ai.questionIndex === question.questionId &&
                 ai.score >= score_value
             );
+            await logWithQueue(`Relevant AI Data Count: ${relevantAiData.length}`);
 
-            const overlapGroups = getOverlapsBBoxes(
+            const overlapGroups = await getOverlapsBBoxes(
               adjustedSquares,
               sliderValue
             );
-
             const overlapCount = overlapGroups.length;
-            const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
+            const matchedCount = await getMatchedCount(overlapGroups, relevantAiData);
+
+            const fpValue = relevantAiData.length - matchedCount;
 
             row[`overlap${sliderValue}`] = overlapCount;
             row["aiCount"] = relevantAiData.length;
             row[`matched${sliderValue}`] = matchedCount;
             row[`fn${sliderValue}`] = overlapCount - matchedCount;
-            row[`fp${sliderValue}`] = relevantAiData.length - matchedCount;
+            row[`fp${sliderValue}`] = fpValue || 0;
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
@@ -151,8 +177,13 @@ router.post(
         }
       }
 
+      await logWithQueue("Generating Excel file");
+      
       worksheet.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
+      
+      await logWithQueue("Download process completed");
+
       res.setHeader(
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -163,7 +194,7 @@ router.post(
       );
       res.send(buffer);
     } catch (error) {
-      console.error("Error generating Excel file:", error);
+      await logWithQueue("Error generating Excel file:", error);
       res.status(500).send("Internal Server Error");
     }
   }
@@ -189,8 +220,8 @@ async function getImageDimensions(imageUrl) {
     const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
-    console.error(`Error getting image dimensions for ${imageUrl}:`, error);
-    return { width: 1000, height: 1000 }; // 기본값 설정
+    await logWithQueue(`Error getting image dimensions for ${imageUrl}:`, error);
+    return { width: 1000, height: 1000 };
   }
 }
 
@@ -260,7 +291,9 @@ function calculateImagePosition(
   return { x, y, scale };
 }
 
-function getOverlapsBBoxes(squares, overlapCount) {
+async function getOverlapsBBoxes(squares, overlapCount) {
+  await logWithQueue(`Calculating overlaps for ${squares.length} squares with minimum overlap ${overlapCount}`);
+
   if (overlapCount === 1) {
     return squares.map((square) => [square]);
   }
@@ -268,50 +301,57 @@ function getOverlapsBBoxes(squares, overlapCount) {
   const groups = [];
   const visited = new Set();
 
-  function dfs(square, group) {
+  async function dfs(square, group) {
     if (visited.has(square)) return;
 
     visited.add(square);
     group.push(square);
 
-    squares.forEach((otherSquare) => {
+    for (const otherSquare of squares) {
       if (
         !visited.has(otherSquare) &&
         Math.abs(square.x - otherSquare.x) <= 12.5 &&
         Math.abs(square.y - otherSquare.y) <= 12.5
       ) {
-        dfs(otherSquare, group);
+        await dfs(otherSquare, group);
       }
-    });
+    }
   }
 
-  squares.forEach((square) => {
+  for (const square of squares) {
     if (!visited.has(square)) {
       const group = [];
-      dfs(square, group);
+      await dfs(square, group);
       if (group.length >= overlapCount) {
         groups.push(group);
       }
     }
-  });
+  }
 
+  await logWithQueue(`Found ${groups.length} overlap groups`);
   return groups;
 }
 
-function getMatchedCount(overlapGroups, aiData) {
+async function getMatchedCount(overlapGroups, aiData) {
   let matchedCount = 0;
-  overlapGroups.forEach((group) => {
-    if (
-      group.some((bbox) =>
-        aiData.some(
-          (ai) =>
-            Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
-        )
-      )
-    ) {
+
+  for (const group of overlapGroups) {
+    let isMatched = false;
+
+    for (const bbox of group) {
+      for (const ai of aiData) {
+        if (Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5) {
+          isMatched = true;
+        }
+      }
+    }
+
+    if (isMatched) {
       matchedCount++;
     }
-  });
+  }
+
+  await logWithQueue(`Matched count: ${matchedCount}`);
   return matchedCount;
 }
 
@@ -319,6 +359,7 @@ async function fetchAssignmentData(assignmentId) {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+    await logWithQueue(`Fetching assignment data for ID: ${assignmentId}`);
 
     const [assignmentInfo] = await connection.query(
       `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
@@ -338,7 +379,6 @@ async function fetchAssignmentData(assignmentId) {
       [assignmentId]
     );
 
-    // 이미지 크기 정보 가져오기
     for (let question of questions) {
       const { width, height } = await getImageDimensions(
         question.questionImage
@@ -399,6 +439,8 @@ async function fetchAssignmentData(assignmentId) {
       });
     });
 
+    await logWithQueue(`Assignment data fetched successfully for ID: ${assignmentId}`);
+
     await connection.commit();
     return {
       assignment: structuredData,
@@ -406,6 +448,7 @@ async function fetchAssignmentData(assignmentId) {
       FileName: assignmentInfo[0].FileName,
     };
   } catch (error) {
+    await logWithQueue(`Error fetching assignment data for ID: ${assignmentId}`, error);
     await connection.rollback();
     throw error;
   } finally {
@@ -415,6 +458,8 @@ async function fetchAssignmentData(assignmentId) {
 
 async function getAIData(assignmentId) {
   try {
+    await logWithQueue(`Getting AI data for assignment: ${assignmentId}`);
+    
     const [questions] = await db.query(
       `SELECT id, image FROM questions WHERE assignment_id = ?`,
       [assignmentId]
@@ -430,26 +475,47 @@ async function getAIData(assignmentId) {
 
       try {
         const jsonContent = await fs.readFile(jsonPath, "utf8");
-        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+        const jsonData = JSON.parse(jsonContent);
+        
+        if (!jsonData.annotation || !Array.isArray(jsonData.annotation)) {
+          await logWithQueue(`Invalid annotation format for question ${question.id}`, jsonData);
+          continue;
+        }
+
+        const bbox = jsonData.annotation.map(async (annotation) => {
+          if (!annotation.bbox || !Array.isArray(annotation.bbox)) {
+            await logWithQueue(`Invalid bbox format`, annotation);
+            return null;
+          }
+
           const [x, y] = annotation.bbox;
-          const score = annotation.score ? annotation.score : 0.6;
+          const score = typeof annotation.score === 'number' ? annotation.score : 0.6;
+          
           return {
             x: x + 12.5,
             y: y + 12.5,
             questionIndex: question.id,
             score: score,
           };
-        });
+        }).filter(item => item !== null);
+
         AI_BBOX.push(...bbox);
+
+        await logWithQueue(`Question ${question.id} processed`, {
+          bboxCount: bbox.length,
+        });
+
       } catch (error) {
-        console.error("Error reading JSON file:", error);
+        await logWithQueue(`Error processing question ${question.id}`, error);
       }
     }
 
+    await logWithQueue(`AI data processing completed`);
+
     return AI_BBOX;
   } catch (error) {
-    console.error("Error fetching AI assignment:", error);
-    throw error;
+    await logWithQueue("Critical Error in getAIData", error);
+    return [];
   }
 }
 

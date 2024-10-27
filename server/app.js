@@ -15,6 +15,7 @@ const downloadSearchedAssignments = require("./routes/downloadSearchedAssignment
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 
+
 // Constants and configurations
 const app = express();
 const port = process.env.SERVER_PORT || 3000;
@@ -56,6 +57,10 @@ app.use("/api/assignments", assignmentRoutes);
 app.use("/api/download", downloadSearchedAssignments);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
+app.use((req, res, next) => {
+  req.setTimeout(0); // 타임아웃을 무제한으로 설정
+  next();
+});
 
 // Routes for handling files and directories
 app.get("/uploads/:filename", serveUploadedFile);

@@ -1,12 +1,8 @@
 <template>
   <header>
     <!-- hambuger menu icon -->
-    <i
-      v-if="this.$store.getters.isAuthenticated"
-      class="fa-solid fa-bars menu-icon"
-      @click="this.$store.commit('toggleSlideBar')"
-      :class="{ active: this.$store.getters.isSlideBarOpen }"
-    ></i>
+    <i v-if="this.$store.getters.isAuthenticated" class="fa-solid fa-bars menu-icon"
+      @click="this.$store.commit('toggleSlideBar')" :class="{ active: this.$store.getters.isSlideBarOpen }"></i>
 
     <!-- title -->
     <router-link to="/" class="title">의료이미지평가시스템</router-link>
@@ -51,10 +47,12 @@ header {
   font-size: 24px;
   transition: 0.105s;
 }
+
 .menu-icon:hover {
   color: var(--blue-hover);
   cursor: pointer;
 }
+
 .menu-icon:active {
   color: var(--blue-active);
   transform: scale(0.9);
@@ -74,9 +72,11 @@ header {
   left: 50%;
   transform: translateX(-50%);
 }
+
 .title:hover {
   color: var(--blue-hover);
 }
+
 .title:active {
   color: var(--blue-active);
 }
