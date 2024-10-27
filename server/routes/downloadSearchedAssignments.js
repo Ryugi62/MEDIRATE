@@ -14,16 +14,22 @@ async function logWithQueue(message, data = null) {
   return new Promise((resolve) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}`;
-    
+
     if (data) {
       console.log(logMessage);
       console.log(data);
     } else {
       console.log(logMessage);
     }
-    
+
     setTimeout(resolve, 10);
   });
+}
+
+// 데이터 기록을 위한 함수
+async function logDataToFile(filePath, data) {
+  const logData = `${data}\n`;
+  await fs.appendFile(filePath, logData, "utf8");
 }
 
 router.post(
@@ -39,10 +45,13 @@ router.post(
 
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
+      const logFilePath = path.join(__dirname, "test.txt");
+
+      await fs.writeFile(logFilePath, "", "utf8"); // 기존 파일 초기화
 
       for (const assignmentSummary of assignments) {
         await logWithQueue(`Processing Assignment ID: ${assignmentSummary.id}`);
-        
+
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
 
@@ -51,7 +60,9 @@ router.post(
 
         if (sliderValue > max_slider_value) {
           sliderValue = max_slider_value;
-          await logWithQueue(`Adjusted slider value to maximum: ${sliderValue}`);
+          await logWithQueue(
+            `Adjusted slider value to maximum: ${sliderValue}`
+          );
         }
 
         const columns = [
@@ -66,54 +77,49 @@ router.post(
             key: user.name,
             width: 15,
           })),
+          {
+            header: `+${sliderValue}인`,
+            key: `overlap${sliderValue}`,
+            width: 10,
+          },
+          {
+            header: `AI개수`,
+            key: `aiCount`,
+            width: 10,
+          },
+          {
+            header: `${sliderValue}일치`,
+            key: `matched${sliderValue}`,
+            width: 10,
+          },
+          {
+            header: `FN`,
+            key: `fn${sliderValue}`,
+            width: 10,
+          },
+          {
+            header: `FP`,
+            key: `fp${sliderValue}`,
+            width: 10,
+          },
+          {
+            header: `JSON`,
+            key: `json`,
+            width: 30,
+          },
         ];
-
-        if (assignmentData.assignmentMode === "BBox") {
-          columns.push(
-            {
-              header: `+${sliderValue}인`,
-              key: `overlap${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `AI개수`,
-              key: `aiCount`,
-              width: 10,
-            },
-            {
-              header: `${sliderValue}일치`,
-              key: `matched${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `FN`,
-              key: `fn${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `FP`,
-              key: `fp${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `JSON`,
-              key: `json`,
-              width: 30,
-            }
-          );
-        }
 
         worksheet.columns = columns;
 
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
           await logWithQueue(`Processing Question: ${questionImageFileName}`);
-          
+
           const row = {
             questionNumber: questionImageFileName,
+            assignmentId: assignmentSummary.id,
           };
 
-          row["assignmentId"] = assignmentSummary.id;
           users.forEach((user) => {
             if (assignmentData.assignmentMode === "BBox") {
               row[user.name] = getValidSquaresCount(
@@ -133,21 +139,28 @@ router.post(
 
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
-            await logWithQueue(`Adjusted Squares Count: ${adjustedSquares.length}`);
+            await logWithQueue(
+              `Adjusted Squares Count: ${adjustedSquares.length}`
+            );
 
             const relevantAiData = aiData.filter(
               (ai) =>
                 ai.questionIndex === question.questionId &&
                 ai.score >= score_value
             );
-            await logWithQueue(`Relevant AI Data Count: ${relevantAiData.length}`);
+            await logWithQueue(
+              `Relevant AI Data Count: ${relevantAiData.length}`
+            );
 
             const overlapGroups = await getOverlapsBBoxes(
               adjustedSquares,
               sliderValue
             );
             const overlapCount = overlapGroups.length;
-            const matchedCount = await getMatchedCount(overlapGroups, relevantAiData);
+            const matchedCount = await getMatchedCount(
+              overlapGroups,
+              relevantAiData
+            );
 
             const fpValue = relevantAiData.length - matchedCount;
 
@@ -173,15 +186,21 @@ router.post(
             });
           }
 
+          // 로깅 파일에 데이터 기록
+          const logData = Object.entries(row)
+            .map(([key, value]) => `${key}: ${value} (${typeof value})`)
+            .join(", ");
+          await logDataToFile(logFilePath, logData);
+
           worksheet.addRow(row);
         }
       }
 
       await logWithQueue("Generating Excel file");
-      
+
       worksheet.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
-      
+
       await logWithQueue("Download process completed");
 
       res.setHeader(
@@ -220,7 +239,10 @@ async function getImageDimensions(imageUrl) {
     const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
-    await logWithQueue(`Error getting image dimensions for ${imageUrl}:`, error);
+    await logWithQueue(
+      `Error getting image dimensions for ${imageUrl}:`,
+      error
+    );
     return { width: 1000, height: 1000 };
   }
 }
@@ -292,7 +314,9 @@ function calculateImagePosition(
 }
 
 async function getOverlapsBBoxes(squares, overlapCount) {
-  await logWithQueue(`Calculating overlaps for ${squares.length} squares with minimum overlap ${overlapCount}`);
+  await logWithQueue(
+    `Calculating overlaps for ${squares.length} squares with minimum overlap ${overlapCount}`
+  );
 
   if (overlapCount === 1) {
     return squares.map((square) => [square]);
@@ -340,7 +364,10 @@ async function getMatchedCount(overlapGroups, aiData) {
 
     for (const bbox of group) {
       for (const ai of aiData) {
-        if (Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5) {
+        if (
+          Math.abs(bbox.x - ai.x) <= 12.5 &&
+          Math.abs(bbox.y - ai.y) <= 12.5
+        ) {
           isMatched = true;
         }
       }
@@ -439,7 +466,9 @@ async function fetchAssignmentData(assignmentId) {
       });
     });
 
-    await logWithQueue(`Assignment data fetched successfully for ID: ${assignmentId}`);
+    await logWithQueue(
+      `Assignment data fetched successfully for ID: ${assignmentId}`
+    );
 
     await connection.commit();
     return {
@@ -448,7 +477,10 @@ async function fetchAssignmentData(assignmentId) {
       FileName: assignmentInfo[0].FileName,
     };
   } catch (error) {
-    await logWithQueue(`Error fetching assignment data for ID: ${assignmentId}`, error);
+    await logWithQueue(
+      `Error fetching assignment data for ID: ${assignmentId}`,
+      error
+    );
     await connection.rollback();
     throw error;
   } finally {
@@ -459,7 +491,7 @@ async function fetchAssignmentData(assignmentId) {
 async function getAIData(assignmentId) {
   try {
     await logWithQueue(`Getting AI data for assignment: ${assignmentId}`);
-    
+
     const [questions] = await db.query(
       `SELECT id, image FROM questions WHERE assignment_id = ?`,
       [assignmentId]
@@ -473,39 +505,43 @@ async function getAIData(assignmentId) {
         ".json"
       );
 
-      
       try {
         const jsonContent = await fs.readFile(jsonPath, "utf8");
         const jsonData = JSON.parse(jsonContent);
-        
+
         if (!jsonData.annotation || !Array.isArray(jsonData.annotation)) {
-          await logWithQueue(`Invalid annotation format for question ${question.id}`, jsonData);
+          await logWithQueue(
+            `Invalid annotation format for question ${question.id}`,
+            jsonData
+          );
           continue;
         }
 
-        const bbox = jsonData.annotation.map(async (annotation) => {
-          if (!annotation.bbox || !Array.isArray(annotation.bbox)) {
-            await logWithQueue(`Invalid bbox format`, annotation);
-            return null;
-          }
+        const bbox = jsonData.annotation
+          .map(async (annotation) => {
+            if (!annotation.bbox || !Array.isArray(annotation.bbox)) {
+              await logWithQueue(`Invalid bbox format`, annotation);
+              return null;
+            }
 
-          const [x, y] = annotation.bbox;
-          const score = typeof annotation.score === 'number' ? annotation.score : 0.6;
-          
-          return {
-            x: x + 12.5,
-            y: y + 12.5,
-            questionIndex: question.id,
-            score: score,
-          };
-        }).filter(item => item !== null);
+            const [x, y] = annotation.bbox;
+            const score =
+              typeof annotation.score === "number" ? annotation.score : 0.6;
+
+            return {
+              x: x + 12.5,
+              y: y + 12.5,
+              questionIndex: question.id,
+              score: score,
+            };
+          })
+          .filter((item) => item !== null);
 
         AI_BBOX.push(...bbox);
 
         await logWithQueue(`Question ${question.id} processed`, {
           bboxCount: bbox.length,
         });
-
       } catch (error) {
         await logWithQueue(`Error processing question ${question.id}`, error);
       }
