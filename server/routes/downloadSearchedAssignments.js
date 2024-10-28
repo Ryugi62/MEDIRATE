@@ -126,7 +126,7 @@ router.post(
             };
 
             Array.from(allEvaluators).forEach((evaluatorName) => {
-              row[evaluatorName] = "할당X";
+              row[evaluatorName] = 0;
             });
 
             users.forEach((user) => {
