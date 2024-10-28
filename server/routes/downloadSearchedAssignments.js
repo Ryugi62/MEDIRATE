@@ -51,17 +51,18 @@ router.post(
 
       // 모든 평가자 목록을 수집
       const allEvaluators = new Set();
-      for (const assignmentSummary of assignments) {
+      const assignmentPromises = assignments.map(async (assignmentSummary) => {
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
-        const users = assignmentData.assignment;
-        users.forEach((user) => allEvaluators.add(user.name));
-      }
+        assignmentData.assignment.forEach((user) =>
+          allEvaluators.add(user.name)
+        );
+      });
+      await Promise.all(assignmentPromises);
 
       // 기본 컬럼 설정
       const columns = [
         { header: "과제 ID", key: "assignmentId", width: 10 },
         { header: "문제 번호", key: "questionNumber", width: 10 },
-        // 모든 가능한 평가자에 대한 컬럼 추가
         ...Array.from(allEvaluators).map((name) => ({
           header: name,
           key: name,
@@ -98,98 +99,108 @@ router.post(
           width: 30,
         },
       ];
-
       worksheet.columns = columns;
 
       // 각 과제와 문제에 대한 데이터 처리
-      for (const assignmentSummary of assignments) {
-        await logWithQueue(`Processing Assignment ID: ${assignmentSummary.id}`);
+      const assignmentDataPromises = assignments.map(
+        async (assignmentSummary) => {
+          await logWithQueue(
+            `Processing Assignment ID: ${assignmentSummary.id}`
+          );
 
-        const assignmentData = await fetchAssignmentData(assignmentSummary.id);
-        const aiData = await getAIData(assignmentSummary.id);
-        const users = assignmentData.assignment;
+          const [assignmentData, aiData] = await Promise.all([
+            fetchAssignmentData(assignmentSummary.id),
+            getAIData(assignmentSummary.id),
+          ]);
+          const users = assignmentData.assignment;
 
-        for (const question of users[0].questions) {
-          const questionImageFileName = question.questionImage.split("/").pop();
-          await logWithQueue(`Processing Question: ${questionImageFileName}`);
+          const questionPromises = users[0].questions.map(async (question) => {
+            const questionImageFileName = question.questionImage
+              .split("/")
+              .pop();
+            await logWithQueue(`Processing Question: ${questionImageFileName}`);
 
-          const row = {
-            assignmentId: assignmentSummary.id,
-            questionNumber: questionImageFileName,
-          };
+            const row = {
+              assignmentId: assignmentSummary.id,
+              questionNumber: questionImageFileName,
+            };
 
-          // 모든 가능한 평가자에 대해 기본값 설정
-          Array.from(allEvaluators).forEach((evaluatorName) => {
-            row[evaluatorName] = "할당X";
-          });
-
-          // 실제 과제에 참여한 평가자의 데이터만 업데이트
-          users.forEach((user) => {
-            if (assignmentData.assignmentMode === "BBox") {
-              row[user.name] = getValidSquaresCount(
-                user.squares,
-                question.questionId
-              );
-            } else {
-              const userQuestion = user.questions.find(
-                (q) => q.questionId === question.questionId
-              );
-              row[user.name] =
-                userQuestion.questionSelection === -1
-                  ? "선택되지 않음"
-                  : userQuestion.questionSelection;
-            }
-          });
-
-          if (assignmentData.assignmentMode === "BBox") {
-            const adjustedSquares = await getAdjustedSquares(users, question);
-            const relevantAiData = aiData.filter(
-              (ai) =>
-                ai.questionIndex === question.questionId &&
-                ai.score >= score_value
-            );
-
-            const overlapGroups = await getOverlapsBBoxes(
-              adjustedSquares,
-              sliderValue
-            );
-            const overlapCount = overlapGroups.length;
-            const matchedCount = await getMatchedCount(
-              overlapGroups,
-              relevantAiData
-            );
-            const fpValue = relevantAiData.length - matchedCount;
-
-            row[`overlap${sliderValue}`] = overlapCount;
-            row["aiCount"] = relevantAiData.length;
-            row[`matched${sliderValue}`] = matchedCount;
-            row[`fn${sliderValue}`] = overlapCount - matchedCount;
-            row[`fp${sliderValue}`] = fpValue || 0;
-
-            row["json"] = JSON.stringify({
-              filename: questionImageFileName,
-              annotation: overlapGroups.map((group) => {
-                const x = Math.round(
-                  group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
-                    12.5
-                );
-                const y = Math.round(
-                  group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
-                    12.5
-                );
-                return [x, y, 25, 25];
-              }),
+            Array.from(allEvaluators).forEach((evaluatorName) => {
+              row[evaluatorName] = "할당X";
             });
-          }
 
-          const logData = Object.entries(row)
-            .map(([key, value]) => `${key}: ${value} (${typeof value})`)
-            .join(", ");
-          await logDataToFile(logFilePath, logData);
+            users.forEach((user) => {
+              if (assignmentData.assignmentMode === "BBox") {
+                row[user.name] = getValidSquaresCount(
+                  user.squares,
+                  question.questionId
+                );
+              } else {
+                const userQuestion = user.questions.find(
+                  (q) => q.questionId === question.questionId
+                );
+                row[user.name] =
+                  userQuestion.questionSelection === -1
+                    ? "선택되지 않음"
+                    : userQuestion.questionSelection;
+              }
+            });
 
-          worksheet.addRow(row);
+            if (assignmentData.assignmentMode === "BBox") {
+              const [adjustedSquares, overlapGroups] = await Promise.all([
+                getAdjustedSquares(users, question),
+                getOverlapsBBoxes(users, sliderValue),
+              ]);
+
+              const relevantAiData = aiData.filter(
+                (ai) =>
+                  ai.questionIndex === question.questionId &&
+                  ai.score >= score_value
+              );
+
+              const matchedCount = await getMatchedCount(
+                overlapGroups,
+                relevantAiData
+              );
+              const fpValue = relevantAiData.length - matchedCount;
+
+              row[`overlap${sliderValue}`] = overlapGroups.length;
+              row["aiCount"] = relevantAiData.length;
+              row[`matched${sliderValue}`] = matchedCount;
+              row[`fn${sliderValue}`] = overlapGroups.length - matchedCount;
+              row[`fp${sliderValue}`] = fpValue || 0;
+
+              row["json"] = JSON.stringify({
+                filename: questionImageFileName,
+                annotation: overlapGroups.map((group) => {
+                  const x = Math.round(
+                    group.reduce((acc, bbox) => acc + bbox.x, 0) /
+                      group.length -
+                      12.5
+                  );
+                  const y = Math.round(
+                    group.reduce((acc, bbox) => acc + bbox.y, 0) /
+                      group.length -
+                      12.5
+                  );
+                  return [x, y, 25, 25];
+                }),
+              });
+            }
+
+            const logData = Object.entries(row)
+              .map(([key, value]) => `${key}: ${value} (${typeof value})`)
+              .join(", ");
+            await logDataToFile(logFilePath, logData);
+
+            worksheet.addRow(row);
+          });
+
+          await Promise.all(questionPromises);
         }
-      }
+      );
+
+      await Promise.all(assignmentDataPromises);
 
       await logWithQueue("Generating Excel file");
 
