@@ -9,6 +9,21 @@ const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
 
+// 모든 평가자를 포함하는 열 생성
+async function getAllEvaluators(assignments) {
+  const evaluatorSet = new Set();
+
+  for (const assignmentSummary of assignments) {
+    const assignmentData = await fetchAssignmentData(assignmentSummary.id);
+    const users = assignmentData.assignment;
+
+    // 평가자 ID 및 이름을 추가
+    users.forEach((user) => evaluatorSet.add(user.name));
+  }
+
+  return Array.from(evaluatorSet);
+}
+
 router.post(
   "/download-searched-assignments",
   authenticateToken,
@@ -21,10 +36,45 @@ router.post(
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
 
+      const allEvaluators = await getAllEvaluators(assignments);
+      const commonColumns = [
+        { header: `과제 ID`, key: `assignmentId`, width: 10 },
+        { header: "문제 번호", key: "questionNumber", width: 10 },
+      ];
+
+      // 모든 평가자에 대한 열 추가
+      const evaluatorColumns = allEvaluators.map((name) => ({
+        header: name,
+        key: name,
+        width: 15,
+      }));
+
+      const bboxColumns = [
+        {
+          header: `+${sliderValue}인`,
+          key: `overlap${sliderValue}`,
+          width: 10,
+        },
+        { header: `AI개수`, key: `aiCount`, width: 10 },
+        {
+          header: `${sliderValue}일치`,
+          key: `matched${sliderValue}`,
+          width: 10,
+        },
+        { header: `FN`, key: `fn${sliderValue}`, width: 10 },
+        { header: `FP`, key: `fp${sliderValue}`, width: 10 },
+        { header: `JSON`, key: `json`, width: 30 },
+      ];
+
+      worksheet.columns = [
+        ...commonColumns,
+        ...evaluatorColumns,
+        ...(assignments[0].assignmentMode === "BBox" ? bboxColumns : []),
+      ];
+
       for (const assignmentSummary of assignments) {
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
-
         const users = assignmentData.assignment;
 
         const max_slider_value = users.length;
@@ -33,84 +83,20 @@ router.post(
           sliderValue = max_slider_value;
         }
 
-        const columns = [
-          {
-            header: `과제 ID`,
-            key: `assignmentId`,
-            width: 10,
-          },
-          { header: "문제 번호", key: "questionNumber", width: 10 },
-          ...users.map((user) => ({
-            header: user.name,
-            key: user.name,
-            width: 15,
-          })),
-        ];
-
-        if (assignmentData.assignmentMode === "BBox") {
-          columns.push(
-            {
-              header: `+${sliderValue}인`,
-              key: `overlap${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `AI개수`,
-              key: `aiCount`,
-              width: 10,
-            },
-            {
-              header: `${sliderValue}일치`,
-              key: `matched${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `FN`,
-              key: `fn${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `FP`,
-              key: `fp${sliderValue}`,
-              width: 10,
-            },
-            {
-              header: `JSON`,
-              key: `json`,
-              width: 30,
-            }
-          );
-        }
-
-        worksheet.columns = columns;
-
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
-          const row = {
-            questionNumber: questionImageFileName,
-          };
-
+          const row = { questionNumber: questionImageFileName };
           row["assignmentId"] = assignmentSummary.id;
-          users.forEach((user) => {
-            if (assignmentData.assignmentMode === "BBox") {
-              row[user.name] = getValidSquaresCount(
-                user.squares,
-                question.questionId
-              );
-            } else {
-              const userQuestion = user.questions.find(
-                (q) => q.questionId === question.questionId
-              );
-              row[user.name] =
-                userQuestion.questionSelection === -1
-                  ? "선택되지 않음"
-                  : userQuestion.questionSelection;
-            }
+
+          allEvaluators.forEach((name) => {
+            const user = users.find((u) => u.name === name);
+            row[name] = user
+              ? getValidSquaresCount(user.squares, question.questionId)
+              : 0; // 과제에 할당되지 않은 평가자는 0 설정
           });
 
           if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
-
             const relevantAiData = aiData.filter(
               (ai) =>
                 ai.questionIndex === question.questionId &&
@@ -121,7 +107,6 @@ router.post(
               adjustedSquares,
               sliderValue
             );
-
             const overlapCount = overlapGroups.length;
             const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
 
