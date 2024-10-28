@@ -5,32 +5,9 @@ const ExcelJS = require("exceljs");
 const db = require("../db");
 const fs = require("fs").promises;
 const path = require("path");
-const util = require("util");
 const sizeOf = require("image-size");
+const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
-
-// 로그 큐와 유틸리티 함수
-async function logWithQueue(message, data = null) {
-  return new Promise((resolve) => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}`;
-
-    if (data) {
-      console.log(logMessage);
-      console.log(data);
-    } else {
-      console.log(logMessage);
-    }
-
-    setTimeout(resolve, 10);
-  });
-}
-
-// 데이터 기록을 위한 함수
-async function logDataToFile(filePath, data) {
-  const logData = `${data}\n`;
-  await fs.appendFile(filePath, logData, "utf8");
-}
 
 router.post(
   "/download-searched-assignments",
@@ -41,173 +18,120 @@ router.post(
       const assignments = req.body.data;
       const score_value = req.body.score_value;
 
-      await logWithQueue("Starting download process");
-
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Assignments");
-      const logFilePath = path.join(__dirname, "test.txt");
+      const worksheet = workbook.addWorksheet("Assignment Responses");
 
-      await fs.writeFile(logFilePath, "", "utf8");
-
-      // 모든 평가자 목록을 수집
-      const allEvaluators = new Set();
-      const assignmentPromises = assignments.map(async (assignmentSummary) => {
+      for (const assignmentSummary of assignments) {
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
-        assignmentData.assignment.forEach((user) =>
-          allEvaluators.add(user.name)
-        );
-      });
-      await Promise.all(assignmentPromises);
+        const aiData = await getAIData(assignmentSummary.id);
 
-      // 기본 컬럼 설정
-      const columns = [
-        { header: "과제 ID", key: "assignmentId", width: 10 },
-        { header: "문제 번호", key: "questionNumber", width: 10 },
-        ...Array.from(allEvaluators).map((name) => ({
-          header: name,
-          key: name,
-          width: 15,
-        })),
-        {
-          header: `+${sliderValue}인`,
-          key: `overlap${sliderValue}`,
-          width: 10,
-        },
-        {
-          header: "AI개수",
-          key: "aiCount",
-          width: 10,
-        },
-        {
-          header: `${sliderValue}일치`,
-          key: `matched${sliderValue}`,
-          width: 10,
-        },
-        {
-          header: "FN",
-          key: `fn${sliderValue}`,
-          width: 10,
-        },
-        {
-          header: "FP",
-          key: `fp${sliderValue}`,
-          width: 10,
-        },
-        {
-          header: "JSON",
-          key: "json",
-          width: 30,
-        },
-      ];
-      worksheet.columns = columns;
+        const users = assignmentData.assignment;
+        const max_slider_value = users.length;
 
-      // 각 과제와 문제에 대한 데이터 처리
-      const assignmentDataPromises = assignments.map(
-        async (assignmentSummary) => {
-          await logWithQueue(
-            `Processing Assignment ID: ${assignmentSummary.id}`
+        if (sliderValue > max_slider_value) {
+          sliderValue = max_slider_value;
+        }
+
+        const columns = [
+          { header: `과제 ID`, key: `assignmentId`, width: 10 },
+          { header: "문제 번호", key: "questionNumber", width: 10 },
+          ...users.map((user) => ({
+            header: user.name,
+            key: user.name,
+            width: 15,
+          })),
+        ];
+
+        if (assignmentData.assignmentMode === "BBox") {
+          columns.push(
+            {
+              header: `+${sliderValue}인`,
+              key: `overlap${sliderValue}`,
+              width: 10,
+            },
+            { header: `AI개수`, key: `aiCount`, width: 10 },
+            {
+              header: `${sliderValue}일치`,
+              key: `matched${sliderValue}`,
+              width: 10,
+            },
+            { header: `FN`, key: `fn${sliderValue}`, width: 10 },
+            { header: `FP`, key: `fp${sliderValue}`, width: 10 },
+            { header: `JSON`, key: `json`, width: 30 }
           );
+        }
 
-          const [assignmentData, aiData] = await Promise.all([
-            fetchAssignmentData(assignmentSummary.id),
-            getAIData(assignmentSummary.id),
-          ]);
-          const users = assignmentData.assignment;
+        worksheet.columns = columns;
 
-          const questionPromises = users[0].questions.map(async (question) => {
-            const questionImageFileName = question.questionImage
-              .split("/")
-              .pop();
-            await logWithQueue(`Processing Question: ${questionImageFileName}`);
+        for (const question of assignmentData.assignment[0].questions) {
+          const questionImageFileName = question.questionImage.split("/").pop();
+          const row = {
+            questionNumber: questionImageFileName,
+            assignmentId: assignmentSummary.id,
+          };
 
-            const row = {
-              assignmentId: assignmentSummary.id,
-              questionNumber: questionImageFileName,
-            };
-
-            Array.from(allEvaluators).forEach((evaluatorName) => {
-              row[evaluatorName] = 0;
-            });
-
-            users.forEach((user) => {
-              if (assignmentData.assignmentMode === "BBox") {
-                row[user.name] = getValidSquaresCount(
-                  user.squares,
-                  question.questionId
-                );
-              } else {
-                const userQuestion = user.questions.find(
-                  (q) => q.questionId === question.questionId
-                );
-                row[user.name] =
-                  userQuestion.questionSelection === -1
-                    ? "선택되지 않음"
-                    : userQuestion.questionSelection;
-              }
-            });
-
+          users.forEach((user) => {
             if (assignmentData.assignmentMode === "BBox") {
-              const [adjustedSquares, overlapGroups] = await Promise.all([
-                getAdjustedSquares(users, question),
-                getOverlapsBBoxes(users, sliderValue),
-              ]);
-
-              const relevantAiData = aiData.filter(
-                (ai) =>
-                  ai.questionIndex === question.questionId &&
-                  ai.score >= score_value
+              row[user.name] = getValidSquaresCount(
+                user.squares || [], // 평가자가 없으면 빈 배열로 초기화
+                question.questionId
               );
-
-              const matchedCount = await getMatchedCount(
-                overlapGroups,
-                relevantAiData
+            } else {
+              const userQuestion = user.questions.find(
+                (q) => q.questionId === question.questionId
               );
-              const fpValue = relevantAiData.length - matchedCount;
-
-              row[`overlap${sliderValue}`] = overlapGroups.length;
-              row["aiCount"] = relevantAiData.length;
-              row[`matched${sliderValue}`] = matchedCount;
-              row[`fn${sliderValue}`] = overlapGroups.length - matchedCount;
-              row[`fp${sliderValue}`] = fpValue || 0;
-
-              row["json"] = JSON.stringify({
-                filename: questionImageFileName,
-                annotation: overlapGroups.map((group) => {
-                  const x = Math.round(
-                    group.reduce((acc, bbox) => acc + bbox.x, 0) /
-                      group.length -
-                      12.5
-                  );
-                  const y = Math.round(
-                    group.reduce((acc, bbox) => acc + bbox.y, 0) /
-                      group.length -
-                      12.5
-                  );
-                  return [x, y, 25, 25];
-                }),
-              });
+              row[user.name] =
+                userQuestion && userQuestion.questionSelection !== undefined
+                  ? userQuestion.questionSelection === -1
+                    ? "선택되지 않음"
+                    : userQuestion.questionSelection
+                  : 0; // 평가자가 없는 경우 0
             }
-
-            const logData = Object.entries(row)
-              .map(([key, value]) => `${key}: ${value} (${typeof value})`)
-              .join(", ");
-            await logDataToFile(logFilePath, logData);
-
-            worksheet.addRow(row);
           });
 
-          await Promise.all(questionPromises);
+          if (assignmentData.assignmentMode === "BBox") {
+            const adjustedSquares = await getAdjustedSquares(users, question);
+            const relevantAiData = aiData.filter(
+              (ai) =>
+                ai.questionIndex === question.questionId &&
+                ai.score >= score_value
+            );
+
+            const overlapGroups = getOverlapsBBoxes(
+              adjustedSquares,
+              sliderValue
+            );
+            const overlapCount = overlapGroups.length;
+            const matchedCount = getMatchedCount(overlapGroups, relevantAiData);
+
+            row[`overlap${sliderValue}`] = overlapCount;
+            row["aiCount"] = relevantAiData.length;
+            row[`matched${sliderValue}`] = matchedCount;
+            row[`fn${sliderValue}`] = overlapCount - matchedCount;
+            row[`fp${sliderValue}`] = relevantAiData.length - matchedCount;
+
+            row["json"] = JSON.stringify({
+              filename: questionImageFileName,
+              annotation: overlapGroups.map((group) => {
+                const x = Math.round(
+                  group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
+                    12.5
+                );
+                const y = Math.round(
+                  group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
+                    12.5
+                );
+                return [x, y, 25, 25];
+              }),
+            });
+          }
+
+          worksheet.addRow(row);
         }
-      );
+      }
 
-      await Promise.all(assignmentDataPromises);
-
-      await logWithQueue("Generating Excel file");
-
+      worksheet.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
-
-      await logWithQueue("Download process completed");
-
       res.setHeader(
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -218,13 +142,16 @@ router.post(
       );
       res.send(buffer);
     } catch (error) {
-      await logWithQueue("Error generating Excel file:", error);
+      console.error("Error generating Excel file:", error);
       res.status(500).send("Internal Server Error");
     }
   }
 );
 
 function getValidSquaresCount(squares, questionId) {
+  if (!squares || squares.length === 0) {
+    return 0; // 평가자가 없을 경우 기본값 0
+  }
   return squares.filter(
     (square) => square.questionIndex === questionId && !square.isTemporary
   ).length;
@@ -244,11 +171,8 @@ async function getImageDimensions(imageUrl) {
     const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
-    await logWithQueue(
-      `Error getting image dimensions for ${imageUrl}:`,
-      error
-    );
-    return { width: 1000, height: 1000 };
+    console.error(`Error getting image dimensions for ${imageUrl}:`, error);
+    return { width: 1000, height: 1000 }; // 기본값 설정
   }
 }
 
@@ -318,11 +242,7 @@ function calculateImagePosition(
   return { x, y, scale };
 }
 
-async function getOverlapsBBoxes(squares, overlapCount) {
-  await logWithQueue(
-    `Calculating overlaps for ${squares.length} squares with minimum overlap ${overlapCount}`
-  );
-
+function getOverlapsBBoxes(squares, overlapCount) {
   if (overlapCount === 1) {
     return squares.map((square) => [square]);
   }
@@ -330,60 +250,50 @@ async function getOverlapsBBoxes(squares, overlapCount) {
   const groups = [];
   const visited = new Set();
 
-  async function dfs(square, group) {
+  function dfs(square, group) {
     if (visited.has(square)) return;
 
     visited.add(square);
     group.push(square);
 
-    for (const otherSquare of squares) {
+    squares.forEach((otherSquare) => {
       if (
         !visited.has(otherSquare) &&
         Math.abs(square.x - otherSquare.x) <= 12.5 &&
         Math.abs(square.y - otherSquare.y) <= 12.5
       ) {
-        await dfs(otherSquare, group);
+        dfs(otherSquare, group);
       }
-    }
+    });
   }
 
-  for (const square of squares) {
+  squares.forEach((square) => {
     if (!visited.has(square)) {
       const group = [];
-      await dfs(square, group);
+      dfs(square, group);
       if (group.length >= overlapCount) {
         groups.push(group);
       }
     }
-  }
+  });
 
-  await logWithQueue(`Found ${groups.length} overlap groups`);
   return groups;
 }
 
-async function getMatchedCount(overlapGroups, aiData) {
+function getMatchedCount(overlapGroups, aiData) {
   let matchedCount = 0;
-
-  for (const group of overlapGroups) {
-    let isMatched = false;
-
-    for (const bbox of group) {
-      for (const ai of aiData) {
-        if (
-          Math.abs(bbox.x - ai.x) <= 12.5 &&
-          Math.abs(bbox.y - ai.y) <= 12.5
-        ) {
-          isMatched = true;
-        }
-      }
-    }
-
-    if (isMatched) {
+  overlapGroups.forEach((group) => {
+    if (
+      group.some((bbox) =>
+        aiData.some(
+          (ai) =>
+            Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+        )
+      )
+    ) {
       matchedCount++;
     }
-  }
-
-  await logWithQueue(`Matched count: ${matchedCount}`);
+  });
   return matchedCount;
 }
 
@@ -391,7 +301,6 @@ async function fetchAssignmentData(assignmentId) {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    await logWithQueue(`Fetching assignment data for ID: ${assignmentId}`);
 
     const [assignmentInfo] = await connection.query(
       `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
@@ -471,10 +380,6 @@ async function fetchAssignmentData(assignmentId) {
       });
     });
 
-    await logWithQueue(
-      `Assignment data fetched successfully for ID: ${assignmentId}`
-    );
-
     await connection.commit();
     return {
       assignment: structuredData,
@@ -482,10 +387,6 @@ async function fetchAssignmentData(assignmentId) {
       FileName: assignmentInfo[0].FileName,
     };
   } catch (error) {
-    await logWithQueue(
-      `Error fetching assignment data for ID: ${assignmentId}`,
-      error
-    );
     await connection.rollback();
     throw error;
   } finally {
@@ -495,8 +396,6 @@ async function fetchAssignmentData(assignmentId) {
 
 async function getAIData(assignmentId) {
   try {
-    await logWithQueue(`Getting AI data for assignment: ${assignmentId}`);
-
     const [questions] = await db.query(
       `SELECT id, image FROM questions WHERE assignment_id = ?`,
       [assignmentId]
@@ -512,52 +411,26 @@ async function getAIData(assignmentId) {
 
       try {
         const jsonContent = await fs.readFile(jsonPath, "utf8");
-        const jsonData = JSON.parse(jsonContent);
-
-        if (!jsonData.annotation || !Array.isArray(jsonData.annotation)) {
-          await logWithQueue(
-            `Invalid annotation format for question ${question.id}`,
-            jsonData
-          );
-          continue;
-        }
-
-        const bbox = jsonData.annotation
-          .map(async (annotation) => {
-            if (!annotation.bbox || !Array.isArray(annotation.bbox)) {
-              await logWithQueue(`Invalid bbox format`, annotation);
-              return null;
-            }
-
-            const [x, y] = annotation.bbox;
-            const score =
-              typeof annotation.score === "number" ? annotation.score : 0.6;
-
-            return {
-              x: x + 12.5,
-              y: y + 12.5,
-              questionIndex: question.id,
-              score: score,
-            };
-          })
-          .filter((item) => item !== null);
-
-        AI_BBOX.push(...bbox);
-
-        await logWithQueue(`Question ${question.id} processed`, {
-          bboxCount: bbox.length,
+        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+          const [x, y] = annotation.bbox;
+          const score = annotation.score ? annotation.score : 0.6;
+          return {
+            x: x + 12.5,
+            y: y + 12.5,
+            questionIndex: question.id,
+            score: score,
+          };
         });
+        AI_BBOX.push(...bbox);
       } catch (error) {
-        await logWithQueue(`Error processing question ${question.id}`, error);
+        console.error("Error reading JSON file:", error);
       }
     }
 
-    await logWithQueue(`AI data processing completed`);
-
     return AI_BBOX;
   } catch (error) {
-    await logWithQueue("Critical Error in getAIData", error);
-    return [];
+    console.error("Error fetching AI assignment:", error);
+    throw error;
   }
 }
 
