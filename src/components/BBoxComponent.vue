@@ -70,6 +70,7 @@ export default {
     assignmentIndex: { type: Number, required: true, default: 0 },
     commitAssignmentChanges: { type: Function, required: true },
     is_score: { type: Boolean, required: true, default: true },
+    is_ai_use: { type: Boolean, required: true, default: true },
   },
 
   data() {
@@ -581,6 +582,10 @@ export default {
   },
 
   mounted() {
+    console.log(this.is_ai_use);
+    if (!this.is_ai_use) this.iconList.forEach((e, i) => {
+      if (e.name === "fa-robot") this.iconList.splice(i)
+    });
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);

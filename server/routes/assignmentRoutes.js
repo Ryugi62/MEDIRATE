@@ -20,12 +20,13 @@ router.post("/", authenticateToken, async (req, res) => {
     users,
     mode,
     is_score,
+    is_ai_use,
   } = req.body;
 
   try {
     const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score)
-      VALUES (?, ?, ?, ?, ?, ?)`;
+      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
       deadline,
@@ -33,6 +34,7 @@ router.post("/", authenticateToken, async (req, res) => {
       selection_type,
       mode,
       is_score,
+      is_ai_use,
     ]);
     const assignmentId = assignmentResult.insertId;
 
@@ -90,12 +92,12 @@ router.get("/ai", authenticateToken, async (req, res) => {
   }
 });
 
-router.get("/:assigmentId/ai", authenticateToken, async (req, res) => {
+router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   try {
-    const { assigmentId } = req.params;
+    const { assignmentId } = req.params;
 
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
-    const [questions] = await db.query(questionsQuery, [assigmentId]);
+    const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const assignmentType = questions[0].image.split("/").slice(-2)[0];
 
@@ -200,7 +202,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.selection_type AS selectionType,
         a.assignment_mode AS assignmentMode,
         a.assignment_type AS assignmentType,
-        a.is_score
+        a.is_score,
+        a.is_ai_use
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
@@ -273,7 +276,6 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       squares = squaresResult;
     }
 
-    // 모든 박스(임시 박스 포함)를 고려하여 점수 계산
     const uniqueQuestionIndex = [
       ...new Set(squares.map((square) => square.questionIndex)),
     ];
@@ -306,7 +308,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.assignment_type AS selectedAssignmentType,
         a.selection_type AS selectedAssignmentId,
         a.assignment_mode AS mode,
-        a.is_score
+        a.is_score,
+        a.is_ai_use
       FROM assignments a
       WHERE a.id = ?`;
     const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
@@ -336,6 +339,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
       title: assignment.title,
       assigment_mode: assignment.mode,
       is_score: assignment.is_score,
+      is_ai_use: assignment.is_ai_use,
       deadline: assignment.deadline,
       selectedAssignmentId: assignment.selectedAssignmentId,
       selectedAssignmentType: assignment.selectedAssignmentType,
@@ -440,6 +444,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     users,
     mode,
     is_score,
+    is_ai_use,
   } = req.body;
 
   try {
@@ -451,13 +456,13 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       selection_type,
       mode,
       is_score,
+      is_ai_use,
     });
 
     if (assignmentChanged) {
       await updateQuestions(assignmentId, questions);
     }
 
-    // 유저 업데이트를 마지막에 처리하여 변경사항을 반영
     await updateUserAssignments(assignmentId, users);
 
     res.json({ message: "Assignment successfully updated." });
@@ -469,7 +474,6 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
-// 질문을 업데이트하는 함수
 const updateQuestions = async (assignmentId, questions) => {
   const [existingQuestions] = await db.query(
     `SELECT id, image FROM questions WHERE assignment_id = ?`,
@@ -478,19 +482,16 @@ const updateQuestions = async (assignmentId, questions) => {
 
   const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
 
-  // 기존 질문을 업데이트 또는 삭제
   await Promise.all(
     existingQuestions.map(async (question) => {
       const updatedQuestion = questions.find((q) => q.id === question.id);
       if (updatedQuestion) {
-        // 업데이트가 필요한 질문
         await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
           updatedQuestion.img,
           question.id,
         ]);
         existingQuestionIds.delete(question.id);
       } else {
-        // 삭제가 필요한 질문
         await db.query(`DELETE FROM question_responses WHERE question_id = ?`, [
           question.id,
         ]);
@@ -499,7 +500,6 @@ const updateQuestions = async (assignmentId, questions) => {
     })
   );
 
-  // 새로 추가된 질문 처리
   const newQuestions = questions.filter((q) => !existingQuestionIds.has(q.id));
   await Promise.all(
     newQuestions.map((question) =>
@@ -511,7 +511,6 @@ const updateQuestions = async (assignmentId, questions) => {
   );
 };
 
-// 할당된 유저를 업데이트하는 함수
 const updateUserAssignments = async (assignmentId, users) => {
   const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
@@ -520,11 +519,9 @@ const updateUserAssignments = async (assignmentId, users) => {
 
   const existingUserIds = new Set(existingUsers.map((u) => u.user_id));
 
-  // 기존 유저를 업데이트 또는 삭제
   await Promise.all(
     existingUsers.map(async (user) => {
       if (!users.includes(user.user_id)) {
-        // 삭제가 필요한 유저
         await db.query(
           `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
           [assignmentId, user.user_id]
@@ -547,7 +544,6 @@ const updateUserAssignments = async (assignmentId, users) => {
     })
   );
 
-  // 새로운 유저 추가
   const newUsers = users.filter((userId) => !existingUserIds.has(userId));
   if (newUsers.length > 0) {
     await Promise.all(
@@ -564,7 +560,7 @@ const updateUserAssignments = async (assignmentId, users) => {
         }
       })
     );
-    // 추가된 유저에 대한 캔버스 정보 생성
+
     await createCanvasForUsers(assignmentId, newUsers);
   }
 };
@@ -589,11 +585,12 @@ const updateAssignment = async (params) => {
     selection_type,
     mode,
     is_score,
+    is_ai_use,
   } = params;
 
   const updateQuery = `
     UPDATE assignments
-    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
     WHERE id = ?`;
 
   const [originalAssignment] = await db.query(
@@ -608,6 +605,7 @@ const updateAssignment = async (params) => {
     selection_type,
     mode,
     is_score,
+    is_ai_use,
     assignmentId,
   ]);
 
@@ -615,7 +613,8 @@ const updateAssignment = async (params) => {
     originalAssignment[0].selection_type !== selection_type ||
     originalAssignment[0].assignment_type !== assignment_type ||
     originalAssignment[0].assignment_mode !== mode ||
-    originalAssignment[0].is_score !== is_score
+    originalAssignment[0].is_score !== is_score ||
+    originalAssignment[0].is_ai_use !== is_ai_use
   );
 };
 
@@ -647,7 +646,6 @@ const deleteSquareInfo = async (assignmentId) => {
   );
 };
 
-// Delete assignment
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;

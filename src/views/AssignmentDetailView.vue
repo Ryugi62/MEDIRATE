@@ -108,6 +108,7 @@
         @update:squares="currentAssignmentDetails.squares = $event"
         :commitAssignmentChanges="commitAssignmentChanges"
         :is_score="currentAssignmentDetails.is_score"
+        :is_ai_use="currentAssignmentDetails.is_ai_use"
       />
     </div>
 

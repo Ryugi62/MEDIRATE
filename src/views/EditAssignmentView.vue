@@ -5,28 +5,17 @@
     <div class="content-container">
       <div class="user-addition">
         <div class="user-search-box">
-          <label for="user-search" class="user-search-label"
-            >평가자 검색:</label
-          >
+          <label for="user-search" class="user-search-label">평가자 검색:</label>
           <div class="user-search-input">
-            <input
-              id="user-search"
-              type="text"
-              placeholder="유저 검색"
-              v-model="searchInput"
-            />
+            <input id="user-search" type="text" placeholder="유저 검색" v-model="searchInput" />
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
           </div>
         </div>
         <hr />
         <div class="user-list">
           <div class="user-item-box user-item-box--add">
-            <div
-              v-for="user in filteredUserList"
-              :key="user.id"
-              @click="addUser(user)"
-              :class="['user-item-add', { active: isUserAdded(user) }]"
-            >
+            <div v-for="user in filteredUserList" :key="user.id" @click="addUser(user)"
+              :class="['user-item-add', { active: isUserAdded(user) }]">
               <div class="user-item-content">
                 <span class="user-name">{{ user.realname.trim() }}</span>
                 <span class="user-affiliation">{{ user.username }}</span>
@@ -35,15 +24,9 @@
             </div>
           </div>
           <hr />
-          <span class="user-count"
-            >{{ addedUsers.length }} / {{ maxUserCount }}</span
-          >
+          <span class="user-count">{{ addedUsers.length }} / {{ maxUserCount }}</span>
           <div class="user-item-box user-item-box--added">
-            <div
-              v-for="(user, index) in addedUsers"
-              :key="user.id"
-              class="user-item-added"
-            >
+            <div v-for="(user, index) in addedUsers" :key="user.id" class="user-item-added">
               <div class="user-item-content">
                 <span class="user-name">{{ user.realname.trim() }}</span>
                 <span class="user-affiliation">{{ user.username }}</span>
@@ -53,10 +36,7 @@
           </div>
         </div>
         <div class="guide_container">
-          <img
-            src="../assets/evaluation_guide.png"
-            class="guide_container_image"
-          />
+          <img src="../assets/evaluation_guide.png" class="guide_container_image" />
         </div>
       </div>
       <div class="assignment-addition">
@@ -64,78 +44,46 @@
           <div class="assignment-field mode-field">
             <span>
               <label for="field-text-mode">택일형</label>
-              <input
-                type="radio"
-                id="field-text-mode"
-                name="mode"
-                value="TextBox"
-                v-model="assignmentDetails.mode"
-              />
+              <input type="radio" id="field-text-mode" name="mode" value="TextBox" v-model="assignmentDetails.mode" />
             </span>
             <span>
               <label for="field-bbox-mode">BBox</label>
-              <input
-                type="radio"
-                id="field-bbox-mode"
-                name="mode"
-                value="BBox"
-                v-model="assignmentDetails.mode"
-              />
+              <input type="radio" id="field-bbox-mode" name="mode" value="BBox" v-model="assignmentDetails.mode" />
             </span>
           </div>
 
-          <div
-            class="assignment-field is_score_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
+          <div class="assignment-field is_score_field" v-if="assignmentDetails.mode === 'BBox'">
             <span>
-              <input
-                type="checkbox"
-                name="is_score"
-                id="is_score"
-                v-model="assignmentDetails.is_score"
-              />
+              <input type="checkbox" name="is_score" id="is_score" v-model="assignmentDetails.is_score" />
               <label for="is_score">SCORE</label>
             </span>
           </div>
 
-          <div
-            v-for="(field, fieldName) in assignmentFields"
-            :key="fieldName"
-            class="assignment-field"
-          >
+          <div class="assignment-field is_ai_use_field" v-if="assignmentDetails.mode === 'BBox'">
+            <span>
+              <input type="checkbox" name="is_ai_use" id="is_ai_use" v-model="assignmentDetails.is_ai_use" />
+              <label for="is_ai_use">AI</label>
+            </span>
+          </div>
+
+          <div v-for="(field, fieldName) in assignmentFields" :key="fieldName" class="assignment-field">
             <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
-            <template
-              v-if="
-                !(
-                  fieldName === 'assignment-type' &&
-                  assignmentDetails.mode === 'BBox'
-                )
-              "
-            >
+            <template v-if="
+              !(
+                fieldName === 'assignment-type' &&
+                assignmentDetails.mode === 'BBox'
+              )
+            ">
               <label :for="`field-${fieldName}`">{{ field.label }}</label>
-              <input
-                v-if="field.component === 'input'"
-                :id="`field-${fieldName}`"
-                :type="field.options?.type"
-                v-model="assignmentDetails[field.model]"
-                :list="
-                  fieldName === 'assignment-id' ? 'assignment-id-list' : null
-                "
-              />
+              <input v-if="field.component === 'input'" :id="`field-${fieldName}`" :type="field.options?.type"
+                v-model="assignmentDetails[field.model]" :list="fieldName === 'assignment-id' ? 'assignment-id-list' : null
+                  " />
               <datalist id="assignment-id-list">
-                <option
-                  v-for="folder in folderList"
-                  :key="folder.id"
-                  :value="folder.id"
-                >
+                <option v-for="folder in folderList" :key="folder.id" :value="folder.id">
                   {{ folder }}
                 </option>
               </datalist>
-              <button
-                v-if="field.method"
-                @click="field.method ? this[field.method]() : null"
-              >
+              <button v-if="field.method" @click="field.method ? this[field.method]() : null">
                 조회
               </button>
             </template>
@@ -151,11 +99,8 @@
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
-              <button
-                class="delete-question-button"
-                v-if="activeQuestionId !== null"
-                @click="handlerDeleteQuestion(activeQuestionId)"
-              >
+              <button class="delete-question-button" v-if="activeQuestionId !== null"
+                @click="handlerDeleteQuestion(activeQuestionId)">
                 문항삭제
               </button>
             </div>
@@ -172,34 +117,20 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    @click="activeQuestionId = index"
-                    :class="[{ active: index === activeQuestionId }]"
-                    v-for="(question, index) in assignmentDetails.questions"
-                    :key="question.id"
-                  >
+                  <tr @click="activeQuestionId = index" :class="[{ active: index === activeQuestionId }]"
+                    v-for="(question, index) in assignmentDetails.questions" :key="question.id">
                     <td><img :src="question.img" /></td>
-                    <td
-                      v-for="option in gradingScale"
-                      :key="`question-${question.id}-option-${option}`"
-                    >
-                      <input
-                        type="radio"
-                        :name="`question-${question.id}`"
-                        :value="option"
-                        v-model="question.select"
-                        disabled
-                      />
+                    <td v-for="option in gradingScale" :key="`question-${question.id}-option-${option}`">
+                      <input type="radio" :name="`question-${question.id}`" :value="option" v-model="question.select"
+                        disabled />
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div class="student-response-image">
-              <ImageComponent
-                v-if="assignmentDetails.questions[activeQuestionId]"
-                :src="assignmentDetails.questions[activeQuestionId].img"
-              />
+              <ImageComponent v-if="assignmentDetails.questions[activeQuestionId]"
+                :src="assignmentDetails.questions[activeQuestionId].img" />
             </div>
           </div>
           <div class="assignment-save">
@@ -387,6 +318,7 @@ export default {
         users: this.addedUsers.map((user) => user.id),
         mode: this.assignmentDetails.mode,
         is_score: this.assignmentDetails.is_score,
+        is_ai_use: this.assignmentDetails.is_ai_use,
         gradingScale:
           this.assignmentDetails.mode === "TextBox"
             ? this.assignmentDetails.gradingScale
@@ -525,6 +457,8 @@ export default {
           this.assignmentDetails.mode = response.data.assigment_mode;
           this.assignmentDetails.is_score =
             response.data.is_score === 1 ? true : false;
+          this.assignmentDetails.is_ai_use =
+            response.data.is_ai_use === 1 ? true : false;
         })
         .catch((error) => {
           console.error("과제 정보를 가져오는 중 오류 발생:", error);
@@ -600,6 +534,7 @@ hr {
   gap: 16px;
   width: 30%;
   display: flex;
+  max-width: 350px;
   flex-direction: column;
 }
 
@@ -757,7 +692,7 @@ hr {
 /* 과제 추가 섹션 */
 .assignment-addition {
   gap: 16px;
-  width: 70%;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -778,6 +713,7 @@ hr {
 }
 
 .is_score_field,
+.is_ai_use_field,
 .mode-field {
   flex: 0;
 
@@ -875,7 +811,7 @@ hr {
 }
 
 /* 점수 테이블 이미지 */
-td > img {
+td>img {
   width: 25px;
 }
 
