@@ -788,7 +788,7 @@ td>img {
 .grades-table {
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 528px;
+  max-height: 668px;
   border: 1px solid var(--light-gray);
 }
 
