@@ -7,11 +7,10 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
 });
 
-// 초기 테이블 생성
+// 초기 테이블 생성 SQL
 const createTablesSQL = {
   users: `
     CREATE TABLE IF NOT EXISTS users (
@@ -121,6 +120,13 @@ const createTablesSQL = {
 // 데이터베이스 초기화 및 테이블 생성 함수
 async function initializeDb() {
   try {
+    // 데이터베이스가 없으면 생성
+    const connection = await pool.getConnection();
+    await connection.query(`CREATE DATABASE IF NOT EXISTS medirate`);
+    await connection.query(`USE medirate`);
+    connection.release();
+
+    // 테이블 생성
     for (const table in createTablesSQL) {
       await pool.execute(createTablesSQL[table]);
       console.log(`Table ${table} is ready.`);
