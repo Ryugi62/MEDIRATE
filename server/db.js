@@ -2,14 +2,6 @@ const mysql = require("mysql2/promise");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
-// 데이터베이스 연결 풀 설정
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT || 3306,
-});
-
 // 각 테이블의 예상 열 정의
 const expectedColumns = {
   users: [
@@ -37,7 +29,10 @@ const expectedColumns = {
     },
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
-    { name: "UNIQUE", definition: "(title, deadline)" },
+    {
+      name: "UNIQUE",
+      definition: "KEY title_deadline_unique (title, deadline)",
+    },
   ],
   assignment_user: [
     { name: "assignment_id", definition: "INT" },
@@ -68,7 +63,10 @@ const expectedColumns = {
     { name: "question_id", definition: "INT NOT NULL" },
     { name: "user_id", definition: "INT NOT NULL" },
     { name: "selected_option", definition: "INT NOT NULL" },
-    { name: "UNIQUE", definition: "(question_id, user_id)" },
+    {
+      name: "UNIQUE",
+      definition: "KEY question_user_unique (question_id, user_id)",
+    },
     {
       name: "FOREIGN KEY",
       definition: "(question_id) REFERENCES questions(id)",
@@ -266,12 +264,30 @@ const createTablesSQL = {
     )`,
 };
 
+// 데이터베이스 연결 풀을 전역 변수로 선언
+let pool;
+
 // 데이터베이스 초기화 및 테이블 생성 함수
 async function initializeDb() {
   try {
-    const connection = await pool.getConnection();
+    // 데이터베이스가 없으면 생성
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      port: process.env.DB_PORT || 3306,
+    });
     await connection.query(`CREATE DATABASE IF NOT EXISTS medirate`);
-    await connection.query(`USE medirate`);
+    connection.end();
+
+    // 이제 데이터베이스를 지정하여 새로운 풀을 생성합니다.
+    pool = mysql.createPool({
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: "medirate", // 데이터베이스 지정
+      port: process.env.DB_PORT || 3306,
+    });
 
     // 테이블 생성 및 열 확인
     for (const table in createTablesSQL) {
@@ -295,8 +311,21 @@ async function initializeDb() {
           col.name === "FOREIGN KEY"
         ) {
           // 제약 조건 추가
+          const constraintDefinition = col.definition;
+          const constraintNameMatch =
+            constraintDefinition.match(/CONSTRAINT (\w+)/i);
+          let constraintName = constraintNameMatch
+            ? constraintNameMatch[1]
+            : null;
+
+          if (!constraintName) {
+            // 제약 조건 이름이 없는 경우 임시 이름 생성
+            constraintName = `constraint_${Math.random()
+              .toString(36)
+              .substring(2, 15)}`;
+          }
+
           // 제약 조건이 이미 있는지 확인
-          const constraintName = col.definition.split(" ")[0];
           const [constraints] = await pool.query(`
             SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS 
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}' AND CONSTRAINT_NAME = '${constraintName}'
@@ -315,7 +344,7 @@ async function initializeDb() {
       }
     }
 
-    connection.release();
+    console.log("Database initialization completed.");
   } catch (error) {
     console.error("Error initializing database:", error);
   }
@@ -324,4 +353,5 @@ async function initializeDb() {
 // 애플리케이션 시작 시 데이터베이스 초기화
 initializeDb();
 
+// pool을 모듈로 내보냅니다.
 module.exports = pool;
