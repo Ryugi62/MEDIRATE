@@ -228,6 +228,7 @@ export default {
 
   mounted() {
     this.getData();
+    this.setSearchQuery();
   },
 
   methods: {
@@ -317,6 +318,7 @@ export default {
       this.total = this.data.length;
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1; // 검색 후 첫 페이지로 이동
+      this.$store.commit("setSearchHistory", this.searchQuery);
     },
 
     resetSearch() {
@@ -359,6 +361,12 @@ export default {
         .finally(() => {
           this.isExporting = false;
         });
+    },
+
+    setSearchQuery() {
+      this.searchQuery = this.$store.getters.getSearchHistory
+        ? this.$store.getters.getSearchHistory
+        : "";
     },
   },
 };

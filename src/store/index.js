@@ -6,6 +6,7 @@ export default createStore({
     user: JSON.parse(localStorage.getItem("user")) || null,
     isAuthenticated: !!localStorage.getItem("user"), // 사용자가 인증되었는지 여부
     isSlideBarOpen: localStorage.getItem("isSlideBarOpen") === "true" || false,
+    searchHistory: localStorage.getItem("searchHistory") || "",
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -13,6 +14,7 @@ export default createStore({
     isSlideBarOpen: (state) => state.isSlideBarOpen,
     getJwtToken: (state) => state.user?.token,
     tokenExpires: (state) => state.user?.expires,
+    getSearchHistory: (state) => state.searchHistory,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -33,6 +35,9 @@ export default createStore({
     },
     openSlideBar(state) {
       state.isSlideBarOpen = true;
+    },
+    setSearchHistory(state, history) {
+      state.searchHistory = history;
     },
   },
   actions: {

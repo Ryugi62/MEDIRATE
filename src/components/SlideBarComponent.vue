@@ -7,6 +7,7 @@
         :to="getDefaultPath(link.paths)"
       >
         <li
+          @click="clickSlideBarItem(link.paths)"
           :class="{ active: isLinkActive(link.paths) }"
           v-if="
             !link.isAdmin ||
@@ -79,6 +80,11 @@ export default {
         return regex.test(currentPath);
       }
       return false;
+    },
+
+    clickSlideBarItem(paths) {
+      if (paths.includes("/dashboard"))
+        this.$store.commit("setSearchHistory", "");
     },
   },
 };
