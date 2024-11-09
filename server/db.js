@@ -41,7 +41,7 @@ const expectedColumns = {
   assignments: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
     { name: "title", definition: "VARCHAR(255) NOT NULL" },
-    { name: "creation_date", definition: "DATETIME DEFAULT CURRENT_TIMESTAMP" },
+    { name: "creation_date", definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" },
     { name: "deadline", definition: "DATE NOT NULL" },
     { name: "assignment_type", definition: "VARCHAR(255)" },
     { name: "selection_type", definition: "VARCHAR(255)" },
@@ -130,7 +130,7 @@ const expectedColumns = {
     { name: "user_id", definition: "INT" },
     { name: "title", definition: "VARCHAR(255) NOT NULL" },
     { name: "content", definition: "TEXT NOT NULL" },
-    { name: "creation_date", definition: "DATETIME DEFAULT CURRENT_TIMESTAMP" },
+    { name: "creation_date", definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" },
     { name: "type", definition: "VARCHAR(255) NOT NULL" },
     {
       name: "PRIMARY KEY",
@@ -150,7 +150,7 @@ const expectedColumns = {
     { name: "user_id", definition: "INT" },
     { name: "content", definition: "TEXT NOT NULL" },
     { name: "parent_comment_id", definition: "INT" },
-    { name: "created_at", definition: "DATETIME DEFAULT CURRENT_TIMESTAMP" },
+    { name: "created_at", definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -269,7 +269,7 @@ const createTablesSQL = {
     CREATE TABLE IF NOT EXISTS \`assignments\` (
       \`id\` INT AUTO_INCREMENT,
       \`title\` VARCHAR(255) NOT NULL,
-      \`creation_date\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+      \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       \`deadline\` DATE NOT NULL,
       \`assignment_type\` VARCHAR(255),
       \`selection_type\` VARCHAR(255),
@@ -312,7 +312,7 @@ const createTablesSQL = {
       \`user_id\` INT,
       \`title\` VARCHAR(255) NOT NULL,
       \`content\` TEXT NOT NULL,
-      \`creation_date\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+      \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       \`type\` VARCHAR(255) NOT NULL,
       PRIMARY KEY (\`id\`),
       FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
@@ -324,7 +324,7 @@ const createTablesSQL = {
       \`user_id\` INT,
       \`content\` TEXT NOT NULL,
       \`parent_comment_id\` INT,
-      \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+      \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (\`id\`),
       FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE,
       FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
