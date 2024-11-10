@@ -755,7 +755,7 @@ export default {
           // JSON 객체 생성 (annotation 및 hardneg 포함)
           row["json"] = JSON.stringify({
             fileName: questionImageFileName,
-            annotation: overlapGroups.map((group) => {
+            mitosis: overlapGroups.map((group) => {
               // 그룹의 중심 계산
               const centerX =
                 group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length;

@@ -119,7 +119,7 @@ router.post(
 
             row["json"] = JSON.stringify({
               filename: questionImageFileName,
-              annotation: overlapGroups.map((group) => {
+              mitosis: overlapGroups.map((group) => {
                 const x = Math.round(
                   group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
                     12.5
