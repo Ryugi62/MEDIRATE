@@ -661,7 +661,7 @@ export default {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Assignment Responses");
       const columns = [
-        { header: "문제 번호", key: "questionNumber", width: 10 },
+        { header: "문제 번호", key: "questionNumber", width: 20 }, // 너비 증가
         ...this.data.map((user) => ({
           header: user.name,
           key: user.name,
@@ -674,7 +674,7 @@ export default {
           {
             header: `+${this.sliderValue}인`,
             key: `overlap${this.sliderValue}`,
-            width: 10,
+            width: 15, // 너비 증가
           },
           {
             header: `AI개수`,
@@ -684,7 +684,7 @@ export default {
           {
             header: `${this.sliderValue}일치`,
             key: `matched${this.sliderValue}`,
-            width: 10,
+            width: 15, // 너비 증가
           },
           {
             header: `FN`,
@@ -699,7 +699,7 @@ export default {
           {
             header: `JSON`,
             key: `json`,
-            width: 30,
+            width: 50, // JSON 필드 너비 증가
           }
         );
       }
@@ -728,6 +728,7 @@ export default {
               ai.score >= this.score_percent / 100
           );
 
+          // 오버랩된 박스 그룹 계산
           const overlapGroups = this.getOverlapsBBoxes(
             adjustedSquares,
             this.sliderValue
@@ -744,20 +745,67 @@ export default {
           row[`matched${this.sliderValue}`] = matchedCount;
           row[`fn${this.sliderValue}`] = overlapCount - matchedCount;
           row[`fp${this.sliderValue}`] = relevantAiData.length - matchedCount;
+
+          // hardneg 계산: 전체 박스 중 오버랩된 박스를 제외한 박스
+          const overlappedSquares = new Set(overlapGroups.flat());
+          const hardnegSquares = adjustedSquares.filter(
+            (square) => !overlappedSquares.has(square)
+          );
+
+          // JSON 객체 생성 (annotation 및 hardneg 포함)
           row["json"] = JSON.stringify({
             fileName: questionImageFileName,
             annotation: overlapGroups.map((group) => {
-              const x = Math.round(
-                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
-                  12.5
-              );
-              const y = Math.round(
-                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
-                  12.5
-              );
+              // 그룹의 중심 계산
+              const centerX =
+                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length;
+              const centerY =
+                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length;
 
-              return [x, y, 25, 25];
+              // 각 사용자별로 가장 중심에 가까운 박스 선택
+              const selectedBoxes = [];
+              const userMap = new Map();
+
+              group.forEach((bbox) => {
+                const userId = bbox.user_id;
+                if (!userMap.has(userId)) {
+                  userMap.set(userId, bbox);
+                } else {
+                  const existingBox = userMap.get(userId);
+                  const existingDistance = Math.hypot(
+                    existingBox.x - centerX,
+                    existingBox.y - centerY
+                  );
+                  const currentDistance = Math.hypot(
+                    bbox.x - centerX,
+                    bbox.y - centerY
+                  );
+                  if (currentDistance < existingDistance) {
+                    userMap.set(userId, bbox);
+                  }
+                }
+              });
+
+              userMap.forEach((bbox) => {
+                selectedBoxes.push(bbox);
+              });
+
+              // 선택된 박스들의 평균 위치를 계산
+              const avgX =
+                selectedBoxes.reduce((acc, bbox) => acc + bbox.x, 0) /
+                selectedBoxes.length;
+              const avgY =
+                selectedBoxes.reduce((acc, bbox) => acc + bbox.y, 0) /
+                selectedBoxes.length;
+
+              return [Math.round(avgX - 12.5), Math.round(avgY - 12.5), 25, 25];
             }),
+            hardneg: hardnegSquares.map((square) => [
+              square.x,
+              square.y,
+              square.width,
+              square.height,
+            ]),
           });
         }
 
@@ -818,6 +866,60 @@ export default {
 
     stopExportingAnimation() {
       clearInterval(this.interval);
+    },
+
+    // 오버랩된 박스 그룹 계산 메소드 추가
+    getOverlapsBBoxes(squares, overlapCount) {
+      const groups = [];
+      const visited = new Set();
+
+      function dfs(square, group) {
+        if (visited.has(square)) return;
+
+        visited.add(square);
+        group.push(square);
+
+        squares.forEach((otherSquare) => {
+          if (
+            !visited.has(otherSquare) &&
+            Math.abs(square.x - otherSquare.x) <= 12.5 &&
+            Math.abs(square.y - otherSquare.y) <= 12.5
+          ) {
+            dfs(otherSquare, group);
+          }
+        });
+      }
+
+      squares.forEach((square) => {
+        if (!visited.has(square)) {
+          const group = [];
+          dfs(square, group);
+          if (group.length >= overlapCount) {
+            groups.push(group);
+          }
+        }
+      });
+
+      return groups;
+    },
+
+    // 매칭된 박스 수 계산 메소드 추가
+    getMatchedCount(overlapGroups, aiData) {
+      let matchedCount = 0;
+      overlapGroups.forEach((group) => {
+        if (
+          group.some((bbox) =>
+            aiData.some(
+              (ai) =>
+                Math.abs(bbox.x - ai.x) <= 12.5 &&
+                Math.abs(bbox.y - ai.y) <= 12.5
+            )
+          )
+        ) {
+          matchedCount++;
+        }
+      });
+      return matchedCount;
     },
   },
 

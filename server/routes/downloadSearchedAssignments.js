@@ -104,7 +104,7 @@ router.post(
                 ai.score >= score_value
             );
 
-            const overlapGroups = getOverlapsBBoxes(
+            const { overlapGroups, nonOverlappingGroups } = getOverlapsBBoxes(
               adjustedSquares,
               sliderValue
             );
@@ -129,6 +129,10 @@ router.post(
                     12.5
                 );
                 return [x, y, 25, 25];
+              }),
+              hardneg: nonOverlappingGroups.map((group) => {
+                const square = group[0];
+                return [square.x, square.y, square.width, square.height];
               }),
             });
           }
@@ -311,10 +315,6 @@ function calculateImagePosition(
 }
 
 function getOverlapsBBoxes(squares, overlapCount) {
-  if (overlapCount === 1) {
-    return squares.map((square) => [square]);
-  }
-
   const groups = [];
   const visited = new Set();
 
@@ -345,7 +345,18 @@ function getOverlapsBBoxes(squares, overlapCount) {
     }
   });
 
-  return groups;
+  // 오버랩된 박스 추적
+  const overlappedSquares = new Set(groups.flat());
+
+  // 오버랩되지 않은 박스 추출
+  const nonOverlappingSquares = squares.filter(
+    (square) => !overlappedSquares.has(square)
+  );
+
+  return {
+    overlapGroups: groups,
+    nonOverlappingGroups: nonOverlappingSquares.map((square) => [square]),
+  };
 }
 
 function getMatchedCount(overlapGroups, aiData) {
