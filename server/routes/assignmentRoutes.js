@@ -28,7 +28,8 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     const insertAssignmentQuery = `
       INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      VALUES (?, ?, ?, ?, ?, ?, ?);
+    `;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
       deadline,
@@ -44,7 +45,8 @@ router.post("/", authenticateToken, async (req, res) => {
       questions.map(async (question) => {
         const insertQuestionQuery = `
           INSERT INTO questions (assignment_id, image)
-          VALUES (?, ?)`;
+          VALUES (?, ?);
+        `;
         await db.query(insertQuestionQuery, [assignmentId, question.img]);
       })
     );
@@ -53,7 +55,8 @@ router.post("/", authenticateToken, async (req, res) => {
       users.map(async (userId) => {
         const insertUserQuery = `
           INSERT INTO assignment_user (assignment_id, user_id)
-          VALUES (?, ?)`;
+          VALUES (?, ?);
+        `;
         await db.query(insertUserQuery, [assignmentId, userId]);
       })
     );
@@ -98,7 +101,7 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const assignmentType = questions[0].image.split("/").slice(-2)[0];
@@ -155,10 +158,13 @@ router.get("/", authenticateToken, async (req, res) => {
         (SELECT COUNT(*) FROM questions WHERE assignment_id = a.id) AS total,
         (SELECT COUNT(*) FROM questions q
           JOIN question_responses qr ON q.id = qr.question_id
-          WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1) AS completed
+          WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1) AS completed,
+        ci.evaluation_time AS evaluation_time  -- 추가된 부분
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
-      WHERE au.user_id = ?`;
+      LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id  -- 추가된 부분
+      WHERE au.user_id = ?;
+    `;
 
     const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
 
@@ -166,14 +172,15 @@ router.get("/", authenticateToken, async (req, res) => {
       assignments.map(async (assignment) => {
         const { id } = assignment;
 
-        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ?`;
+        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ?;`;
         const [canvas] = await db.query(canvasQuery, [id]);
 
         if (canvas.length > 0) {
           const squaresQuery = `
             SELECT DISTINCT question_id
             FROM squares_info 
-            WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?)`;
+            WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?);
+          `;
           const [squares] = await db.query(squaresQuery, [id, userId]);
           assignment.completed += squares.length;
         }
@@ -209,26 +216,28 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       JOIN users u ON au.user_id = u.id
-      WHERE a.id = ? AND u.id = ?`;
+      WHERE a.id = ? AND u.id = ?;
+    `;
     const [assignment] = await db.query(assignmentQuery, [
       assignmentId,
       userId,
     ]);
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const questionResponsesQuery = `
       SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
       FROM question_responses qr
       JOIN questions q ON qr.question_id = q.id
-      WHERE q.assignment_id = ? AND qr.user_id = ?`;
+      WHERE q.assignment_id = ? AND qr.user_id = ?;
+    `;
     const [responses] = await db.query(questionResponsesQuery, [
       assignmentId,
       userId,
     ]);
 
-    const isInpsectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?`;
+    const isInpsectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?;`;
     await Promise.all(
       questions.map(async (question) => {
         const [isInspected] = await db.query(isInpsectedQuery, [
@@ -265,12 +274,12 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       .split(",")
       .map((s) => s.trim());
 
-    const canvasQuery = `SELECT id, width, height, lastQuestionIndex FROM canvas_info WHERE assignment_id = ? AND user_id = ?`;
+    const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`; // 수정된 부분
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = [];
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?;`;
       const [squaresResult] = await db.query(squaresQuery, [
         canvas[0].id,
         userId,
@@ -283,7 +292,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     ];
     score += uniqueQuestionIndex.length;
 
-    const response = {
+    const responseData = {
       ...assignment[0],
       questions: questionsWithResponses,
       score,
@@ -292,7 +301,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       squares,
     };
 
-    res.json(response);
+    res.json(responseData);
   } catch (error) {
     handleError(res, "Error fetching assignment details", error);
   }
@@ -313,7 +322,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.is_score,
         a.is_ai_use
       FROM assignments a
-      WHERE a.id = ?`;
+      WHERE a.id = ?;
+    `;
     const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
 
     if (!assignmentDetails.length) {
@@ -330,10 +340,11 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         u.organization
       FROM assignment_user au
       JOIN users u ON au.user_id = u.id
-      WHERE au.assignment_id = ?`;
+      WHERE au.assignment_id = ?;
+    `;
     const [assignedUsers] = await db.query(assignedUsersQuery, [assignmentId]);
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const transformedAssignmentDetails = {
@@ -365,7 +376,21 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
 
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId;
-  const { questions, beforeCanvas, squares, lastQuestionIndex } = req.body;
+  const {
+    questions,
+    beforeCanvas,
+    squares,
+    lastQuestionIndex,
+    evaluation_time, // 추가된 부분
+  } = req.body;
+
+  console.log(
+    questions,
+    beforeCanvas,
+    squares,
+    lastQuestionIndex,
+    evaluation_time
+  );
 
   try {
     await Promise.all(
@@ -377,7 +402,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           const insertResponseQuery = `
             INSERT INTO question_responses (question_id, user_id, selected_option)
             VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE selected_option = ?`;
+            ON DUPLICATE KEY UPDATE selected_option = ?;
+          `;
           await db.query(insertResponseQuery, [
             question.id,
             req.user.id,
@@ -391,18 +417,20 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     if (beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
       const updateCanvasQuery = `
         UPDATE canvas_info
-        SET width = ?, height = ?, lastQuestionIndex = ?
-        WHERE assignment_id = ? AND user_id = ?`;
+        SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?
+        WHERE assignment_id = ? AND user_id = ?;
+      `;
       await db.query(updateCanvasQuery, [
         beforeCanvas.width,
         beforeCanvas.height,
         lastQuestionIndex,
+        evaluation_time || 0, // 추가된 부분
         assignmentId,
         req.user.id,
       ]);
     }
 
-    const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ? AND user_id = ?`;
+    const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ? AND user_id = ?;`;
     await db.query(deleteSquaresQuery, [beforeCanvas.id, req.user.id]);
 
     if (squares.length > 0) {
@@ -410,7 +438,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
         squares.map(async (square) => {
           const insertSquareQuery = `
               INSERT INTO squares_info (canvas_id, x, y, question_id, user_id, isAI, isTemporary)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`;
+              VALUES (?, ?, ?, ?, ?, ?, ?);
+          `;
 
           await db.query(insertSquareQuery, [
             beforeCanvas.id,
@@ -573,7 +602,7 @@ const createCanvasForUsers = async (assignmentId, users) => {
   await Promise.all(
     users.map((userId) =>
       db.query(
-        `INSERT INTO canvas_info (assignment_id, width, height, user_id) VALUES (?, 0, 0, ?)`,
+        `INSERT INTO canvas_info (assignment_id, width, height, user_id, evaluation_time) VALUES (?, 0, 0, ?, 0)`,
         [assignmentId, userId]
       )
     )
@@ -595,7 +624,8 @@ const updateAssignment = async (params) => {
   const updateQuery = `
     UPDATE assignments
     SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
-    WHERE id = ?`;
+    WHERE id = ?;
+  `;
 
   await db.query(updateQuery, [
     title,

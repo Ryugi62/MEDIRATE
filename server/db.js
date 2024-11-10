@@ -53,6 +53,7 @@ const expectedColumns = {
     },
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
+    { name: "evaluation_time", definition: "INT DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -75,13 +76,13 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`assignment_id`) REFERENCES `assignments`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
       constraintName: "fk_assignment_user_assignment",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
       constraintName: "fk_assignment_user_user",
     },
   ],
@@ -97,7 +98,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`assignment_id`) REFERENCES `assignments`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
       constraintName: "fk_questions_assignment",
     },
   ],
@@ -118,12 +119,12 @@ const expectedColumns = {
     },
     {
       name: "FOREIGN KEY",
-      definition: "FOREIGN KEY (`question_id`) REFERENCES `questions`(`id`)",
+      definition: "FOREIGN KEY (question_id) REFERENCES questions(id)",
       constraintName: "fk_question_responses_question",
     },
     {
       name: "FOREIGN KEY",
-      definition: "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)",
+      definition: "FOREIGN KEY (user_id) REFERENCES users(id)",
       constraintName: "fk_question_responses_user",
     },
   ],
@@ -145,7 +146,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
       constraintName: "fk_posts_user",
     },
   ],
@@ -164,19 +165,19 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE",
       constraintName: "fk_comments_post",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
       constraintName: "fk_comments_user",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`parent_comment_id`) REFERENCES `comments`(`id`) ON DELETE SET NULL",
+        "FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE SET NULL",
       constraintName: "fk_comments_parent",
     },
   ],
@@ -193,7 +194,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE",
       constraintName: "fk_attachments_post",
     },
   ],
@@ -204,6 +205,7 @@ const expectedColumns = {
     { name: "height", definition: "INT NOT NULL" },
     { name: "lastQuestionIndex", definition: "INT NOT NULL DEFAULT 1" },
     { name: "user_id", definition: "INT" },
+    { name: "evaluation_time", definition: "INT DEFAULT 0" }, // 추가된 부분
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -212,13 +214,13 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`assignment_id`) REFERENCES `assignments`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
       constraintName: "fk_canvas_info_assignment",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
       constraintName: "fk_canvas_info_user",
     },
   ],
@@ -239,19 +241,19 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`question_id`) REFERENCES `questions`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE",
       constraintName: "fk_squares_info_question",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`canvas_id`) REFERENCES `canvas_info`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE",
       constraintName: "fk_squares_info_canvas",
     },
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
       constraintName: "fk_squares_info_user",
     },
   ],
@@ -259,118 +261,110 @@ const expectedColumns = {
 
 // 초기 테이블 생성 SQL
 const createTablesSQL = {
-  users: `
-    CREATE TABLE IF NOT EXISTS \`users\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`username\` VARCHAR(255) NOT NULL UNIQUE,
-      \`realname\` VARCHAR(255) NOT NULL,
-      \`organization\` VARCHAR(255),
-      \`password\` VARCHAR(255) NOT NULL,
-      \`role\` ENUM('user', 'admin') NOT NULL,
-      PRIMARY KEY (\`id\`),
-      CONSTRAINT \`users_role_check\` CHECK (\`role\` IN ('user', 'admin'))
-    )`,
-  assignments: `
-    CREATE TABLE IF NOT EXISTS \`assignments\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`title\` VARCHAR(255) NOT NULL,
-      \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      \`deadline\` DATE NOT NULL,
-      \`assignment_type\` VARCHAR(255),
-      \`selection_type\` VARCHAR(255),
-      \`assignment_mode\` ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
-      \`is_score\` BOOLEAN NOT NULL DEFAULT 1,
-      \`is_ai_use\` BOOLEAN NOT NULL DEFAULT 1,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`title_deadline_unique\` (\`title\`, \`deadline\`)
-    )`,
-  assignment_user: `
-    CREATE TABLE IF NOT EXISTS \`assignment_user\` (
-      \`assignment_id\` INT,
-      \`user_id\` INT,
-      PRIMARY KEY (\`assignment_id\`, \`user_id\`),
-      FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    )`,
-  questions: `
-    CREATE TABLE IF NOT EXISTS \`questions\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`assignment_id\` INT,
-      \`image\` VARCHAR(255) NOT NULL,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE
-    )`,
-  question_responses: `
-    CREATE TABLE IF NOT EXISTS \`question_responses\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`question_id\` INT NOT NULL,
-      \`user_id\` INT NOT NULL,
-      \`selected_option\` INT NOT NULL,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`question_user_unique\` (\`question_id\`, \`user_id\`),
-      FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`),
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`)
-    )`,
-  posts: `
-    CREATE TABLE IF NOT EXISTS \`posts\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`user_id\` INT,
-      \`title\` VARCHAR(255) NOT NULL,
-      \`content\` TEXT NOT NULL,
-      \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      \`type\` VARCHAR(255) NOT NULL,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    )`,
-  comments: `
-    CREATE TABLE IF NOT EXISTS \`comments\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`post_id\` INT,
-      \`user_id\` INT,
-      \`content\` TEXT NOT NULL,
-      \`parent_comment_id\` INT,
-      \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`parent_comment_id\`) REFERENCES \`comments\`(\`id\`) ON DELETE SET NULL
-    )`,
-  attachments: `
-    CREATE TABLE IF NOT EXISTS \`attachments\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`post_id\` INT,
-      \`path\` VARCHAR(255) NOT NULL,
-      \`filename\` VARCHAR(255) NOT NULL,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE
-    )`,
-  canvas_info: `
-    CREATE TABLE IF NOT EXISTS \`canvas_info\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`assignment_id\` INT,
-      \`width\` INT NOT NULL,
-      \`height\` INT NOT NULL,
-      \`lastQuestionIndex\` INT NOT NULL DEFAULT 1,
-      \`user_id\` INT,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    )`,
-  squares_info: `
-    CREATE TABLE IF NOT EXISTS \`squares_info\` (
-      \`id\` INT AUTO_INCREMENT,
-      \`question_id\` INT,
-      \`canvas_id\` INT,
-      \`x\` INT NOT NULL,
-      \`y\` INT NOT NULL,
-      \`user_id\` INT,
-      \`isAI\` TINYINT(1) DEFAULT 0,
-      \`isTemporary\` TINYINT(1) DEFAULT 0,
-      PRIMARY KEY (\`id\`),
-      FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
-      FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    )`,
+  users: `CREATE TABLE IF NOT EXISTS \`users\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`username\` VARCHAR(255) NOT NULL UNIQUE,
+    \`realname\` VARCHAR(255) NOT NULL,
+    \`organization\` VARCHAR(255),
+    \`password\` VARCHAR(255) NOT NULL,
+    \`role\` ENUM('user', 'admin') NOT NULL,
+    PRIMARY KEY (\`id\`),
+    CONSTRAINT \`users_role_check\` CHECK (\`role\` IN ('user', 'admin'))
+  )`,
+  assignments: `CREATE TABLE IF NOT EXISTS \`assignments\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`title\` VARCHAR(255) NOT NULL,
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deadline\` DATE NOT NULL,
+    \`assignment_type\` VARCHAR(255),
+    \`selection_type\` VARCHAR(255),
+    \`assignment_mode\` ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
+    \`is_score\` BOOLEAN NOT NULL DEFAULT 1,
+    \`is_ai_use\` BOOLEAN NOT NULL DEFAULT 1,
+    \`evaluation_time\` INT DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`title_deadline_unique\` (\`title\`, \`deadline\`)
+  )`,
+  assignment_user: `CREATE TABLE IF NOT EXISTS \`assignment_user\` (
+    \`assignment_id\` INT,
+    \`user_id\` INT,
+    PRIMARY KEY (\`assignment_id\`, \`user_id\`),
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
+  questions: `CREATE TABLE IF NOT EXISTS \`questions\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`assignment_id\` INT,
+    \`image\` VARCHAR(255) NOT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE
+  )`,
+  question_responses: `CREATE TABLE IF NOT EXISTS \`question_responses\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`question_id\` INT NOT NULL,
+    \`user_id\` INT NOT NULL,
+    \`selected_option\` INT NOT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`question_user_unique\` (\`question_id\`, \`user_id\`),
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`),
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`)
+  )`,
+  posts: `CREATE TABLE IF NOT EXISTS \`posts\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`user_id\` INT,
+    \`title\` VARCHAR(255) NOT NULL,
+    \`content\` TEXT NOT NULL,
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`type\` VARCHAR(255) NOT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
+  comments: `CREATE TABLE IF NOT EXISTS \`comments\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`post_id\` INT,
+    \`user_id\` INT,
+    \`content\` TEXT NOT NULL,
+    \`parent_comment_id\` INT,
+    \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`parent_comment_id\`) REFERENCES \`comments\`(\`id\`) ON DELETE SET NULL
+  )`,
+  attachments: `CREATE TABLE IF NOT EXISTS \`attachments\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`post_id\` INT,
+    \`path\` VARCHAR(255) NOT NULL,
+    \`filename\` VARCHAR(255) NOT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE
+  )`,
+  canvas_info: `CREATE TABLE IF NOT EXISTS \`canvas_info\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`assignment_id\` INT,
+    \`width\` INT NOT NULL,
+    \`height\` INT NOT NULL,
+    \`lastQuestionIndex\` INT NOT NULL DEFAULT 1,
+    \`user_id\` INT,
+    \`evaluation_time\` INT DEFAULT 0,  -- 추가된 부분
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
+  squares_info: `CREATE TABLE IF NOT EXISTS \`squares_info\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`question_id\` INT,
+    \`canvas_id\` INT,
+    \`x\` INT NOT NULL,
+    \`y\` INT NOT NULL,
+    \`user_id\` INT,
+    \`isAI\` TINYINT(1) DEFAULT 0,
+    \`isTemporary\` TINYINT(1) DEFAULT 0,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
 };
 
 // 데이터베이스 및 테이블 초기화 함수

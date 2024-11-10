@@ -101,14 +101,14 @@
         v-else
         :src="activeQuestionImageUrl"
         :questionIndex="activeQuestionId"
-        :squares="currentAssignmentDetails.squares"
+        v-model:squares="currentAssignmentDetails.squares"
         :beforeCanvas="currentAssignmentDetails.beforeCanvas"
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
-        @update:squares="currentAssignmentDetails.squares = $event"
-        :commitAssignmentChanges="commitAssignmentChanges"
+        @commitAssignmentChanges="commitAssignmentChanges"
         :is_score="currentAssignmentDetails.is_score"
         :is_ai_use="currentAssignmentDetails.is_ai_use"
+        :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
       />
     </div>
 
@@ -234,7 +234,11 @@ export default {
       }
     },
 
-    async commitAssignmentChanges(mode = "textbox", goNext = true) {
+    async commitAssignmentChanges(
+      mode = "textbox",
+      goNext = true,
+      evaluation_time = 0
+    ) {
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
       );
@@ -287,6 +291,7 @@ export default {
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
         lastQuestionIndex: this.activeQuestionId,
+        evaluation_time: evaluation_time, // Always use the new evaluation_time
       };
 
       try {
@@ -300,6 +305,11 @@ export default {
           }
         );
         this.isSaving = true;
+
+        // Update the beforeCanvas evaluation_time with the new value
+        this.currentAssignmentDetails.beforeCanvas.evaluation_time =
+          evaluation_time;
+
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
         if (!this.isOut && mode == "bbox" && goNext) {
           // 다음 문제로 이동 만약 마지막 문제라면 이동하지 않음
@@ -438,7 +448,6 @@ export default {
       }
     },
 
-    // 기존 onRowClick 메서드 업데이트
     onRowClick(question, idx) {
       this.activeQuestionId = question.id;
       this.activeQuestionImageUrl = question.image;
@@ -451,6 +460,8 @@ export default {
         if (activeRow) {
           activeRow.classList.add("active");
           activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+        } else {
+          console.warn("Active row not found!");
         }
       });
 
@@ -482,7 +493,6 @@ export default {
   },
 
   watch: {
-    // index 변경 시, 해당 질문으로 스크롤
     activeQuestionId() {
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector("tbody tr.active");

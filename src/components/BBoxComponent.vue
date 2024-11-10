@@ -6,21 +6,46 @@
           <input type="checkbox" v-model="showAiAlert" />
           알림 표시
         </label>
+        |
         <label>
           <input type="checkbox" v-model="goNext" />
-          Save시 Next
+          Save 시 Next
         </label>
+        |
+        <div class="timer-section">
+          <div class="timer-display">
+            {{ formattedTime }}
+          </div>
+          <div class="timer-controls">
+            <button @click="toggleTimer" class="timer-button">
+              {{ isRunning ? "평가중지" : "평가시작" }}
+            </button>
+            <button
+              @click="refreshTimer"
+              class="timer-button refresh-button"
+              :disabled="isRunning"
+              title="새로고침"
+            >
+              <i class="fas fa-sync"></i>
+            </button>
+          </div>
+        </div>
       </span>
 
       <div class="icon-list">
         <i
           v-for="icon in iconList"
           :key="icon.name"
-          :class="['fas', icon.name, { active: icon.active }]"
-          @click="activateIcon(icon)"
+          :class="[
+            'fas',
+            icon.name,
+            { active: icon.active },
+            { disabled: !isRunning },
+          ]"
+          @click="handleIconClick(icon)"
           :aria-label="icon.explanation"
         >
-          <span>({{ icon.explanation }})</span>
+          <span class="icon-explanation">({{ icon.explanation }})</span>
         </i>
       </div>
 
@@ -40,6 +65,7 @@
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
+
     <div class="bbox-component__body">
       <canvas
         ref="canvas"
@@ -63,15 +89,21 @@ export default {
 
   props: {
     beforeCanvas: { type: Object, required: true, default: () => ({}) },
-    squares: { type: Array, required: true, default: () => [] },
+    squares: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
     src: { type: String, required: true, default: "" },
     questionIndex: { type: Number, required: true, default: 0 },
     assignmentType: { type: String, required: true, default: "" },
     assignmentIndex: { type: Number, required: true, default: 0 },
-    commitAssignmentChanges: { type: Function, required: true },
     is_score: { type: Boolean, required: true, default: true },
     is_ai_use: { type: Boolean, required: true, default: true },
+    evaluation_time: { type: Number, required: false, default: 0 },
   },
+
+  emits: ["update:squares", "commitAssignmentChanges"],
 
   data() {
     return {
@@ -89,9 +121,12 @@ export default {
       originalWidth: null,
       originalHeight: null,
       showAiAlert: false,
-      temporarySquares: [], // 임시 사각형 배열 추가
+      temporarySquares: [],
       goNext: true,
       score_value: 50,
+      timer: 0,
+      isRunning: false,
+      timerInterval: null,
     };
   },
 
@@ -108,9 +143,29 @@ export default {
     fileName() {
       return this.src.split("/").pop();
     },
+    formattedTime() {
+      const totalSeconds = Math.floor(this.timer / 1000);
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(
+        2,
+        "0"
+      );
+      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      return `${hours}:${minutes}:${seconds}`;
+    },
   },
 
   methods: {
+    handleIconClick(icon) {
+      if (!this.isRunning) {
+        if (this.showAiAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
+      this.activateIcon(icon);
+    },
+
     handleHotkeys(event) {
       if (event.ctrlKey && event.key === "a") {
         event.preventDefault(); // 브라우저 기본 동작 방지
@@ -122,35 +177,40 @@ export default {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // ai icon 활성화
         const aiIcon = this.iconList.find((icon) => icon.name === "fa-robot");
-        this.activateIcon(aiIcon);
+        this.handleIconClick(aiIcon);
       } else if (event.ctrlKey && event.key === "e") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // eraser icon 활성화
         const eraserIcon = this.iconList.find(
           (icon) => icon.name === "fa-eraser"
         );
-        this.activateIcon(eraserIcon);
+        this.handleIconClick(eraserIcon);
       } else if (event.ctrlKey && event.key === "q") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // square icon 활성화
         const squareIcon = this.iconList.find(
           (icon) => icon.name === "fa-square"
         );
-        this.activateIcon(squareIcon);
+        this.handleIconClick(squareIcon);
       } else if (event.ctrlKey && event.key === "d") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // circle-minus icon 활성화
         const circleMinusIcon = this.iconList.find(
           (icon) => icon.name === "fa-circle-minus"
         );
-        this.activateIcon(circleMinusIcon);
+        this.handleIconClick(circleMinusIcon);
       }
     },
 
     async fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
       this.localSquares = [...this.squares];
-      this.temporarySquares = [...this.squares]; // 임시 사각형 배열 초기화
+      this.temporarySquares = [...this.squares];
+
+      // Only set the timer if it's not already running
+      if (this.timer === 0) {
+        this.timer = this.evaluation_time || 0;
+      }
     },
 
     async activateIcon(selectedIcon) {
@@ -384,6 +444,12 @@ export default {
     },
 
     handleCanvasClick(event) {
+      if (!this.isRunning) {
+        if (this.showAiAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
       const { x, y } = this.getCanvasCoordinates(event);
       this.eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
     },
@@ -469,6 +535,9 @@ export default {
     },
 
     handleCanvasMouseMove(event) {
+      if (!this.isRunning) {
+        return;
+      }
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
@@ -571,31 +640,83 @@ export default {
       this.redrawSquares();
     },
 
+    toggleTimer() {
+      if (!this.isRunning) {
+        // Start the timer
+        this.startTimer();
+      } else {
+        // Pause the timer
+        this.pauseTimer();
+      }
+    },
+
+    async refreshTimer() {
+      try {
+        this.timer = this.evaluation_time;
+        this.redrawSquares(); // Update display
+      } catch (error) {
+        console.error("타이머 초기화 중 오류 발생:", error);
+        alert("타이머 초기화에 실패했습니다.");
+      }
+    },
+
     commitChanges(type, goNext) {
       this.localSquares = [...this.temporarySquares];
-
-      // update
       this.$emit("update:squares", this.localSquares);
 
-      this.commitAssignmentChanges(type, goNext);
+      // 타이머 값을 포함하여 데이터 제출
+      this.$emit("commitAssignmentChanges", type, goNext, this.timer);
+    },
+
+    // 타이머 관련 메서드
+    startTimer() {
+      if (this.isRunning) return;
+      this.isRunning = true;
+      this.timerInterval = setInterval(() => {
+        this.timer += 1000; // 1초(1000ms)마다 증가
+      }, 1000);
+    },
+
+    pauseTimer() {
+      if (!this.isRunning) return;
+      this.isRunning = false;
+      this.clearTimerInterval();
+    },
+
+    stopTimer() {
+      this.isRunning = false;
+      this.clearTimerInterval();
+      this.timer = 0;
+    },
+
+    clearTimerInterval() {
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
     },
   },
 
   mounted() {
-    console.log(this.is_ai_use);
     if (!this.is_ai_use)
       this.iconList.forEach((e, i) => {
-        if (e.name === "fa-robot") this.iconList.splice(i);
+        if (e.name === "fa-robot") this.iconList.splice(i, 1);
       });
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
     window.addEventListener("keydown", this.handleHotkeys);
+
+    // 타이머 초기화 (props에서 받은 evaluation_time)
+    if (this.evaluation_time) {
+      this.timer = this.evaluation_time;
+    }
   },
 
   beforeUnmount() {
     window.removeEventListener("resize", this.resizeCanvas);
     window.removeEventListener("keydown", this.handleHotkeys);
+    this.clearTimerInterval();
   },
 
   watch: {
@@ -608,7 +729,7 @@ export default {
 
       this.fetchLocalInfo();
 
-      this.activateIcon(squareIcon);
+      this.handleIconClick(squareIcon);
     },
 
     isSliderActive() {
@@ -637,6 +758,12 @@ export default {
   margin-bottom: 10px;
 }
 
+.bbox-component__header__left {
+  gap: 8px;
+  display: flex;
+  align-items: center;
+}
+
 .bbox-component__header label {
   display: flex;
   align-items: center;
@@ -653,6 +780,34 @@ export default {
   cursor: pointer;
   padding: 10px;
   transition: color 0.3s;
+  position: relative;
+}
+
+.icon-list i.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.icon-explanation {
+  visibility: hidden;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 10px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%; /* Position above the icon */
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  width: 120px;
+}
+
+.icon-list i:hover .icon-explanation {
+  visibility: visible;
+  opacity: 1;
 }
 
 .icon-list i.active {
@@ -671,6 +826,7 @@ export default {
 .is_score_field {
   gap: 4px;
   display: flex;
+  align-items: center;
 }
 
 .bbox-component__body {
@@ -699,8 +855,54 @@ canvas:hover {
   margin-top: 10px;
 }
 
-.bbox-component__header__left {
+/* 타이머 섹션 스타일 추가 */
+.timer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.timer-display {
+  font-weight: bold;
+  font-size: 18px;
+  color: #333;
+}
+
+.timer-controls {
   display: flex;
   gap: 8px;
+}
+
+.timer-button {
+  background-color: var(--primary-color, #007bff);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-button {
+  padding: 8px 10px;
+}
+
+.timer-button:disabled {
+  background-color: var(--gray, #6c757d);
+  cursor: not-allowed;
+}
+
+.timer-button:not(:disabled):hover {
+  background-color: #0056b3; /* var(--primary-color)보다 약간 어두운 색상 */
+}
+
+/* 기타 기존 스타일 유지 */
+.icon-list i .icon-explanation {
+  pointer-events: none;
 }
 </style>
