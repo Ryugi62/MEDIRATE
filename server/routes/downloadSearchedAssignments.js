@@ -8,6 +8,7 @@ const path = require("path");
 const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
+const archiver = require("archiver"); // 추가된 부분
 
 // 모든 평가자를 포함하는 열 생성
 async function getAllEvaluators(assignments) {
@@ -150,6 +151,55 @@ router.post(
     } catch (error) {
       console.error("Error generating Excel file:", error);
       res.status(500).send("Internal Server Error");
+    }
+  }
+);
+
+router.post(
+  "/download-searched-assignments-assets",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const absolutePath = path.join(__dirname, "../../assets");
+
+      // assets 폴더 내의 디렉토리 목록을 가져옵니다.
+      const entries = await fs.readdir(absolutePath, { withFileTypes: true });
+      const folders = entries
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
+
+      // 응답 헤더 설정
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", "attachment; filename=assets.zip");
+
+      // zip 아카이브를 생성하고 응답에 연결합니다.
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // 압축 수준 설정
+      });
+
+      // 오류 처리
+      archive.on("error", function (err) {
+        console.error("Archive error:", err);
+        res.status(500).send({ error: err.message });
+      });
+
+      // 아카이브 데이터를 응답으로 보냅니다.
+      archive.pipe(res);
+
+      // 각 폴더를 아카이브에 추가합니다.
+      for (const folder of folders) {
+        const folderPath = path.join(absolutePath, folder);
+        archive.directory(folderPath, folder);
+      }
+
+      // 아카이브를 종료하고 전송을 완료합니다.
+      archive.finalize();
+    } catch (error) {
+      console.error("Error generating Assets file:", error);
+      // 에러 발생 시 응답이 이미 전송 중인지 확인하고, 그렇지 않다면 에러 응답을 보냅니다.
+      if (!res.headersSent) {
+        res.status(500).send("Internal Server Error");
+      }
     }
   }
 );
@@ -301,141 +351,123 @@ function getMatchedCount(overlapGroups, aiData) {
 }
 
 async function fetchAssignmentData(assignmentId) {
-  const connection = await db.getConnection();
-  try {
-    await connection.beginTransaction();
+  const [assignmentInfo] = await db.query(
+    `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
+    [assignmentId]
+  );
 
-    const [assignmentInfo] = await connection.query(
-      `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
-      [assignmentId]
-    );
+  const [users] = await db.query(
+    `SELECT u.id as userId, u.username as name
+     FROM users u
+     JOIN assignment_user au ON u.id = au.user_id
+     WHERE au.assignment_id = ?`,
+    [assignmentId]
+  );
 
-    const [users] = await connection.query(
-      `SELECT u.id as userId, u.username as name
-       FROM users u
-       JOIN assignment_user au ON u.id = au.user_id
-       WHERE au.assignment_id = ?`,
-      [assignmentId]
-    );
+  const [questions] = await db.query(
+    `SELECT id as questionId, image as questionImage FROM questions WHERE assignment_id = ?`,
+    [assignmentId]
+  );
 
-    const [questions] = await connection.query(
-      `SELECT id as questionId, image as questionImage FROM questions WHERE assignment_id = ?`,
-      [assignmentId]
-    );
-
-    // 이미지 크기 정보 가져오기
-    for (let question of questions) {
-      const { width, height } = await getImageDimensions(
-        question.questionImage
-      );
-      question.originalWidth = width;
-      question.originalHeight = height;
-    }
-
-    const [responses] = await connection.query(
-      `SELECT qr.question_id, qr.user_id, qr.selected_option as questionSelection
-       FROM question_responses qr
-       JOIN questions q ON qr.question_id = q.id
-       WHERE q.assignment_id = ?`,
-      [assignmentId]
-    );
-
-    const [squares] = await connection.query(
-      `SELECT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
-       FROM squares_info si
-       JOIN questions q ON si.question_id = q.id
-       WHERE q.assignment_id = ? AND si.isTemporary = 0`,
-      [assignmentId]
-    );
-
-    const [canvasInfo] = await connection.query(
-      `SELECT user_id, width, height FROM canvas_info WHERE assignment_id = ?`,
-      [assignmentId]
-    );
-
-    const structuredData = users.map((user) => ({
-      ...user,
-      questions: questions.map((q) => ({
-        questionId: q.questionId,
-        questionImage: q.questionImage,
-        originalWidth: q.originalWidth,
-        originalHeight: q.originalHeight,
-        questionSelection:
-          responses.find(
-            (r) => r.question_id === q.questionId && r.user_id === user.userId
-          )?.questionSelection || -1,
-      })),
-      squares: squares.filter((s) => s.user_id === user.userId),
-      beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
-        width: 1000,
-        height: 1000,
-      },
-      answeredCount: 0,
-      unansweredCount: 0,
-    }));
-
-    structuredData.forEach((user) => {
-      user.questions.forEach((q) => {
-        if (q.questionSelection > 0) {
-          user.answeredCount++;
-        } else {
-          user.unansweredCount++;
-        }
-      });
-    });
-
-    await connection.commit();
-    return {
-      assignment: structuredData,
-      assignmentMode: assignmentInfo[0].assignmentMode,
-      FileName: assignmentInfo[0].FileName,
-    };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  // 이미지 크기 정보 가져오기
+  for (let question of questions) {
+    const { width, height } = await getImageDimensions(question.questionImage);
+    question.originalWidth = width;
+    question.originalHeight = height;
   }
+
+  const [responses] = await db.query(
+    `SELECT qr.question_id, qr.user_id, qr.selected_option as questionSelection
+     FROM question_responses qr
+     JOIN questions q ON qr.question_id = q.id
+     WHERE q.assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const [squares] = await db.query(
+    `SELECT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
+     FROM squares_info si
+     JOIN questions q ON si.question_id = q.id
+     WHERE q.assignment_id = ? AND si.isTemporary = 0`,
+    [assignmentId]
+  );
+
+  const [canvasInfo] = await db.query(
+    `SELECT user_id, width, height FROM canvas_info WHERE assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const structuredData = users.map((user) => ({
+    ...user,
+    questions: questions.map((q) => ({
+      questionId: q.questionId,
+      questionImage: q.questionImage,
+      originalWidth: q.originalWidth,
+      originalHeight: q.originalHeight,
+      questionSelection:
+        responses.find(
+          (r) => r.question_id === q.questionId && r.user_id === user.userId
+        )?.questionSelection || -1,
+    })),
+    squares: squares.filter((s) => s.user_id === user.userId),
+    beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
+      width: 1000,
+      height: 1000,
+    },
+    answeredCount: 0,
+    unansweredCount: 0,
+  }));
+
+  structuredData.forEach((user) => {
+    user.questions.forEach((q) => {
+      if (q.questionSelection > 0) {
+        user.answeredCount++;
+      } else {
+        user.unansweredCount++;
+      }
+    });
+  });
+
+  return {
+    assignment: structuredData,
+    assignmentMode: assignmentInfo[0].assignmentMode,
+    FileName: assignmentInfo[0].FileName,
+  };
 }
 
 async function getAIData(assignmentId) {
-  try {
-    const [questions] = await db.query(
-      `SELECT id, image FROM questions WHERE assignment_id = ?`,
-      [assignmentId]
+  const [questions] = await db.query(
+    `SELECT id, image FROM questions WHERE assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const AI_BBOX = [];
+
+  for (const question of questions) {
+    const jsonPath = getImageLocalPath(question.image).replace(
+      /\.(jpg|png|jpeg)$/i,
+      ".json"
     );
 
-    const AI_BBOX = [];
-
-    for (const question of questions) {
-      const jsonPath = getImageLocalPath(question.image).replace(
-        /\.(jpg|png|jpeg)$/i,
-        ".json"
-      );
-
-      try {
-        const jsonContent = await fs.readFile(jsonPath, "utf8");
-        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
-          const [x, y] = annotation.bbox;
-          const score = annotation.score ? annotation.score : 0.6;
-          return {
-            x: x + 12.5,
-            y: y + 12.5,
-            questionIndex: question.id,
-            score: score,
-          };
-        });
-        AI_BBOX.push(...bbox);
-      } catch (error) {
-        console.error("Error reading JSON file:", error);
-      }
+    try {
+      const jsonContent = await fs.readFile(jsonPath, "utf8");
+      const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+        const [x, y] = annotation.bbox;
+        const score = annotation.score ? annotation.score : 0.6;
+        return {
+          x: x + 12.5,
+          y: y + 12.5,
+          questionIndex: question.id,
+          score: score,
+        };
+      });
+      AI_BBOX.push(...bbox);
+    } catch (error) {
+      console.error("Error reading JSON file:", error);
     }
-
-    return AI_BBOX;
-  } catch (error) {
-    console.error("Error fetching AI assignment:", error);
-    throw error;
   }
+
+  return AI_BBOX;
 }
 
 module.exports = router;

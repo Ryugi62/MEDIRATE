@@ -493,5 +493,4 @@ async function query(sql, params) {
 // module.exports에 query 함수를 포함시킵니다.
 module.exports = {
   query,
-  // 필요 시 다른 함수도 내보낼 수 있습니다.
 };

@@ -51,6 +51,13 @@
         ></i>
       </div>
 
+      <button
+        class="download-image-button"
+        @click="downloadSearchedItemsAssets"
+      >
+        검색된 과제 이미지 다운로드
+      </button>
+
       <button class="download-button" @click="downloadSearchedItems">
         검색된 과제 다운로드
       </button>
@@ -350,7 +357,57 @@ export default {
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement("a");
           link.href = url;
-          link.setAttribute("download", `Total_${this.data.length}.xlsx`);
+          link.setAttribute(
+            "download",
+            `${this.searchQuery ? this.searchQuery : "전체과제"}-#${
+              this.sliderValue
+            }인 일치-${this.score_value / 100}점.xlsx`
+          );
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        })
+        .catch((error) => {
+          console.error(error);
+        })
+        .finally(() => {
+          this.isExporting = false;
+        });
+    },
+
+    downloadSearchedItemsAssets() {
+      this.isExporting = true;
+      this.$axios
+        .post(
+          "/api/download/download-searched-assignments-assets",
+          {
+            data: this.data,
+            sliderValue: this.sliderValue,
+            score_value: this.score_value / 100,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+            responseType: "blob",
+          }
+        )
+        .then((response) => {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute(
+            "download",
+            `${this.searchQuery ? this.searchQuery : "전체과제"}-#${
+              this.sliderValue
+            }인 일치-${this.score_value / 100}점.zip`
+          ); // 확장자를 .zip으로 변경
+          link.setAttribute(
+            "download",
+            `${this.searchQuery ? this.searchQuery : "전체과제"}-#${
+              this.sliderValue
+            }인 일치-${this.score_value / 100}점.zip`
+          ); // 확장자를 .zip으로 변경
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -462,6 +519,20 @@ export default {
 
 .download-button:active {
   background-color: var(--green-active);
+}
+
+.download-image-button {
+  color: var(--green);
+  border: 1px solid var(--green);
+  background-color: unset;
+}
+
+.download-image-button:hover {
+  background-color: #f5f5f5;
+}
+
+.download-image-button:active {
+  background-color: aliceblue;
 }
 
 .table-box {
