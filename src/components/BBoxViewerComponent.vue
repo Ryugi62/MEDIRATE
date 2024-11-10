@@ -539,6 +539,7 @@ export default {
 }
 
 canvas {
+  min-height: 550px;
   background-color: rgb(0, 0, 0);
 }
 

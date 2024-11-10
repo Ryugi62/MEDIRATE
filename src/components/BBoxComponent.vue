@@ -583,9 +583,10 @@ export default {
 
   mounted() {
     console.log(this.is_ai_use);
-    if (!this.is_ai_use) this.iconList.forEach((e, i) => {
-      if (e.name === "fa-robot") this.iconList.splice(i)
-    });
+    if (!this.is_ai_use)
+      this.iconList.forEach((e, i) => {
+        if (e.name === "fa-robot") this.iconList.splice(i);
+      });
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
@@ -680,9 +681,10 @@ export default {
 }
 
 canvas {
-  background-color: #000;
   border: 1px solid #ccc;
+  min-height: 550px;
   transition: border 0.3s;
+  background-color: #000;
 }
 
 canvas:hover {
