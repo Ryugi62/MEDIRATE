@@ -8,7 +8,7 @@ const path = require("path");
 const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
-const archiver = require("archiver"); // 추가된 부분
+const archiver = require("archiver");
 
 // 모든 평가자를 포함하는 열 생성
 async function getAllEvaluators(assignments) {
@@ -160,17 +160,32 @@ router.post(
   authenticateToken,
   async (req, res) => {
     try {
+      const assignments = req.body.data;
       const absolutePath = path.join(__dirname, "../../assets");
 
-      // assets 폴더 내의 디렉토리 목록을 가져옵니다.
-      const entries = await fs.readdir(absolutePath, { withFileTypes: true });
-      const folders = entries
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name);
+      // 필요한 폴더 이름들을 수집합니다.
+      const folderSet = new Set();
+
+      // 각 과제에 대해 해당하는 이미지들의 폴더를 찾아냅니다.
+      for (const assignmentSummary of assignments) {
+        const assignmentData = await fetchAssignmentData(assignmentSummary.id);
+        const questions = assignmentData.assignment[0].questions;
+
+        for (const question of questions) {
+          const imagePath = getImageLocalPath(question.questionImage);
+          const folderName = path.basename(path.dirname(imagePath));
+          folderSet.add(folderName);
+        }
+      }
+
+      const folders = Array.from(folderSet);
 
       // 응답 헤더 설정
       res.setHeader("Content-Type", "application/zip");
-      res.setHeader("Content-Disposition", "attachment; filename=assets.zip");
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=selected_assets.zip"
+      );
 
       // zip 아카이브를 생성하고 응답에 연결합니다.
       const archive = archiver("zip", {
@@ -186,7 +201,7 @@ router.post(
       // 아카이브 데이터를 응답으로 보냅니다.
       archive.pipe(res);
 
-      // 각 폴더를 아카이브에 추가합니다.
+      // 필요한 폴더만 아카이브에 추가합니다.
       for (const folder of folders) {
         const folderPath = path.join(absolutePath, folder);
         archive.directory(folderPath, folder);
