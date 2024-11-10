@@ -1,3 +1,5 @@
+// db.js
+
 const mysql = require("mysql2/promise");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
@@ -473,11 +475,23 @@ async function initializeDb() {
     console.log("Database initialization completed.");
   } catch (error) {
     console.error("Error initializing database:", error);
+    // 프로세스를 종료하여 애플리케이션이 계속 실행되지 않도록 합니다.
+    process.exit(1);
   }
 }
 
-// 애플리케이션 시작 시 데이터베이스 초기화
-initializeDb();
+// pool 초기화가 완료될 때까지 대기하는 프로미스를 생성합니다.
+const poolReady = initializeDb();
 
-// pool을 모듈로 내보냅니다.
-module.exports = pool;
+// query 함수를 비동기로 정의하여 pool이 초기화된 후에 쿼리를 실행하도록 합니다.
+async function query(sql, params) {
+  // pool이 초기화될 때까지 대기합니다.
+  await poolReady;
+  return pool.query(sql, params);
+}
+
+// module.exports에 query 함수를 포함시킵니다.
+module.exports = {
+  query,
+  // 필요 시 다른 함수도 내보낼 수 있습니다.
+};
