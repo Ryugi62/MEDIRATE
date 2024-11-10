@@ -1,3 +1,5 @@
+// assignmentRoutes.js
+
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
@@ -345,8 +347,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
       selectedAssignmentType: assignment.selectedAssignmentType,
       questions: questions.map((q) => ({ id: q.id, img: q.image })),
       gradingScale: assignment.selectedAssignmentId
-        .split(",")
-        .map((item) => item.trim()),
+        ? assignment.selectedAssignmentId.split(",").map((item) => item.trim())
+        : [],
       assignedUsers: assignedUsers.map((user) => ({
         id: user.id,
         username: user.username,
@@ -448,7 +450,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   } = req.body;
 
   try {
-    const assignmentChanged = await updateAssignment({
+    await updateAssignment({
       assignmentId,
       title,
       deadline,
@@ -459,9 +461,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       is_ai_use,
     });
 
-    if (assignmentChanged) {
-      await updateQuestions(assignmentId, questions);
-    }
+    await updateQuestions(assignmentId, questions);
 
     await updateUserAssignments(assignmentId, users);
 
@@ -481,33 +481,39 @@ const updateQuestions = async (assignmentId, questions) => {
   );
 
   const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
+  const submittedQuestionIds = new Set(questions.map((q) => q.id));
+
+  // Delete questions that are not in the submitted list
+  const questionIdsToDelete = [...existingQuestionIds].filter(
+    (id) => !submittedQuestionIds.has(id)
+  );
 
   await Promise.all(
-    existingQuestions.map(async (question) => {
-      const updatedQuestion = questions.find((q) => q.id === question.id);
-      if (updatedQuestion) {
-        await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
-          updatedQuestion.img,
-          question.id,
-        ]);
-        existingQuestionIds.delete(question.id);
-      } else {
-        await db.query(`DELETE FROM question_responses WHERE question_id = ?`, [
-          question.id,
-        ]);
-        await db.query(`DELETE FROM questions WHERE id = ?`, [question.id]);
-      }
+    questionIdsToDelete.map(async (questionId) => {
+      await db.query(`DELETE FROM question_responses WHERE question_id = ?`, [
+        questionId,
+      ]);
+      await db.query(`DELETE FROM questions WHERE id = ?`, [questionId]);
     })
   );
 
-  const newQuestions = questions.filter((q) => !existingQuestionIds.has(q.id));
+  // Update existing questions and insert new ones
   await Promise.all(
-    newQuestions.map((question) =>
-      db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
-        assignmentId,
-        question.img,
-      ])
-    )
+    questions.map(async (question) => {
+      if (existingQuestionIds.has(question.id)) {
+        // Update existing question
+        await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
+          question.img,
+          question.id,
+        ]);
+      } else {
+        // Insert new question
+        await db.query(
+          `INSERT INTO questions (assignment_id, image) VALUES (?, ?)`,
+          [assignmentId, question.img]
+        );
+      }
+    })
   );
 };
 
@@ -519,49 +525,47 @@ const updateUserAssignments = async (assignmentId, users) => {
 
   const existingUserIds = new Set(existingUsers.map((u) => u.user_id));
 
-  await Promise.all(
-    existingUsers.map(async (user) => {
-      if (!users.includes(user.user_id)) {
-        await db.query(
-          `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
-          [assignmentId, user.user_id]
-        );
-        await db.query(
-          `DELETE FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
-          [assignmentId, user.user_id]
-        );
-        await db.query(
-          `DELETE FROM squares_info WHERE user_id = ? AND canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`,
-          [user.user_id, assignmentId]
-        );
-        await db.query(
-          `DELETE FROM question_responses WHERE user_id = ? AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
-          [user.user_id, assignmentId]
-        );
-      }
+  const usersToRemove = [...existingUserIds].filter(
+    (userId) => !users.includes(userId)
+  );
 
-      existingUserIds.delete(user.user_id);
+  const usersToAdd = users.filter((userId) => !existingUserIds.has(userId));
+
+  // Remove users who are no longer assigned
+  await Promise.all(
+    usersToRemove.map(async (userId) => {
+      await db.query(
+        `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+      await db.query(
+        `DELETE FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+      await db.query(
+        `DELETE FROM squares_info WHERE user_id = ? AND canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`,
+        [userId, assignmentId]
+      );
+      await db.query(
+        `DELETE FROM question_responses WHERE user_id = ? AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+        [userId, assignmentId]
+      );
     })
   );
 
-  const newUsers = users.filter((userId) => !existingUserIds.has(userId));
-  if (newUsers.length > 0) {
-    await Promise.all(
-      newUsers.map(async (userId) => {
-        const [existingUser] = await db.query(
-          `SELECT * FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
-          [assignmentId, userId]
-        );
-        if (!existingUser.length) {
-          await db.query(
-            `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
-            [assignmentId, userId]
-          );
-        }
-      })
-    );
+  // Add new users
+  await Promise.all(
+    usersToAdd.map(async (userId) => {
+      await db.query(
+        `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+        [assignmentId, userId]
+      );
+    })
+  );
 
-    await createCanvasForUsers(assignmentId, newUsers);
+  // Create canvas for new users
+  if (usersToAdd.length > 0) {
+    await createCanvasForUsers(assignmentId, usersToAdd);
   }
 };
 
@@ -593,11 +597,6 @@ const updateAssignment = async (params) => {
     SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
     WHERE id = ?`;
 
-  const [originalAssignment] = await db.query(
-    `SELECT * FROM assignments WHERE id = ?`,
-    [assignmentId]
-  );
-
   await db.query(updateQuery, [
     title,
     deadline,
@@ -608,42 +607,6 @@ const updateAssignment = async (params) => {
     is_ai_use,
     assignmentId,
   ]);
-
-  return (
-    originalAssignment[0].selection_type !== selection_type ||
-    originalAssignment[0].assignment_type !== assignment_type ||
-    originalAssignment[0].assignment_mode !== mode ||
-    originalAssignment[0].is_score !== is_score ||
-    originalAssignment[0].is_ai_use !== is_ai_use
-  );
-};
-
-const deleteResponsesAndQuestions = async (assignmentId) => {
-  await db.query(
-    `DELETE qr FROM question_responses qr JOIN questions q ON qr.question_id = q.id WHERE q.assignment_id = ?`,
-    [assignmentId]
-  );
-  await db.query(`DELETE FROM questions WHERE assignment_id = ?`, [
-    assignmentId,
-  ]);
-};
-
-const addQuestions = async (assignmentId, questions) => {
-  await Promise.all(
-    questions.map((question) =>
-      db.query(`INSERT INTO questions (assignment_id, image) VALUES (?, ?)`, [
-        assignmentId,
-        question.img,
-      ])
-    )
-  );
-};
-
-const deleteSquareInfo = async (assignmentId) => {
-  await db.query(
-    `DELETE si FROM squares_info si JOIN canvas_info ci ON si.canvas_id = ci.id WHERE ci.assignment_id = ?`,
-    [assignmentId]
-  );
 };
 
 router.delete("/:id", authenticateToken, async (req, res) => {

@@ -1,3 +1,5 @@
+<!-- EditAssignmentView.vue -->
+
 <template>
   <div class="assignment-container">
     <h1 class="assignment-title">과제 관리</h1>
@@ -5,17 +7,28 @@
     <div class="content-container">
       <div class="user-addition">
         <div class="user-search-box">
-          <label for="user-search" class="user-search-label">평가자 검색:</label>
+          <label for="user-search" class="user-search-label"
+            >평가자 검색:</label
+          >
           <div class="user-search-input">
-            <input id="user-search" type="text" placeholder="유저 검색" v-model="searchInput" />
+            <input
+              id="user-search"
+              type="text"
+              placeholder="유저 검색"
+              v-model="searchInput"
+            />
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
           </div>
         </div>
         <hr />
         <div class="user-list">
           <div class="user-item-box user-item-box--add">
-            <div v-for="user in filteredUserList" :key="user.id" @click="addUser(user)"
-              :class="['user-item-add', { active: isUserAdded(user) }]">
+            <div
+              v-for="user in filteredUserList"
+              :key="user.id"
+              @click="addUser(user)"
+              :class="['user-item-add', { active: isUserAdded(user) }]"
+            >
               <div class="user-item-content">
                 <span class="user-name">{{ user.realname.trim() }}</span>
                 <span class="user-affiliation">{{ user.username }}</span>
@@ -24,9 +37,15 @@
             </div>
           </div>
           <hr />
-          <span class="user-count">{{ addedUsers.length }} / {{ maxUserCount }}</span>
+          <span class="user-count"
+            >{{ addedUsers.length }} / {{ maxUserCount }}</span
+          >
           <div class="user-item-box user-item-box--added">
-            <div v-for="(user, index) in addedUsers" :key="user.id" class="user-item-added">
+            <div
+              v-for="(user, index) in addedUsers"
+              :key="user.id"
+              class="user-item-added"
+            >
               <div class="user-item-content">
                 <span class="user-name">{{ user.realname.trim() }}</span>
                 <span class="user-affiliation">{{ user.username }}</span>
@@ -36,7 +55,10 @@
           </div>
         </div>
         <div class="guide_container">
-          <img src="../assets/evaluation_guide.png" class="guide_container_image" />
+          <img
+            src="../assets/evaluation_guide.png"
+            class="guide_container_image"
+          />
         </div>
       </div>
       <div class="assignment-addition">
@@ -44,46 +66,93 @@
           <div class="assignment-field mode-field">
             <span>
               <label for="field-text-mode">택일형</label>
-              <input type="radio" id="field-text-mode" name="mode" value="TextBox" v-model="assignmentDetails.mode" />
+              <input
+                type="radio"
+                id="field-text-mode"
+                name="mode"
+                value="TextBox"
+                v-model="assignmentDetails.mode"
+              />
             </span>
             <span>
               <label for="field-bbox-mode">BBox</label>
-              <input type="radio" id="field-bbox-mode" name="mode" value="BBox" v-model="assignmentDetails.mode" />
+              <input
+                type="radio"
+                id="field-bbox-mode"
+                name="mode"
+                value="BBox"
+                v-model="assignmentDetails.mode"
+              />
             </span>
           </div>
 
-          <div class="assignment-field is_score_field" v-if="assignmentDetails.mode === 'BBox'">
+          <div
+            class="assignment-field is_score_field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
             <span>
-              <input type="checkbox" name="is_score" id="is_score" v-model="assignmentDetails.is_score" />
+              <input
+                type="checkbox"
+                name="is_score"
+                id="is_score"
+                v-model="assignmentDetails.is_score"
+              />
               <label for="is_score">SCORE</label>
             </span>
           </div>
 
-          <div class="assignment-field is_ai_use_field" v-if="assignmentDetails.mode === 'BBox'">
+          <div
+            class="assignment-field is_ai_use_field"
+            v-if="assignmentDetails.mode === 'BBox'"
+          >
             <span>
-              <input type="checkbox" name="is_ai_use" id="is_ai_use" v-model="assignmentDetails.is_ai_use" />
+              <input
+                type="checkbox"
+                name="is_ai_use"
+                id="is_ai_use"
+                v-model="assignmentDetails.is_ai_use"
+              />
               <label for="is_ai_use">AI</label>
             </span>
           </div>
 
-          <div v-for="(field, fieldName) in assignmentFields" :key="fieldName" class="assignment-field">
+          <div
+            v-for="(field, fieldName) in assignmentFields"
+            :key="fieldName"
+            class="assignment-field"
+          >
             <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
-            <template v-if="
-              !(
-                fieldName === 'assignment-type' &&
-                assignmentDetails.mode === 'BBox'
-              )
-            ">
+            <template
+              v-if="
+                !(
+                  fieldName === 'assignment-type' &&
+                  assignmentDetails.mode === 'BBox'
+                )
+              "
+            >
               <label :for="`field-${fieldName}`">{{ field.label }}</label>
-              <input v-if="field.component === 'input'" :id="`field-${fieldName}`" :type="field.options?.type"
-                v-model="assignmentDetails[field.model]" :list="fieldName === 'assignment-id' ? 'assignment-id-list' : null
-                  " />
+              <input
+                v-if="field.component === 'input'"
+                :id="`field-${fieldName}`"
+                :type="field.options?.type"
+                v-model="assignmentDetails[field.model]"
+                :list="
+                  fieldName === 'assignment-id' ? 'assignment-id-list' : null
+                "
+              />
               <datalist id="assignment-id-list">
-                <option v-for="folder in folderList" :key="folder.id" :value="folder.id">
+                <option
+                  v-for="folder in folderList"
+                  :key="folder.id"
+                  :value="folder.id"
+                >
                   {{ folder }}
                 </option>
               </datalist>
-              <button v-if="field.method" @click="field.method ? this[field.method]() : null">
+              <button
+                v-if="field.method"
+                @click="field.method ? this[field.method]() : null"
+              >
                 조회
               </button>
             </template>
@@ -99,8 +168,11 @@
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
-              <button class="delete-question-button" v-if="activeQuestionId !== null"
-                @click="handlerDeleteQuestion(activeQuestionId)">
+              <!-- 수정: handlerDeleteSelectedQuestions 메서드 호출 -->
+              <button
+                class="delete-question-button"
+                @click="handlerDeleteSelectedQuestions"
+              >
                 문항삭제
               </button>
             </div>
@@ -110,6 +182,8 @@
               <table>
                 <thead>
                   <tr>
+                    <th>번호</th>
+                    <th>선택</th>
                     <th>문제</th>
                     <th v-for="option in gradingScale" :key="option">
                       {{ option }}
@@ -117,20 +191,47 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr @click="activeQuestionId = index" :class="[{ active: index === activeQuestionId }]"
-                    v-for="(question, index) in assignmentDetails.questions" :key="question.id">
-                    <td><img :src="question.img" /></td>
-                    <td v-for="option in gradingScale" :key="`question-${question.id}-option-${option}`">
-                      <input type="radio" :name="`question-${question.id}`" :value="option" v-model="question.select"
-                        disabled />
+                  <tr
+                    @click="clickQuestion(index)"
+                    :class="[{ active: index === activeQuestionId }]"
+                    v-for="(question, index) in assignmentDetails.questions"
+                    :key="question.id"
+                  >
+                    <td>{{ index + 1 }}</td>
+                    <!-- 체크박스에 v-model과 :value 바인딩 추가 -->
+                    <td>
+                      <input
+                        type="checkbox"
+                        v-model="selectedQuestions"
+                        :value="question.id"
+                        @click.stop="clickQuestion(index)"
+                      />
+                    </td>
+                    <td><img :src="question.img" alt="문제 이미지" /></td>
+                    <td
+                      v-for="option in gradingScale"
+                      :key="`question-${question.id}-option-${option}`"
+                    >
+                      <input
+                        type="radio"
+                        :name="`question-${question.id}`"
+                        :value="option"
+                        v-model="question.select"
+                        disabled
+                      />
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div class="student-response-image">
-              <ImageComponent v-if="assignmentDetails.questions[activeQuestionId]"
-                :src="assignmentDetails.questions[activeQuestionId].img" />
+              <ImageComponent
+                v-if="
+                  activeQuestionId !== null &&
+                  assignmentDetails.questions[activeQuestionId]
+                "
+                :src="assignmentDetails.questions[activeQuestionId].img"
+              />
             </div>
           </div>
           <div class="assignment-save">
@@ -155,6 +256,7 @@ export default {
       searchInput: "",
       folderList: [],
       assignmentDetails: {
+        id: null, // 추가: id 필드 초기화
         title: "",
         deadline: "",
         selectedAssignmentId: "",
@@ -162,8 +264,11 @@ export default {
         questions: [],
         gradingScale: null,
         mode: "TextBox",
+        is_score: false, // 추가: is_score 초기화
+        is_ai_use: false, // 추가: is_ai_use 초기화
       },
       activeQuestionId: null,
+      selectedQuestions: [], // 추가: 선택된 질문을 추적하기 위한 배열
       assignmentFields: {
         "assignment-title": {
           label: "과제 제목 :",
@@ -238,6 +343,7 @@ export default {
           console.error("폴더 리스트를 가져오는 중 오류 발생:", error);
         });
     },
+
     updateTableHeader() {
       if (this.assignmentDetails.selectedAssignmentType.trim() === "") {
         alert("선택 유형을 먼저 선택하세요.");
@@ -280,7 +386,7 @@ export default {
         !this.assignmentDetails.title ||
         !this.assignmentDetails.deadline ||
         !this.assignmentDetails.selectedAssignmentId ||
-        !this.assignmentDetails.questions.length > 0 ||
+        !(this.assignmentDetails.questions.length > 0) || // 수정: 괄호 위치 변경
         (this.assignmentDetails.mode === "TextBox" &&
           !this.assignmentDetails.selectedAssignmentType)
       ) {
@@ -331,13 +437,14 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
         })
-        .then((response) => {
-          response.data;
-
+        .then(() => {
+          // 성공 메시지 추가
+          alert("과제가 성공적으로 저장되었습니다.");
           this.$router.push({ name: "assignment" });
         })
         .catch((error) => {
           console.error("새로운 과제 생성 중 오류 발생:", error);
+          alert("과제 저장 중 오류가 발생했습니다.");
         });
     },
 
@@ -379,12 +486,14 @@ export default {
 
           this.assignmentDetails.questions = questions;
           this.activeQuestionId = 0;
+          this.selectedQuestions = []; // 초기화
         })
         .catch((error) => {
           console.error(
             "해당 폴더의 이미지 리스트를 가져오는 중 오류 발생:",
             error
           );
+          alert("이미지 리스트를 가져오는 중 오류가 발생했습니다.");
         });
     },
 
@@ -400,37 +509,47 @@ export default {
         })
         .catch((error) => {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
+          alert("유저 정보를 가져오는 중 오류가 발생했습니다.");
         });
     },
 
-    handlerDeleteQuestion(questionIndex) {
-      // Ensure there is a question ID to operate on
-      if (questionIndex !== null) {
-        if (questionIndex !== -1) {
-          // Remove the question
-          this.assignmentDetails.questions.splice(questionIndex, 1);
-
-          // Update activeQuestionId to the next question or to null if no more questions
-          if (this.assignmentDetails.questions.length > 0) {
-            if (questionIndex < this.assignmentDetails.questions.length) {
-              // If the deleted question was not the last one, set to next question
-              this.activeQuestionId = questionIndex;
-            } else {
-              // If the deleted question was the last one, set to the new last question
-              this.activeQuestionId = questionIndex - 1;
-            }
-          } else {
-            // If no more questions are left, reset activeQuestionId to null
-            this.activeQuestionId = null;
-          }
-
-          alert("문제가 성공적으로 삭제되었습니다.");
-        } else {
-          alert("삭제할 문제를 찾을 수 없습니다.");
-        }
-      } else {
-        alert("삭제할 문제가 선택되지 않았습니다.");
+    // 수정: 선택된 모든 문항을 삭제하는 메서드 추가
+    handlerDeleteSelectedQuestions() {
+      if (this.selectedQuestions.length === 0) {
+        alert("삭제할 문항을 선택해주세요.");
+        return;
       }
+
+      if (
+        !confirm(
+          `선택된 ${this.selectedQuestions.length}개의 문항을 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.`
+        )
+      ) {
+        return;
+      }
+
+      // 질문을 필터링하여 selectedQuestions에 포함되지 않은 것만 남깁니다.
+      this.assignmentDetails.questions =
+        this.assignmentDetails.questions.filter(
+          (question) => !this.selectedQuestions.includes(question.id)
+        );
+
+      // selectedQuestions 배열을 초기화합니다.
+      this.selectedQuestions = [];
+
+      // activeQuestionId를 업데이트합니다.
+      if (
+        this.activeQuestionId !== null &&
+        this.activeQuestionId >= this.assignmentDetails.questions.length
+      ) {
+        this.activeQuestionId = this.assignmentDetails.questions.length - 1;
+      }
+
+      if (this.assignmentDetails.questions.length === 0) {
+        this.activeQuestionId = null;
+      }
+
+      alert("선택된 문항이 성공적으로 삭제되었습니다.");
     },
 
     fetchAssignmentData() {
@@ -465,27 +584,20 @@ export default {
         });
     },
 
-    deleteAssignment() {
-      if (
-        !confirm(
-          "정말로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
-        )
-      )
-        return;
+    clickQuestion(index) {
+      // 클릭 시 activeQuestionId 설정
+      this.activeQuestionId = index;
 
-      this.$axios
-        .delete(`/api/assignments/${this.$route.params.id}`, {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        })
-        .then(() => {
-          // 검수 작업 리스트 페이지로 이동
-          this.$router.push({ name: "assignment" });
-        })
-        .catch((error) => {
-          console.error("과제 삭제 중 오류 발생:", error);
-        });
+      // 클릭 시 해당 문항의 체크박스를 토글
+      const questionId = this.assignmentDetails.questions[index].id;
+
+      const pos = this.selectedQuestions.indexOf(questionId);
+
+      if (pos === -1) {
+        this.selectedQuestions.push(questionId);
+      } else {
+        this.selectedQuestions.splice(pos, 1);
+      }
     },
   },
 };
@@ -783,6 +895,15 @@ hr {
   margin-left: auto;
   margin-right: 16px;
   background-color: var(--pink);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  color: var(--white);
+  cursor: pointer;
+}
+
+.delete-question-button:hover {
+  background-color: var(--pink-hover);
 }
 
 /* 평가 액션 */
@@ -810,8 +931,21 @@ hr {
   border-top: 1px solid var(--light-gray);
 }
 
+.assignment-save button {
+  padding: 8px 16px;
+  background-color: var(--blue);
+  border: none;
+  border-radius: 4px;
+  color: var(--white);
+  cursor: pointer;
+}
+
+.assignment-save button:hover {
+  background-color: var(--blue-hover);
+}
+
 /* 점수 테이블 이미지 */
-td>img {
+td > img {
   width: 25px;
 }
 
