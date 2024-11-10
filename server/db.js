@@ -1,11 +1,6 @@
-// db.js
-
 const mysql = require("mysql2/promise");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
-
-// 데이터베이스 이름을 상수로 정의합니다.
-const DATABASE_NAME = "medirate";
 
 // 초기 연결 설정 (데이터베이스 없이 연결)
 const initialConfig = {
@@ -386,13 +381,13 @@ async function initializeDb() {
 
     // 데이터베이스가 존재하는지 확인하고 없으면 생성
     const [databases] = await connection.query(
-      `SHOW DATABASES LIKE '${DATABASE_NAME}'`
+      `SHOW DATABASES LIKE '${process.env.DB_NAME}'`
     );
     if (databases.length === 0) {
-      await connection.query(`CREATE DATABASE \`${DATABASE_NAME}\``);
-      console.log(`Database '${DATABASE_NAME}' created.`);
+      await connection.query(`CREATE DATABASE \`${process.env.DB_NAME}\``);
+      console.log(`Database '${process.env.DB_NAME}' created.`);
     } else {
-      console.log(`Database '${DATABASE_NAME}' already exists.`);
+      console.log(`Database '${process.env.DB_NAME}' already exists.`);
     }
 
     // 초기 연결을 종료합니다.
@@ -401,7 +396,7 @@ async function initializeDb() {
     // 이제 풀을 데이터베이스를 포함하여 생성합니다.
     pool = mysql.createPool({
       ...initialConfig,
-      database: DATABASE_NAME,
+      database: process.env.DB_NAME,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
@@ -442,7 +437,7 @@ async function initializeDb() {
             const [constraints] = await pool.query(
               `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS 
                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'PRIMARY KEY'`,
-              [DATABASE_NAME, table]
+              [process.env.DB_NAME, table]
             );
             if (constraints.length > 0) {
               constraintExists = true;
@@ -452,7 +447,7 @@ async function initializeDb() {
             const [constraints] = await pool.query(
               `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS 
                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?`,
-              [DATABASE_NAME, table, constraintName]
+              [process.env.DB_NAME, table, constraintName]
             );
             if (constraints.length > 0) {
               constraintExists = true;
@@ -478,30 +473,11 @@ async function initializeDb() {
     console.log("Database initialization completed.");
   } catch (error) {
     console.error("Error initializing database:", error);
-    // 프로세스를 종료하여 애플리케이션이 계속 실행되지 않도록 합니다.
-    process.exit(1);
   }
 }
 
-// pool 초기화가 완료될 때까지 대기하는 프로미스를 생성합니다.
-const poolReady = initializeDb();
+// 애플리케이션 시작 시 데이터베이스 초기화
+initializeDb();
 
-// query 함수를 비동기로 정의하여 pool이 초기화된 후에 쿼리를 실행하도록 합니다.
-async function query(sql, params) {
-  // pool이 초기화될 때까지 대기합니다.
-  await poolReady;
-  return pool.query(sql, params);
-}
-
-// 기타 필요한 pool 메서드를 추가로 내보낼 수 있습니다.
-// 예를 들어, getConnection을 사용하고 싶다면 다음과 같이 추가할 수 있습니다.
-// async function getConnection() {
-//   await poolReady;
-//   return pool.getConnection();
-// }
-
-// module.exports에 query 함수를 포함시킵니다.
-module.exports = {
-  query,
-  // getConnection, // 필요 시 추가
-};
+// pool을 모듈로 내보냅니다.
+module.exports = pool;
