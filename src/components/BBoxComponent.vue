@@ -505,7 +505,7 @@ export default {
 
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
-        if (square.isTemporary) return; // 임시 박스는 그리지 않음
+        if (square.isTemporary && !square.isAI) return; // 임시 박스는 그리지 않음
 
         if (
           square.isAI &&
@@ -626,16 +626,23 @@ export default {
 
     applyMitosis() {
       const filter_temporarySquares = this.temporarySquares.filter((s) => {
+        // 현재 질문의 박스만 필터링하고, 다른 질문의 박스는 그대로 유지
+        if (s.questionIndex !== this.questionIndex) {
+          return true; // 다른 질문의 박스는 유지
+        }
         return !s.isAI || s.score >= this.score_value / 100;
       });
 
-      // isTemporaryAI와 isTemporary 속성을 false로 변경
+      // 현재 질문의 박스만 업데이트
       this.temporarySquares = filter_temporarySquares.map((square) => {
-        if (square.isTemporaryAI) {
+        if (
+          square.questionIndex === this.questionIndex &&
+          square.isTemporaryAI
+        ) {
           return {
             ...square,
             isTemporaryAI: false,
-            isTemporary: false, // 이 부분을 추가하여 isTemporary를 false로 설정
+            isTemporary: false,
           };
         }
         return square;
