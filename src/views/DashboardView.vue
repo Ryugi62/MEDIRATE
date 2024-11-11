@@ -522,17 +522,17 @@ export default {
 }
 
 .download-image-button {
-  color: var(--green);
-  border: 1px solid var(--green);
-  background-color: unset;
+  color: white;
+  border: 1px solid black;
+  background-color: black;
 }
 
 .download-image-button:hover {
-  background-color: #f5f5f5;
+  background-color: #333333; /* 어두운 회색 */
 }
 
 .download-image-button:active {
-  background-color: aliceblue;
+  background-color: #1a1a1a; /* 더 어두운 회색 */
 }
 
 .table-box {
