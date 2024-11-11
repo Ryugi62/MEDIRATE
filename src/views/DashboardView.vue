@@ -51,6 +51,8 @@
         ></i>
       </div>
 
+      <button class="metrics-button" @click="showMetrics">Metrics 보기</button>
+
       <button
         class="download-image-button"
         @click="downloadSearchedItemsAssets"
@@ -402,12 +404,6 @@ export default {
               this.sliderValue
             }인 일치-${this.score_value / 100}점.zip`
           ); // 확장자를 .zip으로 변경
-          link.setAttribute(
-            "download",
-            `${this.searchQuery ? this.searchQuery : "전체과제"}-#${
-              this.sliderValue
-            }인 일치-${this.score_value / 100}점.zip`
-          ); // 확장자를 .zip으로 변경
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -424,6 +420,52 @@ export default {
       this.searchQuery = this.$store.getters.getSearchHistory
         ? this.$store.getters.getSearchHistory
         : "";
+    },
+
+    // 수정된 메서드: 현재 검색된 과제들에 대한 Metrics 계산 및 표시
+    async showMetrics() {
+      if (this.data.length === 0) {
+        alert("검색된 과제가 없습니다.");
+        return;
+      }
+
+      try {
+        // 현재 검색된 과제들의 ID를 수집
+        const assignmentIds = this.data.map((assignment) => assignment.id);
+
+        // POST 요청으로 현재 과제들의 ID를 전송하여 Metrics를 가져옴
+        const response = await this.$axios.post(
+          "/api/download/metrics",
+          { assignmentIds },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+
+        const metrics = response.data.metrics; // [{ assignmentId, Recall, Precision, F1 }]
+
+        if (metrics.length === 0) {
+          alert("해당 과제들에 대한 Metrics 데이터가 없습니다.");
+          return;
+        }
+
+        let alertMessage = "검색된 과제들의 Metrics:\n\n";
+        metrics.forEach((metric) => {
+          alertMessage += `과제 ID: ${metric.assignmentId}\n`;
+          alertMessage += `Recall: ${(metric.Recall * 100).toFixed(2)}%\n`;
+          alertMessage += `Precision: ${(metric.Precision * 100).toFixed(
+            2
+          )}%\n`;
+          alertMessage += `F1-score: ${metric.F1.toFixed(2)}\n\n`;
+        });
+
+        alert(alertMessage);
+      } catch (error) {
+        console.error("Metrics를 가져오는 중 오류 발생:", error);
+        alert("Metrics를 가져오는 중 오류가 발생했습니다.");
+      }
     },
   },
 };
