@@ -1,3 +1,5 @@
+// downloadSearchedAssignments.js
+
 const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../jwt");
@@ -10,6 +12,27 @@ const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
 const archiver = require("archiver");
 
+// 날짜와 시간을 포맷팅하는 함수
+function formatDateTime(date) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = ("0" + (d.getMonth() + 1)).slice(-2);
+  const day = ("0" + d.getDate()).slice(-2);
+  const hours = ("0" + d.getHours()).slice(-2);
+  const minutes = ("0" + d.getMinutes()).slice(-2);
+  const seconds = ("0" + d.getSeconds()).slice(-2);
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 소요 시간을 HH:MM:SS 형식으로 변환하는 함수
+function formatDuration(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = ("0" + Math.floor(totalSeconds / 3600)).slice(-2);
+  const minutes = ("0" + Math.floor((totalSeconds % 3600) / 60)).slice(-2);
+  const seconds = ("0" + (totalSeconds % 60)).slice(-2);
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 // 모든 평가자를 포함하는 열 생성
 async function getAllEvaluators(assignments) {
   const evaluatorSet = new Set();
@@ -18,7 +41,7 @@ async function getAllEvaluators(assignments) {
     const assignmentData = await fetchAssignmentData(assignmentSummary.id);
     const users = assignmentData.assignment;
 
-    // 평가자 ID 및 이름을 추가
+    // 평가자 이름을 추가
     users.forEach((user) => evaluatorSet.add(user.name));
   }
 
@@ -35,8 +58,63 @@ router.post(
       const score_value = req.body.score_value;
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Assignment Responses");
+      const timeSheet = workbook.addWorksheet("시간 Sheet");
+      const resultSheet = workbook.addWorksheet("결과 Sheet");
 
+      // 메타데이터 키 수집
+      const metadataKeys = new Set();
+
+      // 메타데이터 키를 수집하기 위한 첫 번째 패스
+      for (const assignmentSummary of assignments) {
+        const assignmentData = await fetchAssignmentData(assignmentSummary.id);
+        // 폴더 이름 가져오기
+        const firstQuestionImageUrl =
+          assignmentData.assignment[0].questions[0].questionImage;
+        const folderName = getFolderNameFromImageUrl(firstQuestionImageUrl);
+
+        // metadata.json 경로 생성
+        const metadataPath = path.join(
+          __dirname,
+          "..",
+          "..",
+          "assets",
+          folderName,
+          "metadata.json"
+        );
+
+        try {
+          await fs.access(metadataPath);
+          // 파일이 존재하면
+          const metadataContent = await fs.readFile(metadataPath, "utf8");
+          const metadataJson = JSON.parse(metadataContent);
+          // 'userid' 키 제외하고 키 추가
+          for (const key of Object.keys(metadataJson)) {
+            if (key !== "userid") {
+              metadataKeys.add(key);
+            }
+          }
+        } catch (err) {
+          // 파일이 없으면 무시
+        }
+      }
+
+      // 시간 시트의 열 정의
+      const timeSheetColumns = [
+        { header: "과제 ID", key: "assignmentId", width: 15 },
+        { header: "평가자 이름", key: "evaluatorName", width: 20 },
+        { header: "시작 시간", key: "startTime", width: 20 },
+        { header: "종료 시간", key: "endTime", width: 20 },
+        { header: "소요 시간", key: "duration", width: 15 },
+        { header: "AI 표시 여부", key: "aiIndicator", width: 15 },
+      ];
+
+      for (const key of metadataKeys) {
+        timeSheetColumns.push({ header: key, key: key, width: 20 });
+      }
+
+      timeSheet.columns = timeSheetColumns;
+
+      // 결과 시트의 열 정의
       const allEvaluators = await getAllEvaluators(assignments);
       const commonColumns = [
         { header: `과제 ID`, key: `assignmentId`, width: 10 },
@@ -67,12 +145,14 @@ router.post(
         { header: `JSON`, key: `json`, width: 30 },
       ];
 
-      worksheet.columns = [
+      resultSheet.columns = [
         ...commonColumns,
         ...evaluatorColumns,
         ...(assignments[0].assignmentMode === "BBox" ? bboxColumns : []),
+        { header: "AI-Json", key: "aiJson", width: 30 },
       ];
 
+      // 과제를 처리하여 시트를 채웁니다.
       for (const assignmentSummary of assignments) {
         const assignmentData = await fetchAssignmentData(assignmentSummary.id);
         const aiData = await getAIData(assignmentSummary.id);
@@ -84,6 +164,65 @@ router.post(
           sliderValue = max_slider_value;
         }
 
+        // 폴더 이름 가져오기
+        const firstQuestionImageUrl =
+          assignmentData.assignment[0].questions[0].questionImage;
+        const folderName = getFolderNameFromImageUrl(firstQuestionImageUrl);
+
+        // metadata.json 경로 생성
+        const metadataPath = path.join(
+          __dirname,
+          "..",
+          "..",
+          "assets",
+          folderName,
+          "metadata.json"
+        );
+
+        let metadataJson = null;
+
+        try {
+          await fs.access(metadataPath);
+          // 파일이 존재하면
+          const metadataContent = await fs.readFile(metadataPath, "utf8");
+          metadataJson = JSON.parse(metadataContent);
+          // 'userid' 키 제외
+          delete metadataJson["userid"];
+        } catch (err) {
+          // 파일이 없으면 무시
+        }
+
+        // 시간 시트 처리
+        for (const user of users) {
+          const startTime = user.beforeCanvas.start_time
+            ? formatDateTime(user.beforeCanvas.start_time)
+            : "";
+          const endTime = user.beforeCanvas.end_time
+            ? formatDateTime(user.beforeCanvas.end_time)
+            : "";
+          const duration = user.beforeCanvas.evaluation_time
+            ? formatDuration(user.beforeCanvas.evaluation_time)
+            : "";
+
+          const row = {
+            assignmentId: assignmentSummary.id,
+            evaluatorName: user.name,
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            aiIndicator: assignmentData.is_ai_use ? "Yes" : "No",
+          };
+
+          if (metadataJson) {
+            for (const key of Object.keys(metadataJson)) {
+              row[key] = metadataJson[key];
+            }
+          }
+
+          timeSheet.addRow(row);
+        }
+
+        // 결과 시트 처리
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = { questionNumber: questionImageFileName };
@@ -137,11 +276,31 @@ router.post(
             });
           }
 
-          worksheet.addRow(row);
+          // AI-Json 내용 읽기
+          const jsonPath = getImageLocalPath(question.questionImage).replace(
+            /\.(jpg|png|jpeg)$/i,
+            ".json"
+          );
+
+          let aiJsonContent = "";
+
+          try {
+            const jsonContent = await fs.readFile(jsonPath, "utf8");
+            aiJsonContent = jsonContent;
+          } catch (error) {
+            console.error("Error reading AI json file:", error);
+            aiJsonContent = "";
+          }
+
+          row["aiJson"] = aiJsonContent;
+
+          resultSheet.addRow(row);
         }
       }
 
-      worksheet.getRow(1).font = { bold: true };
+      timeSheet.getRow(1).font = { bold: true };
+      resultSheet.getRow(1).font = { bold: true };
+
       const buffer = await workbook.xlsx.writeBuffer();
       res.setHeader(
         "Content-Type",
@@ -314,6 +473,12 @@ function getImageLocalPath(imageUrl) {
   return path.join(__dirname, "..", "..", "assets", folderName, fileName);
 }
 
+function getFolderNameFromImageUrl(imageUrl) {
+  const parsedUrl = new URL(imageUrl);
+  const pathParts = parsedUrl.pathname.split("/");
+  return pathParts[pathParts.length - 2];
+}
+
 async function getImageDimensions(imageUrl) {
   try {
     const realPath = getImageLocalPath(imageUrl);
@@ -455,7 +620,7 @@ function getMatchedCount(overlapGroups, aiData) {
 
 async function fetchAssignmentData(assignmentId) {
   const [assignmentInfo] = await db.query(
-    `SELECT title as FileName, assignment_mode as assignmentMode FROM assignments WHERE id = ?`,
+    `SELECT title as FileName, assignment_mode as assignmentMode, is_ai_use FROM assignments WHERE id = ?`,
     [assignmentId]
   );
 
@@ -496,7 +661,7 @@ async function fetchAssignmentData(assignmentId) {
   );
 
   const [canvasInfo] = await db.query(
-    `SELECT user_id, width, height FROM canvas_info WHERE assignment_id = ?`,
+    `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ?`,
     [assignmentId]
   );
 
@@ -516,6 +681,9 @@ async function fetchAssignmentData(assignmentId) {
     beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
       width: 1000,
       height: 1000,
+      start_time: null,
+      end_time: null,
+      evaluation_time: null,
     },
     answeredCount: 0,
     unansweredCount: 0,
@@ -535,6 +703,7 @@ async function fetchAssignmentData(assignmentId) {
     assignment: structuredData,
     assignmentMode: assignmentInfo[0].assignmentMode,
     FileName: assignmentInfo[0].FileName,
+    is_ai_use: assignmentInfo[0].is_ai_use,
   };
 }
 

@@ -478,12 +478,14 @@ export default {
   align-items: center;
   border-bottom: 1px solid var(--light-gray);
   padding: 9px 24px;
+  white-space: nowrap;
 }
 
 .header-title {
   margin: 0;
   font-size: 24px;
   font-weight: 500;
+  margin-right: 100px;
 }
 
 .dashboard-search-input {

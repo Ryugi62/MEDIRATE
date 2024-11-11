@@ -1,3 +1,5 @@
+<!-- DashboardDetailView.vue -->
+
 <template>
   <div v-if="data.length" class="dashboard">
     <div v-if="isExporting" class="exporting-message">
@@ -76,7 +78,7 @@
                   @click="setActiveImage(item.questionImage, index)"
                 >
                   <td>
-                    <img :src="item.questionImage" alt="과제 이야기 이미지" />
+                    <img :src="item.questionImage" alt="과제 이미지" />
                   </td>
                   <td v-for="person in data" :key="person.name">
                     {{
@@ -159,6 +161,8 @@ import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
+import ExcelJS from "exceljs";
+import { format } from "date-fns";
 
 export default {
   name: "DashboardDetailView",
@@ -175,8 +179,8 @@ export default {
       activeImageUrl: "https://via.placeholder.com/1050",
       assignmentId: this.$route.params.id,
       activeIndex: 0,
-      activeQuestionIndex: null, // 추가
-      assignmentTitle: "", // 추가
+      activeQuestionIndex: null,
+      assignmentTitle: "",
       assignmentMode: "",
       colorList: [
         { backgroundColor: "#F70101", color: "white" },
@@ -197,6 +201,8 @@ export default {
       aiData: [],
       score_percent: 50,
       overlaps: {},
+      metadataKeys: new Set(),
+      metadataJson: null,
     };
   },
 
@@ -208,6 +214,7 @@ export default {
       await this.loadAiData();
       await this.fix_loadData();
       await this.calculateOverlaps();
+      await this.collectMetadataKeys();
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -464,6 +471,36 @@ export default {
       return "";
     },
 
+    async collectMetadataKeys() {
+      const response = await this.$axios.get(
+        `/api/assignments/${this.assignmentId}/metadata`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        }
+      );
+
+      if (response.data) {
+        this.metadataJson = response.data;
+        Object.keys(this.metadataJson).forEach((key) => {
+          if (key !== "userid") {
+            this.metadataKeys.add(key);
+          }
+        });
+      }
+
+      console.log(`
+      this.metadataJson : ${JSON.stringify(this.metadataJson)}
+      `);
+    },
+
+    getFolderNameFromImageUrl(imageUrl) {
+      const url = new URL(imageUrl);
+      const pathParts = url.pathname.split("/");
+      return pathParts[pathParts.length - 2];
+    },
+
     handleKeyDown(event) {
       if (event.repeat) return;
 
@@ -656,169 +693,236 @@ export default {
 
     async exportToExcel() {
       this.isExporting = true;
-      const aiData = this.aiData;
-      const ExcelJS = await import("exceljs");
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Assignment Responses");
-      const columns = [
-        { header: "문제 번호", key: "questionNumber", width: 20 }, // 너비 증가
-        ...this.data.map((user) => ({
-          header: user.name,
-          key: user.name,
-          width: 15,
-        })),
-      ];
 
-      if (this.assignmentMode === "BBox") {
-        columns.push(
-          {
-            header: `+${this.sliderValue}인`,
-            key: `overlap${this.sliderValue}`,
-            width: 15, // 너비 증가
-          },
-          {
-            header: `AI개수`,
-            key: `aiCount`,
-            width: 10,
-          },
-          {
-            header: `${this.sliderValue}일치`,
-            key: `matched${this.sliderValue}`,
-            width: 15, // 너비 증가
-          },
-          {
-            header: `FN`,
-            key: `fn${this.sliderValue}`,
-            width: 10,
-          },
-          {
-            header: `FP`,
-            key: `fp${this.sliderValue}`,
-            width: 10,
-          },
-          {
-            header: `JSON`,
-            key: `json`,
-            width: 50, // JSON 필드 너비 증가
-          }
-        );
-      }
-      worksheet.columns = columns;
+      try {
+        const workbook = new ExcelJS.Workbook();
 
-      for (let index = 0; index < this.data[0].questions.length; index++) {
-        const question = this.data[0].questions[index];
-        const questionImageFileName = question.questionImage.split("/").pop();
-        const row = { questionNumber: questionImageFileName };
-        this.data.forEach((user) => {
-          row[user.name] = this.getValidSquaresCount(
-            user.squares,
-            question.questionId
-          );
-        });
+        // 시간 Sheet 생성
+        const timeSheet = workbook.addWorksheet("시간 Sheet");
 
-        if (this.assignmentMode === "BBox") {
-          const adjustedSquares = await this.getAdjustedSquares(
-            this.originalData,
-            question
-          );
+        // 시간 시트의 열 정의
+        const timeSheetColumns = [
+          { header: "과제 ID", key: "assignmentId", width: 15 },
+          { header: "평가자 이름", key: "evaluatorName", width: 20 },
+          { header: "시작 시간", key: "startTime", width: 20 },
+          { header: "종료 시간", key: "endTime", width: 20 },
+          { header: "소요 시간", key: "duration", width: 15 },
+          { header: "AI 표시 여부", key: "aiIndicator", width: 15 },
+        ];
 
-          const relevantAiData = aiData.filter(
-            (ai) =>
-              ai.questionIndex === question.questionId &&
-              ai.score >= this.score_percent / 100
-          );
-
-          // 오버랩된 박스 그룹 계산
-          const overlapGroups = this.getOverlapsBBoxes(
-            adjustedSquares,
-            this.sliderValue
-          );
-
-          const overlapCount = overlapGroups.length;
-          const matchedCount = this.getMatchedCount(
-            overlapGroups,
-            relevantAiData
-          );
-
-          row[`overlap${this.sliderValue}`] = overlapCount;
-          row["aiCount"] = relevantAiData.length;
-          row[`matched${this.sliderValue}`] = matchedCount;
-          row[`fn${this.sliderValue}`] = overlapCount - matchedCount;
-          row[`fp${this.sliderValue}`] = relevantAiData.length - matchedCount;
-
-          // hardneg 계산: 전체 박스 중 오버랩된 박스를 제외한 박스
-          const overlappedSquares = new Set(overlapGroups.flat());
-          const hardnegSquares = adjustedSquares.filter(
-            (square) => !overlappedSquares.has(square)
-          );
-
-          // JSON 객체 생성 (annotation 및 hardneg 포함)
-          row["json"] = JSON.stringify({
-            fileName: questionImageFileName,
-            mitosis: overlapGroups.map((group) => {
-              // 그룹의 중심 계산
-              const centerX =
-                group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length;
-              const centerY =
-                group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length;
-
-              // 각 사용자별로 가장 중심에 가까운 박스 선택
-              const selectedBoxes = [];
-              const userMap = new Map();
-
-              group.forEach((bbox) => {
-                const userId = bbox.user_id;
-                if (!userMap.has(userId)) {
-                  userMap.set(userId, bbox);
-                } else {
-                  const existingBox = userMap.get(userId);
-                  const existingDistance = Math.hypot(
-                    existingBox.x - centerX,
-                    existingBox.y - centerY
-                  );
-                  const currentDistance = Math.hypot(
-                    bbox.x - centerX,
-                    bbox.y - centerY
-                  );
-                  if (currentDistance < existingDistance) {
-                    userMap.set(userId, bbox);
-                  }
-                }
-              });
-
-              userMap.forEach((bbox) => {
-                selectedBoxes.push(bbox);
-              });
-
-              // 선택된 박스들의 평균 위치를 계산
-              const avgX =
-                selectedBoxes.reduce((acc, bbox) => acc + bbox.x, 0) /
-                selectedBoxes.length;
-              const avgY =
-                selectedBoxes.reduce((acc, bbox) => acc + bbox.y, 0) /
-                selectedBoxes.length;
-
-              return [Math.round(avgX - 12.5), Math.round(avgY - 12.5), 25, 25];
-            }),
-            hardneg: hardnegSquares.map((square) => [
-              square.x,
-              square.y,
-              square.width,
-              square.height,
-            ]),
-          });
+        for (const key of this.metadataKeys) {
+          timeSheetColumns.push({ header: key, key: key, width: 20 });
         }
 
-        worksheet.addRow(row);
-      }
+        timeSheet.columns = timeSheetColumns;
 
-      worksheet.getRow(1).font = { bold: true };
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      saveAs(blob, `${this.assignmentTitle}.xlsx`);
-      this.isExporting = false;
+        // 시간 시트 데이터 추가
+        for (const user of this.data) {
+          const startTime = user.beforeCanvas.start_time
+            ? format(
+                new Date(user.beforeCanvas.start_time),
+                "yyyy-MM-dd HH:mm:ss"
+              )
+            : "";
+          const endTime = user.beforeCanvas.end_time
+            ? format(
+                new Date(user.beforeCanvas.end_time),
+                "yyyy-MM-dd HH:mm:ss"
+              )
+            : "";
+          const duration = user.beforeCanvas.evaluation_time
+            ? this.formatDuration(user.beforeCanvas.evaluation_time)
+            : "";
+
+          const row = {
+            assignmentId: this.assignmentId,
+            evaluatorName: user.name,
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            aiIndicator: this.isAiMode ? "Yes" : "No",
+          };
+
+          if (this.metadataJson) {
+            for (const key of Object.keys(this.metadataJson)) {
+              if (key !== "userid") {
+                row[key] = this.metadataJson[key];
+              }
+            }
+          }
+
+          timeSheet.addRow(row);
+        }
+
+        timeSheet.getRow(1).font = { bold: true };
+
+        // 결과 Sheet 생성
+        const resultSheet = workbook.addWorksheet("결과 Sheet");
+        const columns = [
+          { header: "과제 ID", key: "assignmentId", width: 15 },
+          { header: "문제 번호", key: "questionNumber", width: 20 },
+          ...this.data.map((user) => ({
+            header: user.name,
+            key: user.name,
+            width: 15,
+          })),
+        ];
+
+        if (this.assignmentMode === "BBox") {
+          columns.push(
+            {
+              header: `+${this.sliderValue}인`,
+              key: `overlap${this.sliderValue}`,
+              width: 15,
+            },
+            {
+              header: `AI개수`,
+              key: `aiCount`,
+              width: 10,
+            },
+            {
+              header: `${this.sliderValue}일치`,
+              key: `matched${this.sliderValue}`,
+              width: 15,
+            },
+            {
+              header: `FN`,
+              key: `fn${this.sliderValue}`,
+              width: 10,
+            },
+            {
+              header: `FP`,
+              key: `fp${this.sliderValue}`,
+              width: 10,
+            },
+            {
+              header: `JSON`,
+              key: `json`,
+              width: 50,
+            },
+            {
+              header: "AI-Json",
+              key: "aiJson",
+              width: 50,
+            }
+          );
+        }
+        resultSheet.columns = columns;
+
+        for (let index = 0; index < this.data[0].questions.length; index++) {
+          const question = this.data[0].questions[index];
+          const questionImageFileName = question.questionImage.split("/").pop();
+          const row = {
+            assignmentId: this.assignmentId,
+            questionNumber: questionImageFileName,
+          };
+          this.data.forEach((user) => {
+            row[user.name] = this.getValidSquaresCount(
+              user.squares,
+              question.questionId
+            );
+          });
+
+          if (this.assignmentMode === "BBox") {
+            const adjustedSquares = await this.getAdjustedSquares(
+              this.originalData,
+              question
+            );
+
+            const relevantAiData = this.aiData.filter(
+              (ai) =>
+                ai.questionIndex === question.questionId &&
+                ai.score >= this.score_percent / 100
+            );
+
+            const overlapGroups = this.getOverlapsBBoxes(
+              adjustedSquares,
+              this.sliderValue
+            );
+
+            const overlapCount = overlapGroups.length;
+            const matchedCount = this.getMatchedCount(
+              overlapGroups,
+              relevantAiData
+            );
+
+            row[`overlap${this.sliderValue}`] = overlapCount;
+            row["aiCount"] = relevantAiData.length;
+            row[`matched${this.sliderValue}`] = matchedCount;
+            row[`fn${this.sliderValue}`] = overlapCount - matchedCount;
+            row[`fp${this.sliderValue}`] = relevantAiData.length - matchedCount;
+
+            // JSON 데이터 생성
+            row["json"] = JSON.stringify({
+              filename: questionImageFileName,
+              mitosis: overlapGroups.map((group) => {
+                const x = Math.round(
+                  group.reduce((acc, bbox) => acc + bbox.x, 0) / group.length -
+                    12.5
+                );
+                const y = Math.round(
+                  group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
+                    12.5
+                );
+                return [x, y, 25, 25];
+              }),
+              hardneg: [], // 필요에 따라 추가
+            });
+
+            // AI-Json 내용 읽기
+            const aiJsonContent = await this.fetchAiJsonContent(
+              question.questionImage
+            );
+            row["aiJson"] = aiJsonContent;
+          }
+
+          resultSheet.addRow(row);
+        }
+
+        resultSheet.getRow(1).font = { bold: true };
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        saveAs(blob, `${this.assignmentTitle}.xlsx`);
+      } catch (error) {
+        console.error("Failed to export to Excel:", error);
+      } finally {
+        this.isExporting = false;
+      }
+    },
+
+    async fetchAiJsonContent(questionImage) {
+      const imagePathParts = questionImage.split("/");
+      const folderName = imagePathParts[imagePathParts.length - 2];
+      const fileName = imagePathParts[imagePathParts.length - 1].replace(
+        /\.(jpg|png|jpeg)$/i,
+        ".json"
+      );
+
+      try {
+        const response = await this.$axios.get(
+          `/api/assets/${folderName}/${fileName}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        return JSON.stringify(response.data);
+      } catch (error) {
+        console.error("Failed to fetch AI-Json content:", error);
+        return "";
+      }
+    },
+
+    formatDuration(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = ("0" + Math.floor(totalSeconds / 3600)).slice(-2);
+      const minutes = ("0" + Math.floor((totalSeconds % 3600) / 60)).slice(-2);
+      const seconds = ("0" + (totalSeconds % 60)).slice(-2);
+      return `${hours}:${minutes}:${seconds}`;
     },
 
     async exportImage() {
@@ -868,7 +972,6 @@ export default {
       clearInterval(this.interval);
     },
 
-    // 오버랩된 박스 그룹 계산 메소드 추가
     getOverlapsBBoxes(squares, overlapCount) {
       const groups = [];
       const visited = new Set();
@@ -903,7 +1006,6 @@ export default {
       return groups;
     },
 
-    // 매칭된 박스 수 계산 메소드 추가
     getMatchedCount(overlapGroups, aiData) {
       let matchedCount = 0;
       overlapGroups.forEach((group) => {

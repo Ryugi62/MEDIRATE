@@ -3,7 +3,8 @@
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
-const fs = require("fs");
+const fs = require("fs").promises; // 기존의 fs 대신 fs.promises 사용
+const path = require("path");
 
 const router = express.Router();
 
@@ -687,5 +688,65 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     handleError(res, "Error deleting assignment", error);
   }
 });
+
+// Endpoint to get metadata.json for a given assignment
+router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
+  try {
+    const assignmentId = req.params.assignmentId;
+
+    // Fetch assignment data to get the folder name
+    const [questions] = await db.query(
+      `SELECT image FROM questions WHERE assignment_id = ? LIMIT 1`,
+      [assignmentId]
+    );
+
+    if (questions.length === 0) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    const questionImageUrl = questions[0].image;
+    const folderName = getFolderNameFromImageUrl(questionImageUrl);
+
+    // metadata.json path
+    const metadataPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "assets",
+      folderName,
+      "metadata.json"
+    );
+
+    console.log(`
+      metadataPath: ${metadataPath}
+      `);
+
+    let metadataJson = null;
+
+    try {
+      await fs.access(metadataPath);
+      const metadataContent = await fs.readFile(metadataPath, "utf8");
+      metadataJson = JSON.parse(metadataContent);
+      // Exclude 'userid' key
+      delete metadataJson["userid"];
+      res.json(metadataJson);
+    } catch (err) {
+      console.log(err);
+      
+      // File not found or other error
+      res.status(404).json({ error: "Metadata not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching metadata:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Helper function to get folder name from image URL
+function getFolderNameFromImageUrl(imageUrl) {
+  const parsedUrl = new URL(imageUrl);
+  const pathParts = parsedUrl.pathname.split("/");
+  return pathParts[pathParts.length - 2];
+}
 
 module.exports = router;
