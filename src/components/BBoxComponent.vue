@@ -1,3 +1,5 @@
+<!-- BBoxComponent.vue -->
+
 <template>
   <div class="bbox-component">
     <div class="bbox-component__header">

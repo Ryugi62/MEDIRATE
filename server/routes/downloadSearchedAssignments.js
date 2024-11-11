@@ -223,6 +223,83 @@ router.post(
   }
 );
 
+// 수정된 Metrics 엔드포인트: 특정 과제들에 대한 Recall, Precision, F1-score 계산
+router.post("/metrics", authenticateToken, async (req, res) => {
+  try {
+    const { assignmentIds } = req.body;
+
+    if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+      return res.status(400).json({ error: "assignmentIds가 필요합니다." });
+    }
+
+    const metrics = [];
+
+    for (const assignmentId of assignmentIds) {
+      const assignmentData = await fetchAssignmentData(assignmentId);
+      const aiData = await getAIData(assignmentId);
+      const users = assignmentData.assignment;
+
+      // 각 과제의 모든 평가자의 사각형 수집
+      let totalTP = 0;
+      let totalFP = 0;
+      let totalFN = 0;
+
+      // AI 사각형 리스트 (isAI가 true인 사각형)
+      const aiSquares = aiData.filter((ai) => ai.isAI);
+
+      for (const user of users) {
+        const evaluatorSquares = user.squares.filter(
+          (sq) => !sq.isAI && !sq.isTemporary
+        );
+
+        // True Positives (TP): AI 사각형과 겹치는 평가자 사각형
+        const TP = evaluatorSquares.filter((evalSq) =>
+          aiSquares.some(
+            (aiSq) =>
+              Math.abs(evalSq.x - aiSq.x) <= 12.5 &&
+              Math.abs(evalSq.y - aiSq.y) <= 12.5
+          )
+        ).length;
+
+        // False Positives (FP): AI 사각형과 겹치지 않는 평가자 사각형
+        const FP = evaluatorSquares.length - TP;
+
+        // False Negatives (FN): AI 사각형 중 평가자에 의해 커버되지 않은 사각형
+        const coveredAISquares = aiSquares.filter((aiSq) =>
+          evaluatorSquares.some(
+            (evalSq) =>
+              Math.abs(evalSq.x - aiSq.x) <= 12.5 &&
+              Math.abs(evalSq.y - aiSq.y) <= 12.5
+          )
+        ).length;
+
+        const FN = aiSquares.length - coveredAISquares;
+
+        totalTP += TP;
+        totalFP += FP;
+        totalFN += FN;
+      }
+
+      // Recall, Precision, F1-score 계산
+      const Recall = totalTP / (totalTP + totalFN) || 0;
+      const Precision = totalTP / (totalTP + totalFP) || 0;
+      const F1 = 2 * ((Recall * Precision) / (Recall + Precision)) || 0;
+
+      metrics.push({
+        assignmentId: assignmentId,
+        Recall: Recall,
+        Precision: Precision,
+        F1: F1,
+      });
+    }
+
+    res.json({ metrics });
+  } catch (error) {
+    console.error("Metrics 계산 중 오류 발생:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
 function getValidSquaresCount(squares, questionId) {
   return squares.filter(
     (square) => square.questionIndex === questionId && !square.isTemporary
@@ -485,6 +562,7 @@ async function getAIData(assignmentId) {
           y: y + 12.5,
           questionIndex: question.id,
           score: score,
+          isAI: true, // AI 사각형임을 명시
         };
       });
       AI_BBOX.push(...bbox);
