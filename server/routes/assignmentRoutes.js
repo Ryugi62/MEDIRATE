@@ -12,6 +12,7 @@ const handleError = (res, message, error) => {
   res.status(500).send(message);
 };
 
+// 과제 생성
 router.post("/", authenticateToken, async (req, res) => {
   const {
     title,
@@ -74,6 +75,7 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
+// AI 데이터 가져오기
 router.get("/ai", authenticateToken, async (req, res) => {
   try {
     const { src, assignmentType, questionIndex } = req.query;
@@ -97,12 +99,19 @@ router.get("/ai", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제의 AI 데이터 가져오기
 router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
+
+    if (questions.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No questions found for this assignment." });
+    }
 
     const assignmentType = questions[0].image.split("/").slice(-2)[0];
 
@@ -142,6 +151,7 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제 목록 가져오기
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -159,7 +169,9 @@ router.get("/", authenticateToken, async (req, res) => {
         (SELECT COUNT(*) FROM questions q
           JOIN question_responses qr ON q.id = qr.question_id
           WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1) AS completed,
-        ci.evaluation_time AS evaluation_time  -- 추가된 부분
+        ci.evaluation_time AS evaluation_time,  -- 추가된 부분
+        ci.start_time AS start_time,          -- 추가된 부분
+        ci.end_time AS end_time               -- 추가된 부분
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id  -- 추가된 부분
@@ -172,8 +184,8 @@ router.get("/", authenticateToken, async (req, res) => {
       assignments.map(async (assignment) => {
         const { id } = assignment;
 
-        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ?;`;
-        const [canvas] = await db.query(canvasQuery, [id]);
+        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`;
+        const [canvas] = await db.query(canvasQuery, [id, userId]);
 
         if (canvas.length > 0) {
           const squaresQuery = `
@@ -197,6 +209,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+// 특정 과제 상세 정보 가져오기
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -223,6 +236,10 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       userId,
     ]);
 
+    if (assignment.length === 0) {
+      return res.status(404).json({ message: "Assignment not found." });
+    }
+
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
@@ -237,10 +254,10 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       userId,
     ]);
 
-    const isInpsectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?;`;
+    const isInspectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?;`;
     await Promise.all(
       questions.map(async (question) => {
-        const [isInspected] = await db.query(isInpsectedQuery, [
+        const [isInspected] = await db.query(isInspectedQuery, [
           userId,
           question.id,
         ]);
@@ -274,7 +291,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       .split(",")
       .map((s) => s.trim());
 
-    const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`; // 수정된 부분
+    const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time, start_time, end_time FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`; // 수정된 부분
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = [];
@@ -307,6 +324,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 모든 과제 상세 정보 가져오기
 router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -374,6 +392,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제 응답 업데이트
 router.put("/:assignmentId", authenticateToken, async (req, res) => {
   const assignmentId = req.params.assignmentId;
   const {
@@ -417,7 +436,9 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     if (beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
       const updateCanvasQuery = `
         UPDATE canvas_info
-        SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?
+        SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
+            start_time = IF(start_time IS NULL, NOW(), start_time),
+            end_time = NOW()
         WHERE assignment_id = ? AND user_id = ?;
       `;
       await db.query(updateCanvasQuery, [
@@ -464,6 +485,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제 수정
 router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   const { assignmentId } = req.params;
   const {
@@ -503,6 +525,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제 질문 업데이트 함수
 const updateQuestions = async (assignmentId, questions) => {
   const [existingQuestions] = await db.query(
     `SELECT id, image FROM questions WHERE assignment_id = ?`,
@@ -512,7 +535,7 @@ const updateQuestions = async (assignmentId, questions) => {
   const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
   const submittedQuestionIds = new Set(questions.map((q) => q.id));
 
-  // Delete questions that are not in the submitted list
+  // 제출된 목록에 없는 질문 삭제
   const questionIdsToDelete = [...existingQuestionIds].filter(
     (id) => !submittedQuestionIds.has(id)
   );
@@ -526,17 +549,17 @@ const updateQuestions = async (assignmentId, questions) => {
     })
   );
 
-  // Update existing questions and insert new ones
+  // 기존 질문 업데이트 및 새로운 질문 삽입
   await Promise.all(
     questions.map(async (question) => {
       if (existingQuestionIds.has(question.id)) {
-        // Update existing question
+        // 기존 질문 업데이트
         await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
           question.img,
           question.id,
         ]);
       } else {
-        // Insert new question
+        // 새로운 질문 삽입
         await db.query(
           `INSERT INTO questions (assignment_id, image) VALUES (?, ?)`,
           [assignmentId, question.img]
@@ -546,6 +569,7 @@ const updateQuestions = async (assignmentId, questions) => {
   );
 };
 
+// 과제 사용자 할당 업데이트 함수
 const updateUserAssignments = async (assignmentId, users) => {
   const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
@@ -557,10 +581,9 @@ const updateUserAssignments = async (assignmentId, users) => {
   const usersToRemove = [...existingUserIds].filter(
     (userId) => !users.includes(userId)
   );
-
   const usersToAdd = users.filter((userId) => !existingUserIds.has(userId));
 
-  // Remove users who are no longer assigned
+  // 할당 해제된 사용자 삭제
   await Promise.all(
     usersToRemove.map(async (userId) => {
       await db.query(
@@ -582,7 +605,7 @@ const updateUserAssignments = async (assignmentId, users) => {
     })
   );
 
-  // Add new users
+  // 새로운 사용자 할당
   await Promise.all(
     usersToAdd.map(async (userId) => {
       await db.query(
@@ -592,23 +615,25 @@ const updateUserAssignments = async (assignmentId, users) => {
     })
   );
 
-  // Create canvas for new users
+  // 새로운 사용자용 캔버스 생성
   if (usersToAdd.length > 0) {
     await createCanvasForUsers(assignmentId, usersToAdd);
   }
 };
 
+// 사용자용 캔버스 생성 함수
 const createCanvasForUsers = async (assignmentId, users) => {
   await Promise.all(
     users.map((userId) =>
       db.query(
-        `INSERT INTO canvas_info (assignment_id, width, height, user_id, evaluation_time) VALUES (?, 0, 0, ?, 0)`,
+        `INSERT INTO canvas_info (assignment_id, width, height, user_id, evaluation_time, start_time, end_time) VALUES (?, 0, 0, ?, 0, NULL, NULL)`,
         [assignmentId, userId]
       )
     )
   );
 };
 
+// 과제 업데이트 함수
 const updateAssignment = async (params) => {
   const {
     assignmentId,
@@ -639,6 +664,7 @@ const updateAssignment = async (params) => {
   ]);
 };
 
+// 과제 삭제
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;

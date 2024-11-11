@@ -11,7 +11,21 @@
           {{ currentAssignmentDetails.studentName }}
         </span>
         <span class="metadata-due-date">
-          마감일: {{ currentAssignmentDetails.Deadline.split("T")[0] }}
+          마감일: {{ formatDate(currentAssignmentDetails.Deadline) }}
+        </span>
+        <span
+          v-if="currentAssignmentDetails.beforeCanvas.start_time"
+          class="metadata-start-time"
+        >
+          시작 시간:
+          {{ formatDateTime(currentAssignmentDetails.beforeCanvas.start_time) }}
+        </span>
+        <span
+          v-if="currentAssignmentDetails.beforeCanvas.end_time"
+          class="metadata-end-time"
+        >
+          종료 시간:
+          {{ formatDateTime(currentAssignmentDetails.beforeCanvas.end_time) }}
         </span>
       </div>
 
@@ -177,6 +191,14 @@ export default {
   },
 
   methods: {
+    formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    },
+    formatDateTime(dateTimeString) {
+      const date = new Date(dateTimeString);
+      return date.toLocaleString();
+    },
     async loadAssignmentDetails(assignmentId) {
       try {
         const response = await this.$axios.get(
@@ -220,7 +242,7 @@ export default {
           this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
         }
 
-        // Find the active row and ensure it is visible by scrolling it into view
+        // 현재 활성화된 행을 찾아 스크롤하여 보이게 함
         this.$nextTick(() => {
           const activeRow = this.$el.querySelector("tbody tr.active");
           if (activeRow) {
@@ -252,7 +274,7 @@ export default {
             !square.isTemporary
         );
 
-      // currentQuestionSquares에서 isTemporaryAi가 true이면 제거
+      // currentQuestionSquares에서 isTemporaryAI가 true이면 제거
       currentQuestionSquares.forEach((square) => {
         if (square.isTemporaryAI) {
           this.currentAssignmentDetails.squares.splice(
@@ -306,13 +328,12 @@ export default {
         );
         this.isSaving = true;
 
-        // Update the beforeCanvas evaluation_time with the new value
-        this.currentAssignmentDetails.beforeCanvas.evaluation_time =
-          evaluation_time;
+        // 저장 후 최신 과제 정보를 다시 로드하여 start_time과 end_time 업데이트
+        await this.loadAssignmentDetails(this.currentAssignmentDetails.id);
 
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
         if (!this.isOut && mode == "bbox" && goNext) {
-          // 다음 문제로 이동 만약 마지막 문제라면 이동하지 않음
+          // 다음 문제로 이동, 만약 마지막 문제라면 이동하지 않음
           const currentIndex =
             this.currentAssignmentDetails.questions.findIndex(
               (q) => q.id === this.activeQuestionId
@@ -536,6 +557,13 @@ export default {
 .metadata-assignment-title {
   margin: 0;
   font-size: 20px;
+}
+
+.metadata-student-name,
+.metadata-due-date,
+.metadata-start-time,
+.metadata-end-time {
+  font-size: 14px;
 }
 
 .evaluation-actions {

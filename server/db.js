@@ -205,24 +205,9 @@ const expectedColumns = {
     { name: "height", definition: "INT NOT NULL" },
     { name: "lastQuestionIndex", definition: "INT NOT NULL DEFAULT 1" },
     { name: "user_id", definition: "INT" },
-    { name: "evaluation_time", definition: "INT DEFAULT 0" }, // 추가된 부분
-    {
-      name: "PRIMARY KEY",
-      definition: "PRIMARY KEY (id)",
-      constraintName: "PRIMARY",
-    },
-    {
-      name: "FOREIGN KEY",
-      definition:
-        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
-      constraintName: "fk_canvas_info_assignment",
-    },
-    {
-      name: "FOREIGN KEY",
-      definition:
-        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
-      constraintName: "fk_canvas_info_user",
-    },
+    { name: "evaluation_time", definition: "INT DEFAULT 0" },
+    { name: "start_time", definition: "TIMESTAMP DEFAULT NULL" },
+    { name: "end_time", definition: "TIMESTAMP DEFAULT NULL" },
   ],
   squares_info: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
@@ -346,7 +331,9 @@ const createTablesSQL = {
     \`height\` INT NOT NULL,
     \`lastQuestionIndex\` INT NOT NULL DEFAULT 1,
     \`user_id\` INT,
-    \`evaluation_time\` INT DEFAULT 0,  -- 추가된 부분
+    \`evaluation_time\` INT DEFAULT 0,
+    \`start_time\` TIMESTAMP DEFAULT NULL,
+    \`end_time\` TIMESTAMP DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
