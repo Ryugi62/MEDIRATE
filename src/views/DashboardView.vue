@@ -436,6 +436,8 @@ export default {
       }
 
       try {
+        this.isExporting = true;
+
         // 현재 검색된 과제들의 ID를 수집
         const assignmentIds = this.data.map((assignment) => assignment.id);
 
@@ -478,6 +480,8 @@ export default {
       } catch (error) {
         console.error("Metrics를 가져오는 중 오류 발생:", error);
         alert("Metrics를 가져오는 중 오류가 발생했습니다.");
+      } finally {
+        this.isExporting = false;
       }
     },
   },
