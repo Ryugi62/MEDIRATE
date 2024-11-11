@@ -1,3 +1,5 @@
+<!-- DashboardView.vue -->
+
 <template>
   <div v-if="isExporting" class="exporting-message">
     {{ exportingMessage }}
@@ -427,7 +429,6 @@ export default {
         : "";
     },
 
-    // 수정된 메서드: 현재 검색된 과제들에 대한 Metrics 계산 및 표시
     async showMetrics() {
       if (this.data.length === 0) {
         alert("검색된 과제가 없습니다.");
@@ -438,10 +439,14 @@ export default {
         // 현재 검색된 과제들의 ID를 수집
         const assignmentIds = this.data.map((assignment) => assignment.id);
 
-        // POST 요청으로 현재 과제들의 ID를 전송하여 Metrics를 가져옴
+        // POST 요청으로 현재 과제들의 ID, sliderValue, score_value를 전송하여 Metrics를 가져옴
         const response = await this.$axios.post(
           "/api/download/metrics",
-          { assignmentIds },
+          {
+            assignmentIds, // 검색된 과제들의 ID
+            sliderValue: this.sliderValue, // 슬라이더 값
+            score_value: this.score_value / 100, // 점수 값 (백분율로 보내기 위해 100으로 나누기)
+          },
           {
             headers: {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
@@ -449,24 +454,27 @@ export default {
           }
         );
 
-        const metrics = response.data.metrics; // [{ assignmentId, Recall, Precision, F1 }]
+        const metrics = response.data.metrics; // [{ Recall, Precision, F1 }]
 
         if (metrics.length === 0) {
           alert("해당 과제들에 대한 Metrics 데이터가 없습니다.");
           return;
         }
 
-        let alertMessage = "검색된 과제들의 Metrics:\n\n";
+        let alertMessage = "[ 검색된 과제들의 Metrics ]\n\n";
         metrics.forEach((metric) => {
-          alertMessage += `과제 ID: ${metric.assignmentId}\n`;
           alertMessage += `Recall: ${(metric.Recall * 100).toFixed(2)}%\n`;
           alertMessage += `Precision: ${(metric.Precision * 100).toFixed(
             2
           )}%\n`;
           alertMessage += `F1-score: ${metric.F1.toFixed(2)}\n\n`;
+          alertMessage += `슬라이더 값: ${metric.sliderValue}\n`;
+          alertMessage += `점수 값: ${metric.score_value * 100}%\n`;
         });
 
         alert(alertMessage);
+
+        console.log(alertMessage);
       } catch (error) {
         console.error("Metrics를 가져오는 중 오류 발생:", error);
         alert("Metrics를 가져오는 중 오류가 발생했습니다.");

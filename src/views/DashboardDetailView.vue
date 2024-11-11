@@ -270,7 +270,10 @@ export default {
     },
 
     async loadAiData() {
+      console.log(this.assignmentId);
+      
       try {
+
         const { data } = await this.$axios.get(
           `/api/assignments/${this.assignmentId}/ai/`,
           {

@@ -382,82 +382,149 @@ router.post(
   }
 );
 
-// 수정된 Metrics 엔드포인트: 특정 과제들에 대한 Recall, Precision, F1-score 계산
 router.post("/metrics", authenticateToken, async (req, res) => {
   try {
-    const { assignmentIds } = req.body;
+    const { assignmentIds, sliderValue, score_value } = req.body;
 
+    // assignmentIds가 유효한지 확인
     if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
       return res.status(400).json({ error: "assignmentIds가 필요합니다." });
     }
 
-    const metrics = [];
+    let totalTP = 0;
+    let totalFP = 0;
+    let totalFN = 0;
 
+    // 각 과제에 대해 TP, FP, FN 계산
     for (const assignmentId of assignmentIds) {
       const assignmentData = await fetchAssignmentData(assignmentId);
       const aiData = await getAIData(assignmentId);
       const users = assignmentData.assignment;
 
-      // 각 과제의 모든 평가자의 사각형 수집
-      let totalTP = 0;
-      let totalFP = 0;
-      let totalFN = 0;
+      const maxSliderValue = users.length;
 
-      // AI 사각형 리스트 (isAI가 true인 사각형)
-      const aiSquares = aiData.filter((ai) => ai.isAI);
+      // sliderValue가 최대 평가자 수보다 클 경우 최대 평가자 수로 조정
+      const adjustedSliderValue =
+        sliderValue > maxSliderValue ? maxSliderValue : sliderValue;
 
-      for (const user of users) {
-        const evaluatorSquares = user.squares.filter(
-          (sq) => !sq.isAI && !sq.isTemporary
-        );
+      const evaluatorSquares = users.flatMap((user) =>
+        user.squares.filter((sq) => !sq.isAI && !sq.isTemporary)
+      );
 
-        // True Positives (TP): AI 사각형과 겹치는 평가자 사각형
-        const TP = evaluatorSquares.filter((evalSq) =>
-          aiSquares.some(
-            (aiSq) =>
-              Math.abs(evalSq.x - aiSq.x) <= 12.5 &&
-              Math.abs(evalSq.y - aiSq.y) <= 12.5
-          )
-        ).length;
+      // AI 데이터에서 score_value 이상인 값만 필터링
+      const aiSquares = aiData.filter(
+        (ai) => ai.isAI && ai.score >= score_value
+      );
 
-        // False Positives (FP): AI 사각형과 겹치지 않는 평가자 사각형
-        const FP = evaluatorSquares.length - TP;
+      // TP, FP, FN 계산
+      const { TP, FP, FN } = calculateTP_FP_FN(
+        evaluatorSquares,
+        aiSquares,
+        adjustedSliderValue
+      );
 
-        // False Negatives (FN): AI 사각형 중 평가자에 의해 커버되지 않은 사각형
-        const coveredAISquares = aiSquares.filter((aiSq) =>
-          evaluatorSquares.some(
-            (evalSq) =>
-              Math.abs(evalSq.x - aiSq.x) <= 12.5 &&
-              Math.abs(evalSq.y - aiSq.y) <= 12.5
-          )
-        ).length;
-
-        const FN = aiSquares.length - coveredAISquares;
-
-        totalTP += TP;
-        totalFP += FP;
-        totalFN += FN;
-      }
-
-      // Recall, Precision, F1-score 계산
-      const Recall = totalTP / (totalTP + totalFN) || 0;
-      const Precision = totalTP / (totalTP + totalFP) || 0;
-      const F1 = 2 * ((Recall * Precision) / (Recall + Precision)) || 0;
-
-      metrics.push({
-        assignmentId: assignmentId,
-        Recall: Recall,
-        Precision: Precision,
-        F1: F1,
-      });
+      totalTP += TP;
+      totalFP += FP;
+      totalFN += FN;
     }
 
-    res.json({ metrics });
+    // 전체 과제에 대한 평균값 계산
+    const Recall = totalTP / (totalTP + totalFN) || 0;
+    const Precision = totalTP / (totalTP + totalFP) || 0;
+    const F1 = 2 * ((Recall * Precision) / (Recall + Precision)) || 0;
+
+    res.json({
+      metrics: [
+        {
+          Recall,
+          Precision,
+          F1,
+          sliderValue, // 슬라이더 값 포함
+          score_value, // 점수 값 포함
+        },
+      ],
+    });
   } catch (error) {
     console.error("Metrics 계산 중 오류 발생:", error);
     res.status(500).send("Internal Server Error");
   }
 });
+
+function calculateTP_FP_FN(evaluatorSquares, aiSquares, overlapCount) {
+  const groups = [];
+  const visited = new Set();
+
+  // DFS로 그룹화
+  function dfs(square, group) {
+    if (visited.has(square)) return;
+
+    visited.add(square);
+    group.push(square);
+
+    evaluatorSquares.forEach((otherSquare) => {
+      if (
+        !visited.has(otherSquare) &&
+        Math.abs(square.x - otherSquare.x) <= 12.5 &&
+        Math.abs(square.y - otherSquare.y) <= 12.5
+      ) {
+        dfs(otherSquare, group);
+      }
+    });
+  }
+
+  // 그룹화된 평가자 사각형들
+  evaluatorSquares.forEach((square) => {
+    if (!visited.has(square)) {
+      const group = [];
+      dfs(square, group);
+      if (group.length >= overlapCount) {
+        groups.push(group);
+      }
+    }
+  });
+
+  const overlapGroups = groups;
+  const nonOverlappingSquares = evaluatorSquares.filter(
+    (square) => !groups.flat().includes(square)
+  );
+
+  // TP: 겹친 평가자 사각형과 AI 사각형이 일치하는 그룹의 수
+  let TP = 0;
+  overlapGroups.forEach((group) => {
+    const matchFound = group.some((bbox) =>
+      aiSquares.some(
+        (ai) =>
+          Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+      )
+    );
+    if (matchFound) {
+      TP++;
+    }
+  });
+
+  // FN: AI 사각형이 없는 그룹 수
+  const FN = overlapGroups.length - TP;
+
+  // FP: AI 사각형은 있지만 해당 위치에 일치하는 그룹이 없는 경우
+  let FP = 0;
+  aiSquares.forEach((ai) => {
+    const matched = overlapGroups.some((group) =>
+      group.some(
+        (bbox) =>
+          Math.abs(bbox.x - ai.x) <= 12.5 && Math.abs(bbox.y - ai.y) <= 12.5
+      )
+    );
+    if (!matched) {
+      FP++;
+    }
+  });
+
+  console.log("TP:", TP);
+  console.log("FP:", FP);
+  console.log("FN:", FN);
+
+  return { TP, FP, FN };
+}
 
 function getValidSquaresCount(squares, questionId) {
   return squares.filter(
@@ -736,7 +803,13 @@ async function getAIData(assignmentId) {
       });
       AI_BBOX.push(...bbox);
     } catch (error) {
-      console.error("Error reading JSON file:", error);
+      // 파일을 읽을 수 없거나 오류가 발생하면 콘솔에 로그를 남기고 빈 배열을 반환
+      console.error(
+        `Error reading AI JSON for question ${question.id}:`,
+        error
+      );
+      // 파일이 없거나 읽을 수 없는 경우, 빈 배열을 그대로 반환
+      continue;
     }
   }
 

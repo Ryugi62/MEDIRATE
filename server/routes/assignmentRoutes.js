@@ -83,7 +83,8 @@ router.get("/ai", authenticateToken, async (req, res) => {
 
     const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
 
-    const jsonContent = fs.readFileSync(
+    // Asynchronous file reading with fs.promises.readFile
+    const jsonContent = await fs.readFile(
       `./assets/${assignmentType}/${jsonSrc}`,
       "utf8"
     );
@@ -732,7 +733,7 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
       res.json(metadataJson);
     } catch (err) {
       console.log(err);
-      
+
       // File not found or other error
       res.status(404).json({ error: "Metadata not found" });
     }
