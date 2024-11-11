@@ -403,14 +403,6 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     evaluation_time, // 추가된 부분
   } = req.body;
 
-  console.log(
-    questions,
-    beforeCanvas,
-    squares,
-    lastQuestionIndex,
-    evaluation_time
-  );
-
   try {
     await Promise.all(
       questions.map(async (question) => {
