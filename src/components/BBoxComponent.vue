@@ -762,6 +762,7 @@ export default {
   gap: 8px;
   display: flex;
   align-items: center;
+  white-space: nowrap;
 }
 
 .bbox-component__header label {
