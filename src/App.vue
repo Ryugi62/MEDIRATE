@@ -86,6 +86,7 @@ button {
   cursor: pointer;
   padding: 10px 20px;
   transition: 0.105s;
+  white-space: nowrap;
 }
 button:hover {
   background-color: var(--blue-hover);
