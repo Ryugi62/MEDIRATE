@@ -512,7 +512,6 @@ export default {
 .bbox-component {
   flex: 1;
   display: flex;
-  padding-right: 22px;
   flex-direction: column;
 }
 
@@ -539,6 +538,8 @@ export default {
 }
 
 canvas {
+  width: 100%;
+  height: 100%;
   min-height: 550px;
   background-color: rgb(0, 0, 0);
 }

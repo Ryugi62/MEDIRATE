@@ -999,6 +999,7 @@ export default {
   align-items: center;
   gap: 16px;
   border-bottom: 1px solid var(--light-gray);
+  white-space: nowrap;
 }
 
 .table-body {
