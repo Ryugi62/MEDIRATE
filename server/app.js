@@ -1,5 +1,6 @@
+// app.js
+
 const express = require("express");
-const dotenv = require("dotenv");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const path = require("path");
@@ -14,7 +15,6 @@ const assignmentRoutes = require("./routes/assignmentRoutes");
 const downloadSearchedAssignments = require("./routes/downloadSearchedAssignments.js");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
-
 
 // Constants and configurations
 const app = express();
@@ -100,14 +100,14 @@ function listAssetFolders(req, res) {
   res.json(folders);
 }
 
-// Function to list files in a specified folder within assets
 function listFilesInFolder(req, res) {
   const { foldername } = req.params;
-  const absolutePath = path.join(__dirname, "../assets", foldername);
+  const folderPath = path.join(__dirname, "../assets", foldername);
 
-  if (fs.existsSync(absolutePath)) {
+  if (fs.existsSync(folderPath)) {
+    // 이미지 파일 목록 가져오기
     const files = fs
-      .readdirSync(absolutePath, { withFileTypes: true })
+      .readdirSync(folderPath, { withFileTypes: true })
       .filter((dirent) => dirent.isFile())
       .map((dirent) => dirent.name)
       .filter((file) => {
@@ -115,7 +115,26 @@ function listFilesInFolder(req, res) {
         return [".png", ".jpg", ".jpeg", ".gif"].includes(fileExtension);
       });
 
-    res.json(files);
+    // metadata.json 파일 읽기
+    const metadataPath = path.join(folderPath, "metadata.json");
+    let metadata = null;
+
+    console.log(`
+      metadataPath : ${metadataPath}
+    `);
+
+    if (fs.existsSync(metadataPath)) {
+      try {
+        const metadataContent = fs.readFileSync(metadataPath, "utf-8");
+        metadata = JSON.parse(metadataContent);
+      } catch (error) {
+        console.error(`Error parsing metadata.json in ${foldername}:`, error);
+        metadata = null;
+      }
+    }
+
+    // 응답으로 파일 목록과 메타데이터를 함께 반환 (metadata가 없을 수 있음)
+    res.json({ files, metadata });
   } else {
     res.status(404).send("Folder not found");
   }
@@ -136,7 +155,7 @@ function serveFileFromFolder(req, res) {
 
 async function handleTaskDataUpload(req, res) {
   try {
-    const { taskid } = req.body;
+    const { userid, taskid, ...otherFields } = req.body; // userid, taskid를 제외한 나머지 폼 필드 추출
     const taskDir = path.join(IF_DIRECTORY, taskid);
 
     console.log(`Task ID: ${taskid}`);
@@ -150,6 +169,7 @@ async function handleTaskDataUpload(req, res) {
     const zipFilePath = req.file.path;
     console.log(`ZIP file path: ${zipFilePath}`);
 
+    // ZIP 파일을 풀어서 taskDir에 저장
     await new Promise((resolve, reject) => {
       fs.createReadStream(zipFilePath)
         .pipe(unzipper.Parse())
@@ -178,8 +198,19 @@ async function handleTaskDataUpload(req, res) {
         });
     });
 
-    fs.unlinkSync(zipFilePath); // Delete the original ZIP file after extraction
+    fs.unlinkSync(zipFilePath); // 원본 ZIP 파일 삭제
     console.log(`Deleted ZIP file: ${zipFilePath}`);
+
+    // userid와 나머지 폼 필드를 metadata.json 파일로 저장
+    const metadata = {
+      userid,
+      ...otherFields,
+      s,
+    };
+    const metadataPath = path.join(taskDir, "metadata.json");
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    console.log(`Metadata saved to ${metadataPath}`);
+
     res.json({ code: "1", result: "OK" });
   } catch (error) {
     console.error("Error handling task data upload:", error);

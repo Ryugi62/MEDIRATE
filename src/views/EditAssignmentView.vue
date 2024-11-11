@@ -473,13 +473,15 @@ export default {
       this.$axios
         .get(`/api/assets/${this.assignmentDetails.selectedAssignmentId}`)
         .then((response) => {
-          const imageList = response.data;
-          const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
+          const { files, metadata } = response.data;
+          const baseUrl = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
 
-          const questions = imageList.map((image, index) => {
+          const questions = files.map((image, index) => {
             return {
               id: index,
-              img: `https://aialpa-eval.duckdns.org${rout}/${image}`,
+              img: `https://aialpa-eval.duckdns.org${baseUrl}/${encodeURIComponent(
+                image
+              )}`,
               select: null,
             };
           });
@@ -487,6 +489,15 @@ export default {
           this.assignmentDetails.questions = questions;
           this.activeQuestionId = 0;
           this.selectedQuestions = []; // 초기화
+
+          // metadata 처리 (필요에 따라 추가)
+          if (metadata) {
+            // metadata가 있을 경우 데이터를 알림으로 표시
+            alert(`Metadata:\n${JSON.stringify(metadata, null, 2)}`);
+          } else {
+            // metadata가 없을 경우 알림 표시
+            alert("metadata가 없습니다.");
+          }
         })
         .catch((error) => {
           console.error(
