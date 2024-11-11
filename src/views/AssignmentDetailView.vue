@@ -1,3 +1,5 @@
+<!-- AssignmentDetailView.vue -->
+
 <template>
   <div v-if="currentAssignmentDetails" class="assignment-detail-view">
     <h1 class="header-title">검수 작업</h1>

@@ -258,6 +258,7 @@ export default {
             originalY: e.y + 12.5,
             isAI: true,
             score: e.score,
+            isTemporary: true, // 이 부분을 추가하여 AI로 생성된 박스의 isTemporary를 true로 설정
           }));
 
           const originalLocalSquares = this.temporarySquares.map((square) => ({
@@ -628,12 +629,13 @@ export default {
         return !s.isAI || s.score >= this.score_value / 100;
       });
 
-      // 만약 isTemporaryAI가 true인 경우는 false로 변경
+      // isTemporaryAI와 isTemporary 속성을 false로 변경
       this.temporarySquares = filter_temporarySquares.map((square) => {
         if (square.isTemporaryAI) {
           return {
             ...square,
             isTemporaryAI: false,
+            isTemporary: false, // 이 부분을 추가하여 isTemporary를 false로 설정
           };
         }
         return square;
