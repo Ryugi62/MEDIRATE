@@ -236,11 +236,16 @@ export default {
   },
 
   mounted() {
-    this.getData();
-    this.setSearchQuery();
+    this.initializeData();
   },
 
   methods: {
+    async initializeData() {
+      await this.getData();
+      this.setSearchQuery();
+      this.searchDashboard();
+    },
+
     async getData() {
       this.isExporting = true;
 
