@@ -28,7 +28,7 @@
               :disabled="isRunning"
               title="새로고침"
             >
-            가장 마지막 평가 시간으로 복귀
+              가장 마지막 평가 시간으로 복귀
             </button>
           </div>
         </div>
@@ -233,87 +233,85 @@ export default {
 
         return;
       } else if (selectedIcon.name === "fa-robot") {
-        try {
-          const response = await this.$axios.get("/api/assignments/ai/", {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-            params: {
-              src: this.src.split("/").pop(),
-              assignmentType: this.assignmentType,
-              questionIndex: this.questionIndex,
-            },
-          });
-
-          if (response.data.length === 0 && this.showAiAlert) {
-            alert("AI 데이터가 없습니다.");
-          }
-
-          let newAiSquares = response.data.map((e) => ({
-            x: e.x + 12.5,
-            y: e.y + 12.5,
-            questionIndex: this.questionIndex,
-            isTemporaryAI: true,
-            originalX: e.x + 12.5,
-            originalY: e.y + 12.5,
-            isAI: true,
-            score: e.score,
-            isTemporary: true, // 이 부분을 추가하여 AI로 생성된 박스의 isTemporary를 true로 설정
-          }));
-
-          const originalLocalSquares = this.temporarySquares.map((square) => ({
-            ...square,
-            originalX: this.convertToOriginalCoordinate(square.x, "x"),
-            originalY: this.convertToOriginalCoordinate(square.y, "y"),
-          }));
-
-          newAiSquares = newAiSquares.filter(
-            (aiSquare) =>
-              !originalLocalSquares.some(
-                (square) =>
-                  Math.abs(square.originalX - aiSquare.originalX) <= 5 &&
-                  Math.abs(square.originalY - aiSquare.originalY) <= 5 &&
-                  square.questionIndex === this.questionIndex &&
-                  square.isAI // 이 조건을 추가하여 isAI가 true인 경우만 필터링
-              )
-          );
-
-          for (let i = 0; i < newAiSquares.length; i++) {
-            for (let j = i + 1; j < newAiSquares.length; j++) {
-              if (
-                Math.abs(
-                  newAiSquares[i].originalX - newAiSquares[j].originalX
-                ) <= 5 &&
-                Math.abs(
-                  newAiSquares[i].originalY - newAiSquares[j].originalY
-                ) <= 5
-              ) {
-                newAiSquares.splice(j, 1);
-                j--;
-              }
-            }
-          }
-
-          this.setAiSquarePosition(newAiSquares);
-          this.temporarySquares = [...this.temporarySquares, ...newAiSquares];
-          this.redrawSquares();
-        } catch (error) {
-          selectedIcon = this.iconList.find(
-            (icon) => icon.name === "fa-square"
-          );
-
-          if (this.showAiAlert) {
-            alert("AI 데이터 파일이 존재하는지 확인해주세요.");
-          }
-
-          console.error(error);
-        }
+        await this.showTempAIBox(); // 분리된 함수 호출
       }
+
       this.resizeCanvas();
       this.iconList = this.iconList.map((icon) => ({
         ...icon,
         active: icon === selectedIcon,
       }));
+    },
+
+    async showTempAIBox() {
+      try {
+        const response = await this.$axios.get("/api/assignments/ai/", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+          params: {
+            src: this.src.split("/").pop(),
+            assignmentType: this.assignmentType,
+            questionIndex: this.questionIndex,
+          },
+        });
+
+        if (response.data.length === 0 && this.showAiAlert) {
+          alert("AI 데이터가 없습니다.");
+        }
+
+        let newAiSquares = response.data.map((e) => ({
+          x: e.x + 12.5,
+          y: e.y + 12.5,
+          questionIndex: this.questionIndex,
+          isTemporaryAI: true,
+          originalX: e.x + 12.5,
+          originalY: e.y + 12.5,
+          isAI: true,
+          score: e.score,
+          isTemporary: true,
+        }));
+
+        const originalLocalSquares = this.temporarySquares.map((square) => ({
+          ...square,
+          originalX: this.convertToOriginalCoordinate(square.x, "x"),
+          originalY: this.convertToOriginalCoordinate(square.y, "y"),
+        }));
+
+        newAiSquares = newAiSquares.filter(
+          (aiSquare) =>
+            !originalLocalSquares.some(
+              (square) =>
+                Math.abs(square.originalX - aiSquare.originalX) <= 5 &&
+                Math.abs(square.originalY - aiSquare.originalY) <= 5 &&
+                square.questionIndex === this.questionIndex &&
+                square.isAI
+            )
+        );
+
+        for (let i = 0; i < newAiSquares.length; i++) {
+          for (let j = i + 1; j < newAiSquares.length; j++) {
+            if (
+              Math.abs(newAiSquares[i].originalX - newAiSquares[j].originalX) <=
+                5 &&
+              Math.abs(newAiSquares[i].originalY - newAiSquares[j].originalY) <=
+                5
+            ) {
+              newAiSquares.splice(j, 1);
+              j--;
+            }
+          }
+        }
+
+        this.setAiSquarePosition(newAiSquares);
+        this.temporarySquares = [...this.temporarySquares, ...newAiSquares];
+        this.redrawSquares();
+      } catch (error) {
+        if (this.showAiAlert) {
+          alert("AI 데이터 파일이 존재하는지 확인해주세요.");
+        }
+        console.error(error);
+      }
     },
 
     async loadBackgroundImage() {
@@ -625,6 +623,8 @@ export default {
     },
 
     applyMitosis() {
+      if (!this.isRunning) return;
+
       const filter_temporarySquares = this.temporarySquares.filter((s) => {
         // 현재 질문의 박스만 필터링하고, 다른 질문의 박스는 그대로 유지
         if (s.questionIndex !== this.questionIndex) {
@@ -731,16 +731,16 @@ export default {
   },
 
   watch: {
-    src(newVal, oldVal) {
-      if (newVal !== oldVal) this.loadBackgroundImage();
-
-      const squareIcon = this.iconList.find(
-        (icon) => icon.name === "fa-square"
-      );
-
-      this.fetchLocalInfo();
-
-      this.handleIconClick(squareIcon);
+    src: {
+      immediate: true, // 초기 렌더링 시에도 호출하도록 설정
+      handler: async function (newVal, oldVal) {
+        if (newVal !== oldVal) {
+          await this.loadBackgroundImage();
+          await this.fetchLocalInfo();
+          await this.showTempAIBox(); // 분리된 함수 호출
+          this.resizeCanvas();
+        }
+      },
     },
 
     isSliderActive() {
