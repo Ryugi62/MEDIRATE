@@ -171,19 +171,23 @@ router.get("/", authenticateToken, async (req, res) => {
         (SELECT COUNT(*) FROM questions q
           JOIN question_responses qr ON q.id = qr.question_id
           WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1) AS completed,
-        ci.evaluation_time AS evaluation_time,  -- 추가된 부분
-        ci.start_time AS start_time,          -- 추가된 부분
-        ci.end_time AS end_time               -- 추가된 부분
+        ci.evaluation_time AS evaluation_time,
+        ci.start_time AS start_time,
+        ci.end_time AS end_time
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
-      LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id  -- 추가된 부분
+      LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id
       WHERE au.user_id = ?;
     `;
 
     const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
 
+    const uniqueAssignments = assignments.filter(
+      (value, index, self) => index === self.findIndex((t) => t.id === value.id)
+    );
+
     await Promise.all(
-      assignments.map(async (assignment) => {
+      uniqueAssignments.map(async (assignment) => {
         const { id } = assignment;
 
         const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`;
@@ -201,7 +205,7 @@ router.get("/", authenticateToken, async (req, res) => {
       })
     );
 
-    res.json(assignments);
+    res.json(uniqueAssignments);
   } catch (error) {
     handleError(
       res,
