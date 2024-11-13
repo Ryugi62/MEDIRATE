@@ -473,10 +473,10 @@ export default {
 
           if (metadata) {
             // metadata가 있을 경우 데이터를 알림으로 표시
-            alert(`Metadata:\n${JSON.stringify(metadata, null, 2)}`);
+            console.log(`Metadata:\n${JSON.stringify(metadata, null, 2)}`);
           } else {
             // metadata가 없을 경우 알림 표시
-            alert("metadata가 없습니다.");
+            console.log("metadata가 없습니다.");
           }
         })
         .catch((error) => {
