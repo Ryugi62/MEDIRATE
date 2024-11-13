@@ -22,12 +22,7 @@
             <button @click="toggleTimer" class="timer-button">
               {{ isRunning ? "평가중지" : "평가시작" }}
             </button>
-            <button
-              @click="refreshTimer"
-              class="timer-button refresh-button"
-              :disabled="isRunning"
-              title="새로고침"
-            >
+            <button @click="refreshTimer" class="timer-button refresh-button" :disabled="isRunning" title="새로고침">
               가장 마지막 평가 시간으로 복귀
             </button>
           </div>
@@ -35,49 +30,31 @@
       </span>
 
       <div class="icon-list">
-        <i
-          v-for="icon in iconList"
-          :key="icon.name"
-          :class="[
-            'fas',
-            icon.name,
-            { active: icon.active },
-            { disabled: !isRunning },
-          ]"
-          @click="handleIconClick(icon)"
-          :aria-label="icon.explanation"
-        >
+        <i v-for="icon in iconList" :key="icon.name" :class="[
+          'fas',
+          icon.name,
+          { active: icon.active },
+          { disabled: !isRunning },
+        ]" @click="handleIconClick(icon)" :aria-label="icon.explanation">
           <span class="icon-explanation">({{ icon.explanation }})</span>
         </i>
       </div>
 
       <div class="bbox-component__actions">
-        <div class="is_score_field" v-if="is_score">
+        <!-- is_ai_use가 true인 경우에만 점수 조절 슬라이드 바 표시 -->
+        <div class="is_score_field" v-if="is_ai_use && is_score">
           <label for="is_score">{{ score_value }}%</label>
-          <input
-            type="range"
-            name="is_score"
-            id="is_score"
-            min="0"
-            max="100"
-            v-model="score_value"
-          />
+          <input type="range" name="is_score" id="is_score" min="0" max="100" v-model="score_value" />
         </div>
-        <button @click="applyMitosis">AI Apply</button>
+        <button @click="applyMitosis" :disabled="!is_ai_use">AI Apply</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
 
     <div class="bbox-component__body">
-      <canvas
-        ref="canvas"
-        @click="handleCanvasClick"
-        @mousemove="handleCanvasMouseMove"
-        @mouseleave="handleCanvasMouseLeave"
-        @mouseenter="redrawSquares"
-        @contextmenu.prevent
-        @contextmenu="redrawSquares"
-      ></canvas>
+      <canvas ref="canvas" @click="handleCanvasClick" @mousemove="handleCanvasMouseMove"
+        @mouseleave="handleCanvasMouseLeave" @mouseenter="redrawSquares" @contextmenu.prevent
+        @contextmenu="redrawSquares"></canvas>
     </div>
     <div class="bbox-component__footer">
       <strong>{{ fileName }}</strong>
@@ -165,6 +142,11 @@ export default {
         }
         return;
       }
+      // is_ai_use가 true인 경우에만 AI 아이콘 활성화 가능
+      if (!this.is_ai_use && icon.name === "fa-robot") {
+        alert("AI 기능을 사용할 수 없습니다.");
+        return;
+      }
       this.activateIcon(icon);
     },
 
@@ -178,6 +160,10 @@ export default {
       } else if (event.ctrlKey && event.key === "i") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // ai icon 활성화
+        if (!this.is_ai_use) {
+          alert("AI 기능을 사용할 수 없습니다.");
+          return;
+        }
         const aiIcon = this.iconList.find((icon) => icon.name === "fa-robot");
         this.handleIconClick(aiIcon);
       } else if (event.ctrlKey && event.key === "e") {
@@ -213,9 +199,19 @@ export default {
       if (this.timer === 0) {
         this.timer = this.evaluation_time || 0;
       }
+
+      // AI 박스를 자동으로 표시 (is_ai_use가 true인 경우)
+      if (this.is_ai_use) {
+        await this.showTempAIBox();
+      }
     },
 
     async activateIcon(selectedIcon) {
+      if (!this.is_ai_use && selectedIcon.name === "fa-robot") {
+        alert("AI 기능을 사용할 수 없습니다.");
+        return;
+      }
+
       if (selectedIcon.name === "fa-circle-minus") {
         // 알람이 활성화 되었다면
         if (
@@ -244,6 +240,8 @@ export default {
     },
 
     async showTempAIBox() {
+      if (!this.is_ai_use) return; // is_ai_use가 false인 경우 실행하지 않음
+
       try {
         const response = await this.$axios.get("/api/assignments/ai/", {
           headers: {
@@ -293,9 +291,9 @@ export default {
           for (let j = i + 1; j < newAiSquares.length; j++) {
             if (
               Math.abs(newAiSquares[i].originalX - newAiSquares[j].originalX) <=
-                5 &&
+              5 &&
               Math.abs(newAiSquares[i].originalY - newAiSquares[j].originalY) <=
-                5
+              5
             ) {
               newAiSquares.splice(j, 1);
               j--;
@@ -623,7 +621,7 @@ export default {
     },
 
     applyMitosis() {
-      if (!this.isRunning) return;
+      if (!this.isRunning || !this.is_ai_use) return;
 
       const filter_temporarySquares = this.temporarySquares.filter((s) => {
         // 현재 질문의 박스만 필터링하고, 다른 질문의 박스는 그대로 유지
@@ -710,9 +708,7 @@ export default {
 
   mounted() {
     if (!this.is_ai_use)
-      this.iconList.forEach((e, i) => {
-        if (e.name === "fa-robot") this.iconList.splice(i, 1);
-      });
+      this.iconList = this.iconList.filter((e) => e.name !== "fa-robot");
     this.fetchLocalInfo();
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
@@ -737,8 +733,10 @@ export default {
         if (newVal !== oldVal) {
           await this.loadBackgroundImage();
           await this.fetchLocalInfo();
-          if (!this.is_ai_use)
-            await this.showTempAIBox(); // 분리된 함수 호출
+          // is_ai_use가 true인 경우에만 AI 박스를 표시
+          if (this.is_ai_use) {
+            await this.showTempAIBox();
+          }
           this.resizeCanvas();
         }
       },
@@ -810,7 +808,8 @@ export default {
   padding: 5px 10px;
   position: absolute;
   z-index: 1;
-  bottom: 125%; /* Position above the icon */
+  bottom: 125%;
+  /* Position above the icon */
   left: 50%;
   transform: translateX(-50%);
   opacity: 0;
@@ -911,7 +910,8 @@ canvas:hover {
 }
 
 .timer-button:not(:disabled):hover {
-  background-color: #0056b3; /* var(--primary-color)보다 약간 어두운 색상 */
+  background-color: #0056b3;
+  /* var(--primary-color)보다 약간 어두운 색상 */
 }
 
 /* 기타 기존 스타일 유지 */
