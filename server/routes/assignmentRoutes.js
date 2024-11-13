@@ -431,8 +431,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       const updateCanvasQuery = `
         UPDATE canvas_info
         SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
-            start_time = IF(start_time IS NULL, NOW(), start_time),
-            end_time = NOW()
+            start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
+            end_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul')
         WHERE assignment_id = ? AND user_id = ?;
       `;
       await db.query(updateCanvasQuery, [

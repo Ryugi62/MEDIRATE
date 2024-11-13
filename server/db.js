@@ -156,7 +156,11 @@ const expectedColumns = {
     { name: "user_id", definition: "INT" },
     { name: "content", definition: "TEXT NOT NULL" },
     { name: "parent_comment_id", definition: "INT" },
-    { name: "created_at", definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" },
+    {
+      name: "created_at",
+      definition:
+        "TIMESTAMP DEFAULT CONVERT_TZ(CURRENT_TIMESTAMP, 'UTC', 'Asia/Seoul')",
+    },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
