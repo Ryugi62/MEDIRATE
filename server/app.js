@@ -205,7 +205,6 @@ async function handleTaskDataUpload(req, res) {
     const metadata = {
       userid,
       ...otherFields,
-      s,
     };
     const metadataPath = path.join(taskDir, "metadata.json");
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
