@@ -271,7 +271,12 @@ router.post(
               }),
               hardneg: nonOverlappingGroups.map((group) => {
                 const square = group[0];
-                return [square.x, square.y, square.width, square.height];
+                return [
+                  Math.round(square.x),
+                  Math.round(square.y),
+                  Math.round(square.width),
+                  Math.round(square.height),
+                ];
               }),
             });
           }
@@ -484,9 +489,6 @@ function calculateTP_FP_FN(evaluatorSquares, aiSquares, overlapCount) {
   });
 
   const overlapGroups = groups;
-  const nonOverlappingSquares = evaluatorSquares.filter(
-    (square) => !groups.flat().includes(square)
-  );
 
   // TP: 겹친 평가자 사각형과 AI 사각형이 일치하는 그룹의 수
   let TP = 0;
