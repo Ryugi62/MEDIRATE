@@ -125,14 +125,14 @@
         <i
           class="fa-solid fa-angles-left pagination__button"
           @click="changePage(1)"
-          :disabled="current === 1"
+          :class="{ 'pagination__button--disabled': current === 1 }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angle-left pagination__button"
           @click="changePage(current - 1)"
-          :disabled="current === 1"
+          :class="{ 'pagination__button--disabled': current === 1 }"
         ></i>
       </li>
       <li
@@ -149,14 +149,14 @@
         <i
           class="fa-solid fa-angle-right pagination__button"
           @click="changePage(current + 1)"
-          :disabled="current === total"
+          :class="{ 'pagination__button--disabled': current === total }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
           @click="changePage(lastPage)"
-          :disabled="current === total"
+          :class="{ 'pagination__button--disabled': current === total }"
         ></i>
       </li>
     </ul>
@@ -173,11 +173,11 @@ export default {
       sortDirection: "up",
       originalData: [],
       data: [],
-      current: 1,
+      current: this.$store.getters.getDashboardCurrentPage || 1, // Vuex에서 현재 페이지 가져오기
       total: 0,
       lastPage: 0,
       itemsPerPage: 50,
-      searchQuery: "",
+      searchQuery: this.$store.getters.getDashboardSearchHistory || "",
       isFocused: false, // 추가
       isExporting: false,
       sliderValue: 1,
@@ -237,42 +237,63 @@ export default {
     },
   },
 
-  mounted() {
-    this.initializeData();
-  },
-
-  methods: {
-    async initializeData() {
-      await this.getData();
-      this.setSearchQuery();
-      this.searchDashboard();
+  watch: {
+    // Watch for changes in searchQuery and update the Vuex store
+    searchQuery(newQuery) {
+      this.updateDashboardSearchHistory(newQuery);
     },
 
-    async getData() {
-      this.isExporting = true;
+    // Watch for changes in current page and update the Vuex store
+    current(newPage) {
+      this.updateDashboardCurrentPage(newPage);
+    },
+  },
 
-      try {
-        const response = await this.$axios.get("/api/dashboard", {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        });
+  mounted() {
+    // 헤더에 jwt 토큰을 담아서 요청
+    this.$axios
+      .get("/api/dashboard", {
+        headers: {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        },
+      })
+      .then((response) => {
         this.originalData = response.data;
         this.data = response.data;
         this.total = this.data.length;
         this.lastPage = Math.ceil(this.total / this.itemsPerPage);
         this.sortBy(this.sortColumn); // 초기 정렬 적용
-      } catch (error) {
+
+        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+        if (this.searchQuery) {
+          this.assignDashboardSearchFromStore();
+        }
+
+        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+        if (this.$store.getters.getDashboardCurrentPage) {
+          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
+          this.current = Math.min(
+            this.$store.getters.getDashboardCurrentPage,
+            this.lastPage
+          );
+        }
+      })
+      .catch((error) => {
         console.error(error);
-      } finally {
-        this.isExporting = false;
-      }
+      });
+  },
+
+  methods: {
+    // 다른 페이지로 리다이렉트
+    goToDetail(id) {
+      this.$router.push({ name: "dashboardDetail", params: { id } });
     },
 
-    changePage(page) {
+    // 페이지 변경
+    changePage(pageNumber) {
       const totalPages = Math.ceil(this.total / this.itemsPerPage);
-      if (page >= 1 && page <= totalPages) {
-        this.current = page;
+      if (pageNumber >= 1 && pageNumber <= totalPages) {
+        this.current = pageNumber;
       }
     },
 
@@ -315,10 +336,6 @@ export default {
       this.current = 1; // 정렬 후 첫 페이지로 이동
     },
 
-    goToDetail(id) {
-      this.$router.push({ name: "dashboardDetail", params: { id } });
-    },
-
     changeSliderValue(event) {
       this.sliderValue = event.target.value;
     },
@@ -334,7 +351,7 @@ export default {
       this.total = this.data.length;
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1; // 검색 후 첫 페이지로 이동
-      this.$store.commit("setSearchHistory", this.searchQuery);
+      this.$store.commit("setDashboardSearchHistory", this.searchQuery);
     },
 
     resetSearch() {
@@ -343,6 +360,7 @@ export default {
       this.total = this.data.length;
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1; // 리셋 후 첫 페이지로 이동
+      this.$store.commit("setDashboardSearchHistory", "");
     },
 
     downloadSearchedItems() {
@@ -424,9 +442,28 @@ export default {
     },
 
     setSearchQuery() {
-      this.searchQuery = this.$store.getters.getSearchHistory
-        ? this.$store.getters.getSearchHistory
+      this.searchQuery = this.$store.getters.getDashboardSearchHistory
+        ? this.$store.getters.getDashboardSearchHistory
         : "";
+    },
+
+    assignDashboardSearchFromStore() {
+      this.data = this.originalData.filter((item) =>
+        item.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+      );
+      this.total = this.data.length;
+      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.current = 1;
+    },
+
+    // Update search history in Vuex store
+    updateDashboardSearchHistory(history) {
+      this.$store.commit("setDashboardSearchHistory", history);
+    },
+
+    // Update current page in Vuex store
+    updateDashboardCurrentPage(page) {
+      this.$store.commit("setDashboardCurrentPage", page);
     },
 
     async showMetrics() {
@@ -686,6 +723,11 @@ td.unanswered-rate {
   border: 1px solid var(--white);
 }
 
+.pagination__button--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .pagination__link:hover {
   color: var(--gray);
   border: 1px solid var(--gray);
@@ -694,5 +736,19 @@ td.unanswered-rate {
 .pagination__item--active .pagination__link {
   color: var(--blue);
   border: 1px solid var(--blue);
+}
+
+.exporting-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 20px 40px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  z-index: 1000;
+  font-size: 18px;
+  font-weight: bold;
 }
 </style>

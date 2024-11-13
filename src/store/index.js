@@ -1,12 +1,21 @@
+// src/store/index.js
+
 import { createStore } from "vuex";
 
 export default createStore({
   state: {
-    // 로커스토리지에 저장된 사용자 정보를 가져옴
+    // 로컬스토리지에 저장된 사용자 정보를 가져옴
     user: JSON.parse(localStorage.getItem("user")) || null,
     isAuthenticated: !!localStorage.getItem("user"), // 사용자가 인증되었는지 여부
     isSlideBarOpen: localStorage.getItem("isSlideBarOpen") === "true" || false,
-    searchHistory: localStorage.getItem("searchHistory") || "",
+    assignmentSearchHistory:
+      localStorage.getItem("assignmentSearchHistory") || "",
+    dashboardSearchHistory:
+      localStorage.getItem("dashboardSearchHistory") || "",
+    assignmentCurrentPage:
+      parseInt(localStorage.getItem("assignmentCurrentPage")) || 1,
+    dashboardCurrentPage:
+      parseInt(localStorage.getItem("dashboardCurrentPage")) || 1, // 추가
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -14,7 +23,10 @@ export default createStore({
     isSlideBarOpen: (state) => state.isSlideBarOpen,
     getJwtToken: (state) => state.user?.token,
     tokenExpires: (state) => state.user?.expires,
-    getSearchHistory: (state) => state.searchHistory,
+    getAssignmentSearchHistory: (state) => state.assignmentSearchHistory,
+    getDashboardSearchHistory: (state) => state.dashboardSearchHistory,
+    getAssignmentCurrentPage: (state) => state.assignmentCurrentPage,
+    getDashboardCurrentPage: (state) => state.dashboardCurrentPage, // 추가
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -32,12 +44,28 @@ export default createStore({
     },
     closeSlideBar(state) {
       state.isSlideBarOpen = false;
+      localStorage.setItem("isSlideBarOpen", state.isSlideBarOpen);
     },
     openSlideBar(state) {
       state.isSlideBarOpen = true;
+      localStorage.setItem("isSlideBarOpen", state.isSlideBarOpen);
     },
-    setSearchHistory(state, history) {
-      state.searchHistory = history;
+    setAssignmentSearchHistory(state, history) {
+      state.assignmentSearchHistory = history;
+      localStorage.setItem("assignmentSearchHistory", history);
+    },
+    setDashboardSearchHistory(state, history) {
+      state.dashboardSearchHistory = history;
+      localStorage.setItem("dashboardSearchHistory", history);
+    },
+    setAssignmentCurrentPage(state, page) {
+      state.assignmentCurrentPage = page;
+      localStorage.setItem("assignmentCurrentPage", page);
+    },
+    setDashboardCurrentPage(state, page) {
+      // 추가
+      state.dashboardCurrentPage = page;
+      localStorage.setItem("dashboardCurrentPage", page);
     },
   },
   actions: {
@@ -60,6 +88,10 @@ export default createStore({
 
       // 로컬 스토리지에서 사용자 정보 삭제
       localStorage.removeItem("user");
+      localStorage.removeItem("assignmentSearchHistory");
+      localStorage.removeItem("dashboardSearchHistory");
+      localStorage.removeItem("assignmentCurrentPage");
+      localStorage.removeItem("dashboardCurrentPage"); // 추가
     },
   },
   modules: {},

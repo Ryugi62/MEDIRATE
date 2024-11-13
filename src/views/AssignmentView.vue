@@ -73,14 +73,14 @@
         <i
           class="fa-solid fa-angles-left pagination__button"
           @click="changePage(1)"
-          :disabled="current === 1"
+          :class="{ 'pagination__button--disabled': current === 1 }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angle-left pagination__button"
           @click="changePage(current - 1)"
-          :disabled="current === 1"
+          :class="{ 'pagination__button--disabled': current === 1 }"
         ></i>
       </li>
       <li
@@ -97,14 +97,14 @@
         <i
           class="fa-solid fa-chevron-right pagination__button"
           @click="changePage(current + 1)"
-          :disabled="current === total"
+          :class="{ 'pagination__button--disabled': current === total }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
           @click="changePage(total)"
-          :disabled="current === total"
+          :class="{ 'pagination__button--disabled': current === total }"
         ></i>
       </li>
     </ul>
@@ -118,11 +118,11 @@ export default {
     return {
       originalAssignments: [],
       assignments: [],
-      current: 1,
+      current: this.$store.getters.getAssignmentCurrentPage || 1, // Vuex에서 현재 페이지 가져오기
       perPage: 50,
       sortColumn: "id",
       sortDirection: "down",
-      searchQuery: "",
+      searchQuery: this.$store.getters.getAssignmentSearchHistory || "",
       isFocused: false,
     };
   },
@@ -198,6 +198,18 @@ export default {
     },
   },
 
+  watch: {
+    // Watch for changes in searchQuery and update the Vuex store
+    searchQuery(newQuery) {
+      this.updateAssignmentSearchHistory(newQuery);
+    },
+
+    // Watch for changes in current page and update the Vuex store
+    current(newPage) {
+      this.updateAssignmentCurrentPage(newPage);
+    },
+  },
+
   mounted() {
     // 헤더에 jwt 토큰을 담아서 요청
     this.$axios
@@ -209,6 +221,20 @@ export default {
       .then((response) => {
         this.originalAssignments = response.data;
         this.assignments = response.data;
+
+        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+        if (this.searchQuery) {
+          this.assignAssignmentSearchFromStore();
+        }
+
+        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+        if (this.$store.getters.getAssignmentCurrentPage) {
+          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
+          this.current = Math.min(
+            this.$store.getters.getAssignmentCurrentPage,
+            this.total
+          );
+        }
       })
       .catch((error) => {
         console.error(error);
@@ -220,10 +246,13 @@ export default {
     redirect(id) {
       this.$router.push({ name: "assignmentDetail", params: { id } });
     },
+
     // 페이지 변경
     changePage(pageNumber) {
-      this.current = Math.max(1, Math.min(pageNumber, this.total));
+      const newPage = Math.max(1, Math.min(pageNumber, this.total));
+      this.current = newPage;
     },
+
     // 특정 키로 과제 목록 정렬
     sortBy(columnKey) {
       if (this.sortColumn === columnKey) {
@@ -260,6 +289,24 @@ export default {
       this.searchQuery = "";
       this.assignments = this.originalAssignments;
       this.current = 1; // 리셋 후 첫 페이지로 이동
+    },
+
+    // Assign search from store
+    assignAssignmentSearchFromStore() {
+      this.assignments = this.originalAssignments.filter((assignment) =>
+        assignment.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+      );
+      this.current = 1;
+    },
+
+    // Update search history in Vuex store
+    updateAssignmentSearchHistory(history) {
+      this.$store.commit("setAssignmentSearchHistory", history);
+    },
+
+    // Update current page in Vuex store
+    updateAssignmentCurrentPage(page) {
+      this.$store.commit("setAssignmentCurrentPage", page);
     },
   },
 };
@@ -431,6 +478,11 @@ tbody > tr:hover {
   cursor: pointer;
   border-radius: 50%;
   border: 1px solid var(--white);
+}
+
+.pagination__button--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .pagination__link:hover {

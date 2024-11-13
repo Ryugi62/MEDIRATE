@@ -83,8 +83,13 @@ export default {
     },
 
     clickSlideBarItem(paths) {
-      if (paths.includes("/dashboard"))
-        this.$store.commit("setSearchHistory", "");
+      if (paths.includes("/dashboard")) {
+        this.$store.commit("setDashboardSearchHistory", "");
+        this.$store.commit("setDashboardCurrentPage", 1);
+      } else if (paths.includes("/assignment")) {
+        this.$store.commit("setAssignmentSearchHistory", "");
+        this.$store.commit("setAssignmentCurrentPage", 1);
+      }
     },
   },
 };

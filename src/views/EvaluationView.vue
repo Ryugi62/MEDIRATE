@@ -422,6 +422,8 @@ export default {
           .then((response) => {
             response.data;
 
+            this.$store.commit("setAssignmentSearchHistory", "");
+            this.$store.commit("setAssignmentCurrentPage", 1);
             this.$router.push({ name: "assignment" });
           })
           .catch((error) => {

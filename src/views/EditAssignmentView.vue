@@ -440,6 +440,9 @@ export default {
         .then(() => {
           // 성공 메시지 추가
           alert("과제가 성공적으로 저장되었습니다.");
+
+          this.$store.commit("setAssignmentSearchHistory", "");
+          this.$store.commit("setAssignmentCurrentPage", 1);
           this.$router.push({ name: "assignment" });
         })
         .catch((error) => {
