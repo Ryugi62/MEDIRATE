@@ -672,9 +672,13 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       return res.status(404).send({ message: "Assignment not found." });
     } else {
       const assignmentType = assignment[0].assignment_type;
+      const folderPath = `./assets/${assignmentType}`;
 
-      if (fs.existsSync(`./assets/${assignmentType}`)) {
-        fs.rmSync(`./assets/${assignmentType}`, { recursive: true });
+      try {
+        await fs.access(folderPath); // 폴더가 존재하는지 확인
+        await fs.rm(folderPath, { recursive: true }); // 폴더를 비동기적으로 삭제
+      } catch (error) {
+        console.error("Folder does not exist or cannot be removed:", error);
       }
     }
 
