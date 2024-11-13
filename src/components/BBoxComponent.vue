@@ -737,7 +737,8 @@ export default {
         if (newVal !== oldVal) {
           await this.loadBackgroundImage();
           await this.fetchLocalInfo();
-          await this.showTempAIBox(); // 분리된 함수 호출
+          if (!this.is_ai_use)
+            await this.showTempAIBox(); // 분리된 함수 호출
           this.resizeCanvas();
         }
       },
