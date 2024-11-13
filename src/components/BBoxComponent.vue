@@ -28,7 +28,7 @@
               :disabled="isRunning"
               title="새로고침"
             >
-              <i class="fas fa-sync"></i>
+            가장 마지막 평가 시간으로 복귀
             </button>
           </div>
         </div>
