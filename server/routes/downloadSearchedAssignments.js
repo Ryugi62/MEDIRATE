@@ -441,6 +441,9 @@ router.post("/metrics", authenticateToken, async (req, res) => {
     res.json({
       metrics: [
         {
+          totalTP,
+          totalFP,
+          totalFN,
           Recall,
           Precision,
           F1,
