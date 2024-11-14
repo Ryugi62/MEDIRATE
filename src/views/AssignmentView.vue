@@ -281,7 +281,7 @@ export default {
         return;
       }
       this.assignments = this.originalAssignments.filter((assignment) =>
-        assignment.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+        assignment.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
       );
       this.current = 1; // 검색 후 첫 페이지로 이동
     },

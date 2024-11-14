@@ -346,7 +346,7 @@ export default {
         return;
       }
       this.data = this.originalData.filter((item) =>
-        item.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
       );
       this.total = this.data.length;
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
