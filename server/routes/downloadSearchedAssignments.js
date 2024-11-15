@@ -412,8 +412,11 @@ router.post("/metrics", authenticateToken, async (req, res) => {
       const adjustedSliderValue =
         sliderValue > maxSliderValue ? maxSliderValue : sliderValue;
 
-      const evaluatorSquares = users.flatMap((user) =>
-        user.squares.filter((sq) => !sq.isAI && !sq.isTemporary)
+      // 평가자의 squares를 원본 이미지 좌표로 변환
+      const evaluatorSquares = await getAdjustedSquaresForMetrics(
+        users,
+        assignmentData.assignmentMode,
+        assignmentId
       );
 
       // AI 데이터에서 score_value 이상인 값만 필터링
@@ -457,6 +460,46 @@ router.post("/metrics", authenticateToken, async (req, res) => {
     res.status(500).send("Internal Server Error");
   }
 });
+
+// 추가: Metrics용으로 평가자의 squares를 변환하는 함수
+async function getAdjustedSquaresForMetrics(
+  users,
+  assignmentMode,
+  assignmentId
+) {
+  const questions = await getQuestionsForAssignment(assignmentId);
+  const adjustedSquares = [];
+
+  for (const user of users) {
+    for (const question of user.questions) {
+      const adjusted = await getAdjustedSquares([user], question);
+      adjustedSquares.push(...adjusted);
+    }
+  }
+
+  return adjustedSquares;
+}
+
+async function getQuestionsForAssignment(assignmentId) {
+  const [questions] = await db.query(
+    `SELECT id as questionId, image as questionImage FROM questions WHERE assignment_id = ?`,
+    [assignmentId]
+  );
+
+  const adjustedQuestions = [];
+
+  for (const question of questions) {
+    const { width, height } = await getImageDimensions(question.questionImage);
+    adjustedQuestions.push({
+      questionId: question.questionId,
+      questionImage: question.questionImage,
+      originalWidth: width,
+      originalHeight: height,
+    });
+  }
+
+  return adjustedQuestions;
+}
 
 function calculateTP_FP_FN(evaluatorSquares, aiSquares, overlapCount) {
   const groups = [];
