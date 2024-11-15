@@ -739,16 +739,17 @@ td.unanswered-rate {
 }
 
 .exporting-message {
-  position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 20px 40px;
+  color: black;
   border: 1px solid var(--light-gray);
-  border-radius: 8px;
   z-index: 1000;
+  padding: 20px 40px;
+  position: fixed;
   font-size: 18px;
+  transform: translate(-50%, -50%);
   font-weight: bold;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.9);
 }
 </style>
