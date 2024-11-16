@@ -502,8 +502,8 @@ export default {
 
         let alertMessage = "[ 검색된 과제들의 Metrics ]\n\n";
         metrics.forEach((metric) => {
-          alertMessage += `Recall: ${(metric.Recall * 100).toFixed(2)}%\n`;
-          alertMessage += `Precision: ${(metric.Precision * 100).toFixed(
+          alertMessage += `Recall: ${(metric.Recall).toFixed(2)}%\n`;
+          alertMessage += `Precision: ${(metric.Precision).toFixed(
             2
           )}%\n`;
           alertMessage += `F1-score: ${metric.F1.toFixed(2)}\n\n`;
