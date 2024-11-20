@@ -180,6 +180,7 @@ export default {
       searchQuery: this.$store.getters.getDashboardSearchHistory || "",
       isFocused: false, // 추가
       isExporting: false,
+      exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
       sliderValue: 1,
       score_value: 50,
     };
@@ -231,9 +232,6 @@ export default {
           class: "unanswered-rate",
         },
       ];
-    },
-    exportingMessage() {
-      return "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
     },
   },
 
@@ -474,6 +472,7 @@ export default {
 
       try {
         this.isExporting = true;
+        this.exportingMessage = "Metrics 분석중입니다.";
 
         // 현재 검색된 과제들의 ID를 수집
         const assignmentIds = this.data.map((assignment) => assignment.id);
@@ -502,13 +501,11 @@ export default {
 
         let alertMessage = "[ 검색된 과제들의 Metrics ]\n\n";
         metrics.forEach((metric) => {
-          alertMessage += `Recall: ${(metric.Recall).toFixed(2)}\n`;
-          alertMessage += `Precision: ${(metric.Precision).toFixed(
-            2
-          )}\n`;
+          alertMessage += `Recall: ${metric.Recall.toFixed(2)}\n`;
+          alertMessage += `Precision: ${metric.Precision.toFixed(2)}\n`;
           alertMessage += `F1-score: ${metric.F1.toFixed(2)}\n\n`;
-          alertMessage += `슬라이더 값: ${metric.sliderValue}\n`;
-          alertMessage += `점수 값: ${metric.score_value * 100}%\n`;
+          alertMessage += `평가자 일치: ${metric.sliderValue}\n`;
+          alertMessage += `신뢰도(score) 값: ${metric.score_value * 100}%\n`;
         });
 
         alert(alertMessage);
@@ -519,6 +516,8 @@ export default {
         alert("Metrics를 가져오는 중 오류가 발생했습니다.");
       } finally {
         this.isExporting = false;
+        this.exportingMessage =
+          "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
       }
     },
   },
