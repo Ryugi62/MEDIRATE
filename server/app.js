@@ -95,16 +95,18 @@ function listAssetFolders(req, res) {
   const folders = fs
     .readdirSync(absolutePath, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name.trim()); // 공백 제거
+    .map((dirent) => dirent.name.trim().replace(/[\r\n]/g, '')); // 공백과 줄바꿈 제거
 
   res.json(folders);
 }
 
 function listFilesInFolder(req, res) {
   const { foldername } = req.params;
-  const folderPath = path.join(__dirname, "../assets", foldername);
+  const cleanFoldername = foldername.trim().replace(/[\r\n]/g, ''); // 줄바꿈 제거
+  const folderPath = path.join(__dirname, "../assets", cleanFoldername);
   
   console.log(`[listFilesInFolder] Requested folder: "${foldername}"`);
+  console.log(`[listFilesInFolder] Clean folder name: "${cleanFoldername}"`);
   console.log(`[listFilesInFolder] Full folder path: "${folderPath}"`);
   console.log(`[listFilesInFolder] Assets directory: "${path.join(__dirname, "../assets")}"`);
   
@@ -113,8 +115,12 @@ function listFilesInFolder(req, res) {
     const assetsDir = path.join(__dirname, "../assets");
     const allFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
       .filter(dirent => dirent.isDirectory())
-      .map(dirent => dirent.name);
-    console.log(`[listFilesInFolder] Available folders: [${allFolders.map(f => `"${f}"`).join(", ")}]`);
+      .map(dirent => dirent.name.trim().replace(/[\r\n]/g, '')); // 줄바꿈 제거
+    console.log(`[listFilesInFolder] Available clean folders: [${allFolders.map(f => `"${f}"`).join(", ")}]`);
+    
+    // 요청된 폴더가 정확히 일치하는지 확인
+    const exactMatch = allFolders.find(folder => folder === cleanFoldername);
+    console.log(`[listFilesInFolder] Exact match found: ${exactMatch ? `"${exactMatch}"` : 'false'}`);
   } catch (error) {
     console.log(`[listFilesInFolder] Error reading assets directory:`, error);
   }
@@ -161,11 +167,12 @@ function listFilesInFolder(req, res) {
       const assetsDir = path.join(__dirname, "../assets");
       const availableFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
         .filter(dirent => dirent.isDirectory())
-        .map(dirent => dirent.name);
+        .map(dirent => dirent.name.trim().replace(/[\r\n]/g, '')); // 줄바꿈 제거
       
       res.status(404).json({
         error: "Folder not found",
         requestedFolder: foldername,
+        cleanRequestedFolder: cleanFoldername,
         folderPath: folderPath,
         availableFolders: availableFolders
       });
@@ -173,6 +180,7 @@ function listFilesInFolder(req, res) {
       res.status(404).json({
         error: "Folder not found",
         requestedFolder: foldername,
+        cleanRequestedFolder: cleanFoldername,
         folderPath: folderPath,
         message: "Could not read assets directory"
       });
