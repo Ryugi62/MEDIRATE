@@ -144,8 +144,8 @@
               <datalist id="assignment-id-list">
                 <option
                   v-for="folder in folderList"
-                  :key="folder.id"
-                  :value="folder.id"
+                  :key="folder"
+                  :value="folder"
                 >
                   {{ folder }}
                 </option>

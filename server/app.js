@@ -188,8 +188,11 @@ function listFilesInFolder(req, res) {
       );
       
       if (exactMatchFolder) {
-        actualFolderPath = path.join(__dirname, "../assets", exactMatchFolder);
+        // Clean the exact match folder name before using it
+        const cleanExactMatchFolder = exactMatchFolder.trim().replace(/[\r\n]/g, '');
+        actualFolderPath = path.join(__dirname, "../assets", cleanExactMatchFolder);
         console.log(`[listFilesInFolder] Found exact match folder: "${exactMatchFolder}"`);
+        console.log(`[listFilesInFolder] Cleaned folder name: "${cleanExactMatchFolder}"`);
         console.log(`[listFilesInFolder] New folder path: "${actualFolderPath}"`);
         console.log(`[listFilesInFolder] New path exists: ${fs.existsSync(actualFolderPath)}`);
       }
