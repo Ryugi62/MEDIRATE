@@ -162,6 +162,19 @@ async function handleTaskDataUpload(req, res) {
   console.log(`[${requestId}] Request headers:`, JSON.stringify(req.headers, null, 2));
   console.log(`[${requestId}] Request body fields:`, Object.keys(req.body));
   
+  // 클라이언트 연결 상태 모니터링
+  req.on('close', () => {
+    console.log(`[${requestId}] Client connection closed`);
+  });
+  
+  req.on('aborted', () => {
+    console.log(`[${requestId}] Client request aborted`);
+  });
+  
+  res.on('close', () => {
+    console.log(`[${requestId}] Response connection closed`);
+  });
+  
   try {
     const { userid, taskid, ...otherFields } = req.body;
     console.log(`[${requestId}] Extracted userid: ${userid}`);
@@ -226,10 +239,16 @@ async function handleTaskDataUpload(req, res) {
       let totalEntries = 0;
       let parserFinished = false;
       
+      let lastEntryTime = Date.now();
+      let completionTimer = null;
+      
       const checkCompletion = () => {
         console.log(`[${requestId}] Checking completion: pendingWrites=${pendingWrites}, parserFinished=${parserFinished}, entriesProcessed=${entriesProcessed}, totalEntries=${totalEntries}`);
+        
+        // 파서가 완료되고 대기 중인 쓰기가 없으면 완료
         if (parserFinished && pendingWrites === 0) {
-          console.log(`[${requestId}] ZIP extraction completed`);
+          if (completionTimer) clearTimeout(completionTimer);
+          console.log(`[${requestId}] ZIP extraction completed (parser finished)`);
           console.log(`[${requestId}] Total entries processed: ${entriesProcessed}`);
           console.log(`[${requestId}] Total files extracted: ${extractedFiles.length}`);
           console.log(`[${requestId}] Extraction errors: ${extractionErrors.length}`);
@@ -239,6 +258,25 @@ async function handleTaskDataUpload(req, res) {
           }
           
           resolve();
+          return;
+        }
+        
+        // 파서가 완료되지 않았지만 모든 쓰기가 완료되고 5초간 새 엔트리가 없으면 완료로 간주
+        if (!parserFinished && pendingWrites === 0) {
+          if (completionTimer) clearTimeout(completionTimer);
+          completionTimer = setTimeout(() => {
+            console.log(`[${requestId}] ZIP extraction completed (timeout - no new entries for 5 seconds)`);
+            console.log(`[${requestId}] Total entries processed: ${entriesProcessed}`);
+            console.log(`[${requestId}] Total files extracted: ${extractedFiles.length}`);
+            console.log(`[${requestId}] Extraction errors: ${extractionErrors.length}`);
+            
+            if (extractionErrors.length > 0) {
+              console.log(`[${requestId}] Extraction errors details:`, extractionErrors);
+            }
+            
+            parserFinished = true; // 강제로 완료 처리
+            resolve();
+          }, 5000);
         }
       };
       
@@ -247,10 +285,38 @@ async function handleTaskDataUpload(req, res) {
         reject(err);
       });
       
-      stream
-        .pipe(unzipper.Parse())
+      stream.on('end', () => {
+        console.log(`[${requestId}] ZIP file stream ended`);
+      });
+      
+      stream.on('close', () => {
+        console.log(`[${requestId}] ZIP file stream closed`);
+      });
+      
+      const parser = unzipper.Parse();
+      
+      parser.on('close', () => {
+        console.log(`[${requestId}] ZIP parser closed`);
+        if (!parserFinished) {
+          console.log(`[${requestId}] Parser closed without finish event, marking as finished`);
+          parserFinished = true;
+          checkCompletion();
+        }
+      });
+      
+      parser.on('end', () => {
+        console.log(`[${requestId}] ZIP parser ended`);
+      });
+      
+      stream.pipe(parser)
         .on("entry", (entry) => {
           totalEntries++;
+          lastEntryTime = Date.now();
+          if (completionTimer) {
+            clearTimeout(completionTimer);
+            completionTimer = null;
+          }
+          
           const fileName = path.basename(entry.path);
           const fileType = entry.type;
           const fileSize = entry.size;
