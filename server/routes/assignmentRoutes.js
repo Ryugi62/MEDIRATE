@@ -680,8 +680,8 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       const folderPath = `./assets/${assignmentType}`;
 
       try {
-        await fs.access(folderPath); // 폴더가 존재하는지 확인
-        await fs.rm(folderPath, { recursive: true }); // 폴더를 비동기적으로 삭제
+        await fsPromises.access(folderPath); // 폴더가 존재하는지 확인
+        await fsPromises.rm(folderPath, { recursive: true }); // 폴더를 비동기적으로 삭제
       } catch (error) {
         console.error("Folder does not exist or cannot be removed:", error);
       }
@@ -734,8 +734,8 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
     let metadataJson = null;
 
     try {
-      await fs.access(metadataPath);
-      const metadataContent = await fs.readFile(metadataPath, "utf8");
+      await fsPromises.access(metadataPath);
+      const metadataContent = await fsPromises.readFile(metadataPath, "utf8");
       metadataJson = JSON.parse(metadataContent);
       // Exclude 'userid' key
       delete metadataJson["userid"];
