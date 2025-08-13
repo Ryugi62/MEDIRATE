@@ -154,66 +154,208 @@ function serveFileFromFolder(req, res) {
 }
 
 async function handleTaskDataUpload(req, res) {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substr(2, 9);
+  
+  console.log(`[${requestId}] ===== TASK DATA UPLOAD REQUEST START =====`);
+  console.log(`[${requestId}] Request timestamp: ${new Date().toISOString()}`);
+  console.log(`[${requestId}] Request headers:`, JSON.stringify(req.headers, null, 2));
+  console.log(`[${requestId}] Request body fields:`, Object.keys(req.body));
+  
   try {
-    const { userid, taskid, ...otherFields } = req.body; // userid, taskid를 제외한 나머지 폼 필드 추출
+    const { userid, taskid, ...otherFields } = req.body;
+    console.log(`[${requestId}] Extracted userid: ${userid}`);
+    console.log(`[${requestId}] Extracted taskid: ${taskid}`);
+    console.log(`[${requestId}] Other fields:`, JSON.stringify(otherFields, null, 2));
+    
+    if (!req.file) {
+      console.log(`[${requestId}] ERROR: No file uploaded`);
+      return res.status(400).json({ code: "0", result: "No file uploaded" });
+    }
+    
+    console.log(`[${requestId}] Uploaded file info:`, {
+      originalname: req.file.originalname,
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+    
     const taskDir = path.join(IF_DIRECTORY, taskid);
+    console.log(`[${requestId}] Task directory path: ${taskDir}`);
+    console.log(`[${requestId}] IF_DIRECTORY: ${IF_DIRECTORY}`);
 
-    console.log(`Task ID: ${taskid}`);
-    console.log(`Task Directory: ${taskDir}`);
-
+    // 디렉토리 존재 확인 및 생성
     if (!fs.existsSync(taskDir)) {
+      console.log(`[${requestId}] Directory does not exist, creating: ${taskDir}`);
       fs.mkdirSync(taskDir, { recursive: true });
-      console.log(`Created directory: ${taskDir}`);
+      console.log(`[${requestId}] Directory created successfully`);
+    } else {
+      console.log(`[${requestId}] Directory already exists: ${taskDir}`);
     }
 
     const zipFilePath = req.file.path;
-    console.log(`ZIP file path: ${zipFilePath}`);
+    console.log(`[${requestId}] ZIP file path: ${zipFilePath}`);
+    console.log(`[${requestId}] ZIP file exists: ${fs.existsSync(zipFilePath)}`);
+    
+    if (fs.existsSync(zipFilePath)) {
+      const stats = fs.statSync(zipFilePath);
+      console.log(`[${requestId}] ZIP file size: ${stats.size} bytes`);
+    }
+
+    console.log(`[${requestId}] Starting ZIP extraction...`);
+    let extractedFiles = [];
+    let extractionErrors = [];
 
     // ZIP 파일을 풀어서 taskDir에 저장
     await new Promise((resolve, reject) => {
-      fs.createReadStream(zipFilePath)
+      const stream = fs.createReadStream(zipFilePath);
+      
+      stream.on('error', (err) => {
+        console.log(`[${requestId}] Error reading ZIP file:`, err);
+        reject(err);
+      });
+      
+      stream
         .pipe(unzipper.Parse())
         .on("entry", (entry) => {
           const fileName = path.basename(entry.path);
-          console.log(`Extracting file: ${fileName}`);
+          const fileType = entry.type;
+          const fileSize = entry.size;
+          
+          console.log(`[${requestId}] Processing entry:`, {
+            path: entry.path,
+            fileName: fileName,
+            type: fileType,
+            size: fileSize
+          });
+          
           if (
             entry.type === "File" &&
-            fileName.match(/\.(jpg|jpeg|png|gif|json)$/)
+            fileName.match(/\.(jpg|jpeg|png|gif|json)$/i)
           ) {
             const fullPath = path.join(taskDir, fileName);
-            entry.pipe(fs.createWriteStream(fullPath)).on("finish", () => {
-              console.log(`File extracted: ${fullPath}`);
+            console.log(`[${requestId}] Extracting file to: ${fullPath}`);
+            
+            const writeStream = fs.createWriteStream(fullPath);
+            
+            writeStream.on('error', (err) => {
+              console.log(`[${requestId}] Error writing file ${fileName}:`, err);
+              extractionErrors.push({ fileName, error: err.message });
             });
+            
+            writeStream.on("finish", () => {
+              console.log(`[${requestId}] File extracted successfully: ${fullPath}`);
+              
+              // 추출된 파일 정보 확인
+              if (fs.existsSync(fullPath)) {
+                const extractedStats = fs.statSync(fullPath);
+                console.log(`[${requestId}] Extracted file size: ${extractedStats.size} bytes`);
+                extractedFiles.push({
+                  fileName,
+                  fullPath,
+                  size: extractedStats.size
+                });
+              }
+            });
+            
+            entry.pipe(writeStream);
           } else {
+            console.log(`[${requestId}] Skipping file (not allowed type or not a file): ${fileName}, type: ${fileType}`);
             entry.autodrain();
           }
         })
         .on("finish", () => {
-          console.log("Unzip completed");
+          console.log(`[${requestId}] ZIP extraction completed`);
+          console.log(`[${requestId}] Total files extracted: ${extractedFiles.length}`);
+          console.log(`[${requestId}] Extraction errors: ${extractionErrors.length}`);
+          
+          if (extractionErrors.length > 0) {
+            console.log(`[${requestId}] Extraction errors details:`, extractionErrors);
+          }
+          
           resolve();
         })
         .on("error", (err) => {
-          console.error("Error during unzip:", err);
+          console.log(`[${requestId}] Error during ZIP extraction:`, err);
           reject(err);
         });
     });
 
-    fs.unlinkSync(zipFilePath); // 원본 ZIP 파일 삭제
-    console.log(`Deleted ZIP file: ${zipFilePath}`);
+    // 원본 ZIP 파일 삭제
+    console.log(`[${requestId}] Deleting original ZIP file: ${zipFilePath}`);
+    try {
+      fs.unlinkSync(zipFilePath);
+      console.log(`[${requestId}] ZIP file deleted successfully`);
+    } catch (deleteError) {
+      console.log(`[${requestId}] Error deleting ZIP file:`, deleteError);
+    }
 
-    // userid와 나머지 폼 필드를 metadata.json 파일로 저장
+    // metadata.json 생성
     const metadata = {
       userid,
+      uploadTimestamp: new Date().toISOString(),
+      requestId,
+      extractedFiles: extractedFiles.map(f => ({ fileName: f.fileName, size: f.size })),
       ...otherFields,
     };
+    
     const metadataPath = path.join(taskDir, "metadata.json");
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-    console.log(`Metadata saved to ${metadataPath}`);
+    console.log(`[${requestId}] Saving metadata to: ${metadataPath}`);
+    console.log(`[${requestId}] Metadata content:`, JSON.stringify(metadata, null, 2));
+    
+    try {
+      fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+      console.log(`[${requestId}] Metadata saved successfully`);
+    } catch (metadataError) {
+      console.log(`[${requestId}] Error saving metadata:`, metadataError);
+    }
+
+    // 최종 디렉토리 상태 확인
+    console.log(`[${requestId}] Final directory contents:`);
+    try {
+      const dirContents = fs.readdirSync(taskDir);
+      dirContents.forEach(file => {
+        const filePath = path.join(taskDir, file);
+        const stats = fs.statSync(filePath);
+        console.log(`[${requestId}] - ${file} (${stats.size} bytes)`);
+      });
+    } catch (dirError) {
+      console.log(`[${requestId}] Error reading directory contents:`, dirError);
+    }
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.log(`[${requestId}] ===== TASK DATA UPLOAD SUCCESS =====`);
+    console.log(`[${requestId}] Total processing time: ${duration}ms`);
+    console.log(`[${requestId}] Sending response: { code: "1", result: "OK" }`);
 
     res.json({ code: "1", result: "OK" });
+    
+    console.log(`[${requestId}] Response sent successfully`);
+    
   } catch (error) {
-    console.error("Error handling task data upload:", error);
-    res.status(500).send(`An error occurred: ${error.message}`);
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.log(`[${requestId}] ===== TASK DATA UPLOAD ERROR =====`);
+    console.log(`[${requestId}] Error occurred after ${duration}ms`);
+    console.log(`[${requestId}] Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    console.log(`[${requestId}] Sending error response`);
+    res.status(500).json({ 
+      code: "0", 
+      result: "ERROR", 
+      message: error.message,
+      requestId 
+    });
+    
+    console.log(`[${requestId}] Error response sent`);
   }
 }
 

@@ -3,7 +3,8 @@
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
-const fs = require("fs").promises; // 기존의 fs 대신 fs.promises 사용
+const fs = require("fs");
+const fsPromises = require("fs").promises;
 const path = require("path");
 
 const router = express.Router();
@@ -84,7 +85,7 @@ router.get("/ai", authenticateToken, async (req, res) => {
     const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
 
     // Asynchronous file reading with fs.promises.readFile
-    const jsonContent = await fs.readFile(
+    const jsonContent = await fsPromises.readFile(
       `./assets/${assignmentType}/${jsonSrc}`,
       "utf8"
     );
