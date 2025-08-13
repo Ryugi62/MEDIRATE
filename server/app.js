@@ -188,9 +188,9 @@ function listFilesInFolder(req, res) {
       );
       
       if (exactMatchFolder) {
-        // Clean the exact match folder name before using it
+        // 실제 폴더명을 그대로 사용 (특수문자 포함)
+        actualFolderPath = path.join(__dirname, "../assets", exactMatchFolder);
         const cleanExactMatchFolder = exactMatchFolder.trim().replace(/[\r\n]/g, '');
-        actualFolderPath = path.join(__dirname, "../assets", cleanExactMatchFolder);
         console.log(`[listFilesInFolder] Found exact match folder: "${exactMatchFolder}"`);
         console.log(`[listFilesInFolder] Cleaned folder name: "${cleanExactMatchFolder}"`);
         console.log(`[listFilesInFolder] New folder path: "${actualFolderPath}"`);
