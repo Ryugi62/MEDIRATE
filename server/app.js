@@ -69,7 +69,7 @@ app.get("/api/assets/:foldername", listFilesInFolder);
 app.get("/api/assets/:foldername/:filename", serveFileFromFolder);
 
 // Route for uploading and extracting task data
-app.post("/api/taskdata", upload.single("zipdata"), handleTaskDataUpload);
+app.post("/api/taskdata", upload.any(), handleTaskDataUpload);
 
 // Fallback route for single-page applications (SPA)
 app.get("*", (req, res) => {
@@ -168,17 +168,28 @@ async function handleTaskDataUpload(req, res) {
     console.log(`[${requestId}] Extracted taskid: ${taskid}`);
     console.log(`[${requestId}] Other fields:`, JSON.stringify(otherFields, null, 2));
     
-    if (!req.file) {
-      console.log(`[${requestId}] ERROR: No file uploaded`);
-      return res.status(400).json({ code: "0", result: "No file uploaded" });
+    // req.files는 배열 형태로 옵니다 (upload.any() 사용 시)
+    console.log(`[${requestId}] All uploaded files:`, req.files);
+    
+    // ZIP 파일 찾기 (fieldname이 zipdata이거나, mimetype이 zip이거나, 확장자가 zip인 파일)
+    const uploadedFile = req.files && req.files.find(f => 
+      f.fieldname === 'zipdata' || 
+      f.mimetype === 'application/zip' || 
+      f.originalname?.toLowerCase().endsWith('.zip')
+    );
+    
+    if (!uploadedFile) {
+      console.log(`[${requestId}] ERROR: No ZIP file uploaded`);
+      console.log(`[${requestId}] Available files:`, req.files?.map(f => ({ fieldname: f.fieldname, mimetype: f.mimetype, originalname: f.originalname })));
+      return res.status(400).json({ code: "0", result: "No ZIP file uploaded" });
     }
     
     console.log(`[${requestId}] Uploaded file info:`, {
-      originalname: req.file.originalname,
-      filename: req.file.filename,
-      path: req.file.path,
-      size: req.file.size,
-      mimetype: req.file.mimetype
+      originalname: uploadedFile.originalname,
+      filename: uploadedFile.filename,
+      path: uploadedFile.path,
+      size: uploadedFile.size,
+      mimetype: uploadedFile.mimetype
     });
     
     const taskDir = path.join(IF_DIRECTORY, taskid);
@@ -194,7 +205,7 @@ async function handleTaskDataUpload(req, res) {
       console.log(`[${requestId}] Directory already exists: ${taskDir}`);
     }
 
-    const zipFilePath = req.file.path;
+    const zipFilePath = uploadedFile.path;
     console.log(`[${requestId}] ZIP file path: ${zipFilePath}`);
     console.log(`[${requestId}] ZIP file exists: ${fs.existsSync(zipFilePath)}`);
     
