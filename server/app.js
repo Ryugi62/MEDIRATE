@@ -126,11 +126,83 @@ function listFilesInFolder(req, res) {
   }
   
   console.log(`[listFilesInFolder] Folder exists: ${fs.existsSync(folderPath)}`);
+  
+  // Additional debugging for path issues
+  try {
+    const stats = fs.lstatSync(folderPath);
+    console.log(`[listFilesInFolder] Path stats:`, {
+      isDirectory: stats.isDirectory(),
+      isFile: stats.isFile(),
+      isSymbolicLink: stats.isSymbolicLink(),
+      mode: stats.mode,
+      uid: stats.uid,
+      gid: stats.gid
+    });
+  } catch (statsError) {
+    console.log(`[listFilesInFolder] Error getting path stats:`, statsError.message);
+    
+    // Try to access the parent directory
+    const parentDir = path.dirname(folderPath);
+    console.log(`[listFilesInFolder] Checking parent directory: "${parentDir}"`);
+    try {
+      const parentStats = fs.lstatSync(parentDir);
+      console.log(`[listFilesInFolder] Parent directory exists:`, parentStats.isDirectory());
+      
+      // List contents of parent directory
+      const parentContents = fs.readdirSync(parentDir);
+      console.log(`[listFilesInFolder] Parent directory contents:`, parentContents);
+      
+      // Check if folder name appears in parent contents (case sensitive check)
+      const folderName = path.basename(folderPath);
+      const foundInParent = parentContents.includes(folderName);
+      console.log(`[listFilesInFolder] Looking for "${folderName}" in parent contents: ${foundInParent}`);
+      
+      if (!foundInParent) {
+        // Do case-insensitive search
+        const caseInsensitiveMatch = parentContents.find(item => 
+          item.toLowerCase() === folderName.toLowerCase()
+        );
+        if (caseInsensitiveMatch) {
+          console.log(`[listFilesInFolder] Found case-insensitive match: "${caseInsensitiveMatch}"`);
+        }
+      }
+    } catch (parentError) {
+      console.log(`[listFilesInFolder] Error checking parent directory:`, parentError.message);
+    }
+  }
 
-  if (fs.existsSync(folderPath)) {
+  // Try to use the exact folder name from directory listing if the original doesn't work
+  let actualFolderPath = folderPath;
+  if (!fs.existsSync(folderPath)) {
+    console.log(`[listFilesInFolder] Original path doesn't exist, trying to find exact match...`);
+    
+    try {
+      const assetsDir = path.join(__dirname, "../assets");
+      const allFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+      
+      // Find exact match (including any hidden characters)
+      const exactMatchFolder = allFolders.find(folder => 
+        folder.trim().replace(/[\r\n]/g, '') === cleanFoldername
+      );
+      
+      if (exactMatchFolder) {
+        actualFolderPath = path.join(__dirname, "../assets", exactMatchFolder);
+        console.log(`[listFilesInFolder] Found exact match folder: "${exactMatchFolder}"`);
+        console.log(`[listFilesInFolder] New folder path: "${actualFolderPath}"`);
+        console.log(`[listFilesInFolder] New path exists: ${fs.existsSync(actualFolderPath)}`);
+      }
+    } catch (error) {
+      console.log(`[listFilesInFolder] Error finding exact match:`, error.message);
+    }
+  }
+
+  if (fs.existsSync(actualFolderPath)) {
+    console.log(`[listFilesInFolder] Using folder path: "${actualFolderPath}"`);
     // 이미지 파일 목록 가져오기
     const files = fs
-      .readdirSync(folderPath, { withFileTypes: true })
+      .readdirSync(actualFolderPath, { withFileTypes: true })
       .filter((dirent) => dirent.isFile())
       .map((dirent) => dirent.name)
       .filter((file) => {
@@ -139,7 +211,7 @@ function listFilesInFolder(req, res) {
       });
 
     // metadata.json 파일 읽기
-    const metadataPath = path.join(folderPath, "metadata.json");
+    const metadataPath = path.join(actualFolderPath, "metadata.json");
     let metadata = null;
 
     console.log(`
@@ -160,7 +232,7 @@ function listFilesInFolder(req, res) {
     console.log(`[listFilesInFolder] Returning ${files.length} files for folder "${foldername}"`);
     res.json({ files, metadata });
   } else {
-    console.log(`[listFilesInFolder] Folder not found: "${folderPath}"`);
+    console.log(`[listFilesInFolder] Folder not found: "${actualFolderPath}"`);
     
     // 사용 가능한 폴더 목록을 포함한 404 응답
     try {
@@ -173,7 +245,8 @@ function listFilesInFolder(req, res) {
         error: "Folder not found",
         requestedFolder: foldername,
         cleanRequestedFolder: cleanFoldername,
-        folderPath: folderPath,
+        originalFolderPath: folderPath,
+        actualFolderPath: actualFolderPath,
         availableFolders: availableFolders
       });
     } catch (error) {
@@ -181,7 +254,8 @@ function listFilesInFolder(req, res) {
         error: "Folder not found",
         requestedFolder: foldername,
         cleanRequestedFolder: cleanFoldername,
-        folderPath: folderPath,
+        originalFolderPath: folderPath,
+        actualFolderPath: actualFolderPath,
         message: "Could not read assets directory"
       });
     }
