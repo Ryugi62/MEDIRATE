@@ -233,7 +233,11 @@ function listFilesInFolder(req, res) {
 
     // 응답으로 파일 목록과 메타데이터를 함께 반환 (metadata가 없을 수 있음)
     console.log(`[listFilesInFolder] Returning ${files.length} files for folder "${foldername}"`);
-    res.json({ files, metadata });
+    
+    // 원본 폴더명 찾기 (특수문자 포함)
+    const originalFolderName = path.basename(actualFolderPath);
+    
+    res.json({ files, metadata, originalFolderName });
   } else {
     console.log(`[listFilesInFolder] Folder not found: "${actualFolderPath}"`);
     
@@ -269,7 +273,33 @@ function listFilesInFolder(req, res) {
 function serveFileFromFolder(req, res) {
   const foldername = decodeURIComponent(req.params.foldername);
   const filename = decodeURIComponent(req.params.filename);
-  const absolutePath = path.join(__dirname, "../assets", foldername, filename);
+  
+  // 실제 폴더명 찾기 (특수문자 포함)
+  let actualFolderPath = path.join(__dirname, "../assets", foldername);
+  
+  // 폴더가 존재하지 않으면 원본 폴더명 찾기
+  if (!fs.existsSync(actualFolderPath)) {
+    try {
+      const assetsDir = path.join(__dirname, "../assets");
+      const allFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+      
+      // cleanFoldername과 일치하는 폴더 찾기
+      const cleanFoldername = foldername.trim().replace(/[\r\n]/g, '');
+      const exactMatchFolder = allFolders.find(folder => 
+        folder.trim().replace(/[\r\n]/g, '') === cleanFoldername
+      );
+      
+      if (exactMatchFolder) {
+        actualFolderPath = path.join(__dirname, "../assets", exactMatchFolder);
+      }
+    } catch (error) {
+      console.log(`[serveFileFromFolder] Error finding exact folder match:`, error);
+    }
+  }
+  
+  const absolutePath = path.join(actualFolderPath, filename);
 
   if (fs.existsSync(absolutePath)) {
     res.download(absolutePath, errorHandler(res));

@@ -457,8 +457,8 @@ export default {
       this.$axios
         .get(`/api/assets/${this.assignmentDetails.selectedAssignmentId}`)
         .then((response) => {
-          const { files, metadata } = response.data;
-          const rout = `/api/assets/${this.assignmentDetails.selectedAssignmentId}`;
+          const { files, metadata, originalFolderName } = response.data;
+          const rout = `/api/assets/${originalFolderName || this.assignmentDetails.selectedAssignmentId}`;
 
           console.log(`response.data : ${JSON.stringify(response.data)}`);
 
