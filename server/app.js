@@ -282,16 +282,24 @@ async function handleTaskDataUpload(req, res) {
         });
     });
 
+    console.log(`[${requestId}] ===== POST-EXTRACTION PROCESSING START =====`);
+
     // 원본 ZIP 파일 삭제
     console.log(`[${requestId}] Deleting original ZIP file: ${zipFilePath}`);
     try {
-      fs.unlinkSync(zipFilePath);
-      console.log(`[${requestId}] ZIP file deleted successfully`);
+      if (fs.existsSync(zipFilePath)) {
+        fs.unlinkSync(zipFilePath);
+        console.log(`[${requestId}] ZIP file deleted successfully`);
+      } else {
+        console.log(`[${requestId}] ZIP file does not exist, skipping deletion`);
+      }
     } catch (deleteError) {
-      console.log(`[${requestId}] Error deleting ZIP file:`, deleteError);
+      console.log(`[${requestId}] ERROR deleting ZIP file:`, deleteError);
+      throw new Error(`Failed to delete ZIP file: ${deleteError.message}`);
     }
 
     // metadata.json 생성
+    console.log(`[${requestId}] Creating metadata...`);
     const metadata = {
       userid,
       uploadTimestamp: new Date().toISOString(),
@@ -307,33 +315,61 @@ async function handleTaskDataUpload(req, res) {
     try {
       fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
       console.log(`[${requestId}] Metadata saved successfully`);
+      
+      // 메타데이터 파일이 실제로 생성되었는지 확인
+      if (fs.existsSync(metadataPath)) {
+        const savedMetadata = fs.readFileSync(metadataPath, 'utf8');
+        console.log(`[${requestId}] Metadata verification successful, size: ${savedMetadata.length} bytes`);
+      } else {
+        throw new Error('Metadata file was not created');
+      }
     } catch (metadataError) {
-      console.log(`[${requestId}] Error saving metadata:`, metadataError);
+      console.log(`[${requestId}] ERROR saving metadata:`, metadataError);
+      throw new Error(`Failed to save metadata: ${metadataError.message}`);
     }
 
     // 최종 디렉토리 상태 확인
-    console.log(`[${requestId}] Final directory contents:`);
+    console.log(`[${requestId}] Checking final directory contents...`);
     try {
       const dirContents = fs.readdirSync(taskDir);
+      console.log(`[${requestId}] Final directory contains ${dirContents.length} files:`);
       dirContents.forEach(file => {
-        const filePath = path.join(taskDir, file);
-        const stats = fs.statSync(filePath);
-        console.log(`[${requestId}] - ${file} (${stats.size} bytes)`);
+        try {
+          const filePath = path.join(taskDir, file);
+          const stats = fs.statSync(filePath);
+          console.log(`[${requestId}] - ${file} (${stats.size} bytes)`);
+        } catch (fileError) {
+          console.log(`[${requestId}] - ${file} (ERROR reading stats: ${fileError.message})`);
+        }
       });
     } catch (dirError) {
-      console.log(`[${requestId}] Error reading directory contents:`, dirError);
+      console.log(`[${requestId}] ERROR reading directory contents:`, dirError);
+      throw new Error(`Failed to read directory: ${dirError.message}`);
     }
 
+    console.log(`[${requestId}] ===== PREPARING RESPONSE =====`);
     const endTime = Date.now();
     const duration = endTime - startTime;
     
-    console.log(`[${requestId}] ===== TASK DATA UPLOAD SUCCESS =====`);
     console.log(`[${requestId}] Total processing time: ${duration}ms`);
-    console.log(`[${requestId}] Sending response: { code: "1", result: "OK" }`);
+    console.log(`[${requestId}] All operations completed successfully`);
+    console.log(`[${requestId}] Preparing to send response: { code: "1", result: "OK" }`);
 
-    res.json({ code: "1", result: "OK" });
-    
-    console.log(`[${requestId}] Response sent successfully`);
+    // 응답 전송 전 마지막 체크
+    if (!res.headersSent) {
+      console.log(`[${requestId}] Headers not sent yet, proceeding with response`);
+      try {
+        res.json({ code: "1", result: "OK" });
+        console.log(`[${requestId}] ===== TASK DATA UPLOAD SUCCESS =====`);
+        console.log(`[${requestId}] Response sent successfully`);
+      } catch (responseError) {
+        console.log(`[${requestId}] ERROR sending response:`, responseError);
+        throw new Error(`Failed to send response: ${responseError.message}`);
+      }
+    } else {
+      console.log(`[${requestId}] WARNING: Headers already sent, cannot send response`);
+      throw new Error('Headers already sent, response cannot be sent');
+    }
     
   } catch (error) {
     const endTime = Date.now();
