@@ -507,7 +507,13 @@ export default {
             "해당 폴더의 이미지 리스트를 가져오는 중 오류 발생:",
             error
           );
-          alert("이미지 리스트를 가져오는 중 오류가 발생했습니다.");
+          
+          // 404 오류인 경우 더 구체적인 메시지 제공
+          if (error.response && error.response.status === 404) {
+            alert(`과제 ID "${this.assignmentDetails.selectedAssignmentId}"에 대한 데이터를 찾을 수 없습니다.\n\n가능한 원인:\n1. taskdata API 업로드가 실패했을 수 있습니다\n2. 다른 과제 ID를 사용했을 수 있습니다\n3. 파일이 삭제되었을 수 있습니다\n\n다시 업로드하거나 올바른 과제 ID를 확인해주세요.`);
+          } else {
+            alert("이미지 리스트를 가져오는 중 오류가 발생했습니다.\n\n서버 오류이거나 네트워크 문제일 수 있습니다.");
+          }
         });
     },
 

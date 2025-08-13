@@ -212,8 +212,18 @@ async function handleTaskDataUpload(req, res) {
     // 디렉토리 존재 확인 및 생성
     if (!fs.existsSync(taskDir)) {
       console.log(`[${requestId}] Directory does not exist, creating: ${taskDir}`);
-      fs.mkdirSync(taskDir, { recursive: true });
-      console.log(`[${requestId}] Directory created successfully`);
+      try {
+        fs.mkdirSync(taskDir, { recursive: true });
+        console.log(`[${requestId}] Directory created successfully`);
+        
+        // 디렉토리가 실제로 생성되었는지 확인
+        if (!fs.existsSync(taskDir)) {
+          throw new Error('Directory creation failed - directory does not exist after creation');
+        }
+      } catch (dirError) {
+        console.log(`[${requestId}] ERROR creating directory:`, dirError);
+        throw new Error(`Failed to create directory: ${dirError.message}`);
+      }
     } else {
       console.log(`[${requestId}] Directory already exists: ${taskDir}`);
     }
@@ -435,8 +445,17 @@ async function handleTaskDataUpload(req, res) {
     // 최종 디렉토리 상태 확인
     console.log(`[${requestId}] Checking final directory contents...`);
     try {
+      if (!fs.existsSync(taskDir)) {
+        throw new Error(`Task directory does not exist: ${taskDir}`);
+      }
+      
       const dirContents = fs.readdirSync(taskDir);
       console.log(`[${requestId}] Final directory contains ${dirContents.length} files:`);
+      
+      if (dirContents.length === 0) {
+        console.log(`[${requestId}] WARNING: Directory is empty after extraction`);
+      }
+      
       dirContents.forEach(file => {
         try {
           const filePath = path.join(taskDir, file);
@@ -446,6 +465,23 @@ async function handleTaskDataUpload(req, res) {
           console.log(`[${requestId}] - ${file} (ERROR reading stats: ${fileError.message})`);
         }
       });
+      
+      // 필수 파일들 확인
+      const hasMetadata = dirContents.includes('metadata.json');
+      const hasImages = dirContents.some(file => /\.(jpg|jpeg|png|gif)$/i.test(file));
+      
+      console.log(`[${requestId}] File verification:`);
+      console.log(`[${requestId}] - metadata.json exists: ${hasMetadata}`);
+      console.log(`[${requestId}] - image files exist: ${hasImages}`);
+      
+      if (!hasMetadata) {
+        console.log(`[${requestId}] WARNING: metadata.json not found in directory`);
+      }
+      
+      if (!hasImages) {
+        console.log(`[${requestId}] WARNING: No image files found in directory`);
+      }
+      
     } catch (dirError) {
       console.log(`[${requestId}] ERROR reading directory contents:`, dirError);
       throw new Error(`Failed to read directory: ${dirError.message}`);
