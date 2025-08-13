@@ -95,7 +95,7 @@ function listAssetFolders(req, res) {
   const folders = fs
     .readdirSync(absolutePath, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
+    .map((dirent) => dirent.name.trim()); // 공백 제거
 
   res.json(folders);
 }

@@ -462,12 +462,14 @@ export default {
         return;
       }
 
-      if (
-        !this.folderList.includes(this.assignmentDetails.selectedAssignmentId)
-      ) {
+      // trim()을 사용하여 공백 문제 해결
+      const trimmedFolderList = this.folderList.map(folder => folder.trim());
+      const trimmedAssignmentId = this.assignmentDetails.selectedAssignmentId.trim();
+      
+      if (!trimmedFolderList.includes(trimmedAssignmentId)) {
         alert(
-          `해당 과제 ID가 존재하지 않습니다.\n\n가능한 과제 ID는 다음과 같습니다:${this.folderList.join(
-            ", "
+          `해당 과제 ID가 존재하지 않습니다.\n\n입력된 ID: "${trimmedAssignmentId}"\n\n가능한 과제 ID는 다음과 같습니다:\n${this.folderList.join(
+            ",\n"
           )}`
         );
         return;
