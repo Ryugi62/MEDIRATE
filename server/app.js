@@ -103,6 +103,23 @@ function listAssetFolders(req, res) {
 function listFilesInFolder(req, res) {
   const { foldername } = req.params;
   const folderPath = path.join(__dirname, "../assets", foldername);
+  
+  console.log(`[listFilesInFolder] Requested folder: "${foldername}"`);
+  console.log(`[listFilesInFolder] Full folder path: "${folderPath}"`);
+  console.log(`[listFilesInFolder] Assets directory: "${path.join(__dirname, "../assets")}"`);
+  
+  // assets 디렉토리의 모든 폴더 확인
+  try {
+    const assetsDir = path.join(__dirname, "../assets");
+    const allFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+    console.log(`[listFilesInFolder] Available folders: [${allFolders.map(f => `"${f}"`).join(", ")}]`);
+  } catch (error) {
+    console.log(`[listFilesInFolder] Error reading assets directory:`, error);
+  }
+  
+  console.log(`[listFilesInFolder] Folder exists: ${fs.existsSync(folderPath)}`);
 
   if (fs.existsSync(folderPath)) {
     // 이미지 파일 목록 가져오기
@@ -134,9 +151,32 @@ function listFilesInFolder(req, res) {
     }
 
     // 응답으로 파일 목록과 메타데이터를 함께 반환 (metadata가 없을 수 있음)
+    console.log(`[listFilesInFolder] Returning ${files.length} files for folder "${foldername}"`);
     res.json({ files, metadata });
   } else {
-    res.status(404).send("Folder not found");
+    console.log(`[listFilesInFolder] Folder not found: "${folderPath}"`);
+    
+    // 사용 가능한 폴더 목록을 포함한 404 응답
+    try {
+      const assetsDir = path.join(__dirname, "../assets");
+      const availableFolders = fs.readdirSync(assetsDir, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+      
+      res.status(404).json({
+        error: "Folder not found",
+        requestedFolder: foldername,
+        folderPath: folderPath,
+        availableFolders: availableFolders
+      });
+    } catch (error) {
+      res.status(404).json({
+        error: "Folder not found",
+        requestedFolder: foldername,
+        folderPath: folderPath,
+        message: "Could not read assets directory"
+      });
+    }
   }
 }
 
