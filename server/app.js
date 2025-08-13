@@ -210,6 +210,26 @@ async function handleTaskDataUpload(req, res) {
     // ZIP 파일을 풀어서 taskDir에 저장
     await new Promise((resolve, reject) => {
       const stream = fs.createReadStream(zipFilePath);
+      let pendingWrites = 0;
+      let entriesProcessed = 0;
+      let totalEntries = 0;
+      let parserFinished = false;
+      
+      const checkCompletion = () => {
+        console.log(`[${requestId}] Checking completion: pendingWrites=${pendingWrites}, parserFinished=${parserFinished}, entriesProcessed=${entriesProcessed}, totalEntries=${totalEntries}`);
+        if (parserFinished && pendingWrites === 0) {
+          console.log(`[${requestId}] ZIP extraction completed`);
+          console.log(`[${requestId}] Total entries processed: ${entriesProcessed}`);
+          console.log(`[${requestId}] Total files extracted: ${extractedFiles.length}`);
+          console.log(`[${requestId}] Extraction errors: ${extractionErrors.length}`);
+          
+          if (extractionErrors.length > 0) {
+            console.log(`[${requestId}] Extraction errors details:`, extractionErrors);
+          }
+          
+          resolve();
+        }
+      };
       
       stream.on('error', (err) => {
         console.log(`[${requestId}] Error reading ZIP file:`, err);
@@ -219,11 +239,12 @@ async function handleTaskDataUpload(req, res) {
       stream
         .pipe(unzipper.Parse())
         .on("entry", (entry) => {
+          totalEntries++;
           const fileName = path.basename(entry.path);
           const fileType = entry.type;
           const fileSize = entry.size;
           
-          console.log(`[${requestId}] Processing entry:`, {
+          console.log(`[${requestId}] Processing entry ${totalEntries}:`, {
             path: entry.path,
             fileName: fileName,
             type: fileType,
@@ -237,47 +258,53 @@ async function handleTaskDataUpload(req, res) {
             const fullPath = path.join(taskDir, fileName);
             console.log(`[${requestId}] Extracting file to: ${fullPath}`);
             
+            pendingWrites++;
             const writeStream = fs.createWriteStream(fullPath);
             
             writeStream.on('error', (err) => {
               console.log(`[${requestId}] Error writing file ${fileName}:`, err);
               extractionErrors.push({ fileName, error: err.message });
+              pendingWrites--;
+              checkCompletion();
             });
             
             writeStream.on("finish", () => {
               console.log(`[${requestId}] File extracted successfully: ${fullPath}`);
               
               // 추출된 파일 정보 확인
-              if (fs.existsSync(fullPath)) {
-                const extractedStats = fs.statSync(fullPath);
-                console.log(`[${requestId}] Extracted file size: ${extractedStats.size} bytes`);
-                extractedFiles.push({
-                  fileName,
-                  fullPath,
-                  size: extractedStats.size
-                });
+              try {
+                if (fs.existsSync(fullPath)) {
+                  const extractedStats = fs.statSync(fullPath);
+                  console.log(`[${requestId}] Extracted file size: ${extractedStats.size} bytes`);
+                  extractedFiles.push({
+                    fileName,
+                    fullPath,
+                    size: extractedStats.size
+                  });
+                }
+              } catch (statError) {
+                console.log(`[${requestId}] Error reading file stats for ${fileName}:`, statError);
               }
+              
+              pendingWrites--;
+              entriesProcessed++;
+              checkCompletion();
             });
             
             entry.pipe(writeStream);
           } else {
             console.log(`[${requestId}] Skipping file (not allowed type or not a file): ${fileName}, type: ${fileType}`);
             entry.autodrain();
+            entriesProcessed++;
           }
         })
         .on("finish", () => {
-          console.log(`[${requestId}] ZIP extraction completed`);
-          console.log(`[${requestId}] Total files extracted: ${extractedFiles.length}`);
-          console.log(`[${requestId}] Extraction errors: ${extractionErrors.length}`);
-          
-          if (extractionErrors.length > 0) {
-            console.log(`[${requestId}] Extraction errors details:`, extractionErrors);
-          }
-          
-          resolve();
+          console.log(`[${requestId}] ZIP parser finished. Total entries: ${totalEntries}`);
+          parserFinished = true;
+          checkCompletion();
         })
         .on("error", (err) => {
-          console.log(`[${requestId}] Error during ZIP extraction:`, err);
+          console.log(`[${requestId}] Error during ZIP parsing:`, err);
           reject(err);
         });
     });
