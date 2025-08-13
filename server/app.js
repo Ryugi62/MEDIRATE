@@ -306,6 +306,16 @@ async function handleTaskDataUpload(req, res) {
     console.log(`[${requestId}] Extracted taskid: ${taskid}`);
     console.log(`[${requestId}] Other fields:`, JSON.stringify(otherFields, null, 2));
     
+    // taskid에서 특수문자 제거 (줄바꿈, 캐리지 리턴 등)
+    const cleanTaskId = taskid ? taskid.trim().replace(/[\r\n\t]/g, '') : '';
+    console.log(`[${requestId}] Original taskid: "${taskid}"`);
+    console.log(`[${requestId}] Cleaned taskid: "${cleanTaskId}"`);
+    
+    if (!cleanTaskId) {
+      console.log(`[${requestId}] ERROR: Empty or invalid task ID after cleaning`);
+      return res.status(400).json({ code: "0", result: "Invalid task ID" });
+    }
+    
     // req.files는 배열 형태로 옵니다 (upload.any() 사용 시)
     console.log(`[${requestId}] All uploaded files:`, req.files);
     
@@ -330,7 +340,7 @@ async function handleTaskDataUpload(req, res) {
       mimetype: uploadedFile.mimetype
     });
     
-    const taskDir = path.join(IF_DIRECTORY, taskid);
+    const taskDir = path.join(IF_DIRECTORY, cleanTaskId);
     console.log(`[${requestId}] Task directory path: ${taskDir}`);
     console.log(`[${requestId}] IF_DIRECTORY: ${IF_DIRECTORY}`);
 
@@ -541,6 +551,8 @@ async function handleTaskDataUpload(req, res) {
     console.log(`[${requestId}] Creating metadata...`);
     const metadata = {
       userid,
+      taskid: cleanTaskId, // 정리된 taskid 사용
+      originalTaskid: taskid, // 원본 taskid도 기록
       uploadTimestamp: new Date().toISOString(),
       requestId,
       extractedFiles: extractedFiles.map(f => ({ fileName: f.fileName, size: f.size })),
