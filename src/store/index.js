@@ -12,10 +12,18 @@ export default createStore({
       localStorage.getItem("assignmentSearchHistory") || "",
     dashboardSearchHistory:
       localStorage.getItem("dashboardSearchHistory") || "",
+    mitofDashboardSearchHistory:
+      localStorage.getItem("mitofDashboardSearchHistory") || "",
+    tsrDashboardSearchHistory:
+      localStorage.getItem("tsrDashboardSearchHistory") || "",
     assignmentCurrentPage:
       parseInt(localStorage.getItem("assignmentCurrentPage")) || 1,
     dashboardCurrentPage:
-      parseInt(localStorage.getItem("dashboardCurrentPage")) || 1, // 추가
+      parseInt(localStorage.getItem("dashboardCurrentPage")) || 1,
+    mitofDashboardCurrentPage:
+      parseInt(localStorage.getItem("mitofDashboardCurrentPage")) || 1,
+    tsrDashboardCurrentPage:
+      parseInt(localStorage.getItem("tsrDashboardCurrentPage")) || 1,
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -25,8 +33,12 @@ export default createStore({
     tokenExpires: (state) => state.user?.expires,
     getAssignmentSearchHistory: (state) => state.assignmentSearchHistory,
     getDashboardSearchHistory: (state) => state.dashboardSearchHistory,
+    getMiTOFDashboardSearchHistory: (state) => state.mitofDashboardSearchHistory,
+    getTSRDashboardSearchHistory: (state) => state.tsrDashboardSearchHistory,
     getAssignmentCurrentPage: (state) => state.assignmentCurrentPage,
-    getDashboardCurrentPage: (state) => state.dashboardCurrentPage, // 추가
+    getDashboardCurrentPage: (state) => state.dashboardCurrentPage,
+    getMiTOFDashboardCurrentPage: (state) => state.mitofDashboardCurrentPage,
+    getTSRDashboardCurrentPage: (state) => state.tsrDashboardCurrentPage,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -58,14 +70,29 @@ export default createStore({
       state.dashboardSearchHistory = history;
       localStorage.setItem("dashboardSearchHistory", history);
     },
+    setMiTOFDashboardSearchHistory(state, history) {
+      state.mitofDashboardSearchHistory = history;
+      localStorage.setItem("mitofDashboardSearchHistory", history);
+    },
+    setTSRDashboardSearchHistory(state, history) {
+      state.tsrDashboardSearchHistory = history;
+      localStorage.setItem("tsrDashboardSearchHistory", history);
+    },
     setAssignmentCurrentPage(state, page) {
       state.assignmentCurrentPage = page;
       localStorage.setItem("assignmentCurrentPage", page);
     },
     setDashboardCurrentPage(state, page) {
-      // 추가
       state.dashboardCurrentPage = page;
       localStorage.setItem("dashboardCurrentPage", page);
+    },
+    setMiTOFDashboardCurrentPage(state, page) {
+      state.mitofDashboardCurrentPage = page;
+      localStorage.setItem("mitofDashboardCurrentPage", page);
+    },
+    setTSRDashboardCurrentPage(state, page) {
+      state.tsrDashboardCurrentPage = page;
+      localStorage.setItem("tsrDashboardCurrentPage", page);
     },
   },
   actions: {
@@ -90,8 +117,12 @@ export default createStore({
       localStorage.removeItem("user");
       localStorage.removeItem("assignmentSearchHistory");
       localStorage.removeItem("dashboardSearchHistory");
+      localStorage.removeItem("mitofDashboardSearchHistory");
+      localStorage.removeItem("tsrDashboardSearchHistory");
       localStorage.removeItem("assignmentCurrentPage");
-      localStorage.removeItem("dashboardCurrentPage"); // 추가
+      localStorage.removeItem("dashboardCurrentPage");
+      localStorage.removeItem("mitofDashboardCurrentPage");
+      localStorage.removeItem("tsrDashboardCurrentPage");
     },
   },
   modules: {},

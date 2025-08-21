@@ -10,16 +10,27 @@ const calculateRates = (answered, total) => {
   return `${rate.toFixed(2)}%`;
 };
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const { assignment_mode } = req.query;
+    
+    let whereClause = "";
+    let queryParams = [];
+    
+    if (assignment_mode) {
+      whereClause = "WHERE a.assignment_mode = ?";
+      queryParams.push(assignment_mode);
+    }
+    
     const [assignments] = await db.query(`
       SELECT a.id, a.title, a.creation_date AS createdAt, a.deadline AS endAt, a.assignment_mode AS assignmentMode,
       COUNT(DISTINCT au.user_id) AS evaluatorCount,
       (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
       FROM assignments a
       LEFT JOIN assignment_user au ON a.id = au.assignment_id
+      ${whereClause}
       GROUP BY a.id
-    `);
+    `, queryParams);
 
     for (const assignment of assignments) {
       const totalPossibleAnswers =
@@ -40,6 +51,21 @@ router.get("/", async (_req, res) => {
           [assignment.id]
         );
         assignment.answeredQuestions = bboxAnswers[0].answeredQuestions;
+      } else if (assignment.assignmentMode === "Polygon") {
+        // Polygon 모드: 각 사용자가 각 문제에 대해 폴리곤을 하나라도 그렸는지 확인
+        const [polygonAnswers] = await db.query(
+          `
+          SELECT COUNT(*) AS answeredQuestions
+          FROM (
+            SELECT DISTINCT pi.user_id, q.id
+            FROM questions q
+            JOIN polygon_info pi ON q.id = pi.question_id
+            WHERE q.assignment_id = ?
+          ) AS user_question_combinations
+          `,
+          [assignment.id]
+        );
+        assignment.answeredQuestions = polygonAnswers[0].answeredQuestions;
       } else {
         // TextBox 모드: 기존 로직 유지
         const [answeredQuestions] = await db.query(

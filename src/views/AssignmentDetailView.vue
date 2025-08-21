@@ -113,6 +113,14 @@
         <i class="fa-solid fa-expand fa-2x" @click="toggleFullScreenImage"></i>
       </div>
 
+      <PolygonComponent
+        v-else-if="isPolygonMode"
+        :src="activeQuestionImageUrl"
+        :questionIndex="activeQuestionId"
+        v-model:polygons="currentAssignmentDetails.polygons"
+        @commitAssignmentChanges="commitAssignmentChanges"
+      />
+
       <BBoxComponent
         v-else
         :src="activeQuestionImageUrl"
@@ -140,6 +148,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxComponent from "@/components/BBoxComponent.vue";
+import PolygonComponent from "@/components/PolygonComponent.vue";
 
 export default {
   name: "AssignmentEvaluationView",
@@ -164,7 +173,8 @@ export default {
 
   mounted() {
     this.$nextTick(() => {
-      this.makeTdClickable();
+  // 테이블이 렌더되었을 때만 클릭 핸들러를 바인딩
+  this.makeTdClickable();
       window.addEventListener("keydown", this.handleKeyDown);
       window.addEventListener("keyup", this.handleKeyUp);
     });
@@ -179,11 +189,15 @@ export default {
   components: {
     ImageComponent,
     BBoxComponent,
+    PolygonComponent,
   },
 
   computed: {
     isTextBoxMode() {
       return this.currentAssignmentDetails.assignmentMode === "TextBox";
+    },
+    isPolygonMode() {
+      return this.currentAssignmentDetails.assignmentMode === "Polygon";
     },
     uniqueQuestionCount() {
       return this.currentAssignmentDetails.questions.filter(
@@ -216,6 +230,10 @@ export default {
           JSON.stringify(response.data)
         );
         this.currentAssignmentDetails = response.data;
+
+        if (!this.currentAssignmentDetails.polygons) {
+          this.currentAssignmentDetails.polygons = [];
+        }
 
         const score = this.currentAssignmentDetails.score || 0;
         this.currentAssignmentDetails.score = score;
@@ -314,6 +332,7 @@ export default {
         ),
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
+        polygons: this.currentAssignmentDetails.polygons, // Add this line
         lastQuestionIndex: this.activeQuestionId,
         evaluation_time: evaluation_time, // Always use the new evaluation_time
       };
@@ -388,7 +407,9 @@ export default {
     },
 
     makeTdClickable() {
-      const table = this.$el.querySelector(".grades-table table");
+      const table = this.$el && this.$el.querySelector
+        ? this.$el.querySelector(".grades-table table")
+        : null;
       if (table) {
         table.addEventListener("click", (event) => {
           let target = event.target;
@@ -407,7 +428,11 @@ export default {
           }
         });
       } else {
-        console.warn("Table not found!");
+        // 처음 마운트 시점에 아직 테이블이 없을 수 있으므로 한 번 더 지연 시도
+        this.$nextTick(() => {
+          const retry = this.$el?.querySelector?.(".grades-table table");
+          if (retry) this.makeTdClickable();
+        });
       }
     },
 

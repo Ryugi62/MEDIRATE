@@ -73,7 +73,8 @@ app.post("/api/taskdata", upload.any(), handleTaskDataUpload);
 
 // Fallback route for single-page applications (SPA)
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  // dist는 프로젝트 루트 아래에 있으므로 ../dist를 가리킨다
+  res.sendFile(path.join(__dirname, "../dist", "index.html"));
 });
 
 // Start the server

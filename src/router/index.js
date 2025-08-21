@@ -10,6 +10,8 @@ import AssignmentDetail from "../views/AssignmentDetailView.vue";
 import EvaluationView from "../views/EvaluationView.vue";
 import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
+import MiTOFDashboardView from "../views/MiTOFDashboardView.vue";
+import TSRDashboardView from "../views/TSRDashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
 import UserManagementView from "../views/UserManagementView.vue";
 
@@ -77,6 +79,18 @@ const routes = [
     path: "/dashboard",
     name: "dashboard",
     component: DashboardView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/mitof-dashboard",
+    name: "mitof-dashboard",
+    component: MiTOFDashboardView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/tsr-dashboard",
+    name: "tsr-dashboard",
+    component: TSRDashboardView,
     meta: { requiresAuth: true },
   },
   {

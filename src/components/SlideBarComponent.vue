@@ -40,8 +40,18 @@ export default {
           isAdmin: true,
         },
         {
-          name: "대시보드",
+          name: "전체 대시보드",
           paths: ["/dashboard", "/dashboard/:id"],
+          isAdmin: true,
+        },
+        {
+          name: "MiTOF 대시보드",
+          paths: ["/mitof-dashboard"],
+          isAdmin: true,
+        },
+        {
+          name: "TSR 대시보드",
+          paths: ["/tsr-dashboard"],
           isAdmin: true,
         },
         {
@@ -86,6 +96,12 @@ export default {
       if (paths.includes("/dashboard")) {
         this.$store.commit("setDashboardSearchHistory", "");
         this.$store.commit("setDashboardCurrentPage", 1);
+      } else if (paths.includes("/mitof-dashboard")) {
+        this.$store.commit("setMiTOFDashboardSearchHistory", "");
+        this.$store.commit("setMiTOFDashboardCurrentPage", 1);
+      } else if (paths.includes("/tsr-dashboard")) {
+        this.$store.commit("setTSRDashboardSearchHistory", "");
+        this.$store.commit("setTSRDashboardCurrentPage", 1);
       } else if (paths.includes("/assignment")) {
         this.$store.commit("setAssignmentSearchHistory", "");
         this.$store.commit("setAssignmentCurrentPage", 1);

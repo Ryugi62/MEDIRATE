@@ -3,26 +3,80 @@
   <div class="assignment-header">
     <h1 class="header-title">검수 작업</h1>
 
-    <!-- 과제 리스트에서 제목으로 검색 -->
-    <div
-      class="assignment-search-input"
-      :class="{ 'search-input-focused': isFocused }"
-    >
-      <!-- 초기화 버튼 -->
-      <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
-      <input
-        class="assignment-search"
-        type="text"
-        v-model="searchQuery"
-        placeholder="검색어를 입력하세요"
-        @focus="isFocused = true"
-        @blur="isFocused = false"
-        @keypress.enter="searchAssignment"
-      />
-      <i
-        class="fa-solid fa-magnifying-glass search-icon"
-        @click="searchAssignment"
-      ></i>
+    <!-- 필터링 및 검색 컨트롤 -->
+    <div class="controls-container">
+      <!-- 필터링 드롭다운들 -->
+      <div class="filter-controls">
+        <!-- 암종 선택 -->
+        <select 
+          v-model="selectedCancerType" 
+          @change="applyFilters"
+          class="filter-select"
+        >
+          <option value="">모든 암종</option>
+          <option 
+            v-for="cancer in availableCancerTypes" 
+            :key="cancer" 
+            :value="cancer"
+          >
+            {{ cancer }}
+          </option>
+        </select>
+
+        <!-- 폴더 선택 -->
+        <select 
+          v-model="selectedFolderName" 
+          @change="applyFilters"
+          class="filter-select"
+        >
+          <option value="">모든 폴더</option>
+          <option 
+            v-for="folder in availableFolderNames" 
+            :key="folder" 
+            :value="folder"
+          >
+            {{ folder }}
+          </option>
+        </select>
+
+        <!-- 평가방식 선택 -->
+        <select 
+          v-model="selectedAssignmentMode" 
+          @change="applyFilters"
+          class="filter-select"
+        >
+          <option value="">모든 평가방식</option>
+          <option 
+            v-for="mode in availableAssignmentModes" 
+            :key="mode" 
+            :value="mode"
+          >
+            {{ mode }}
+          </option>
+        </select>
+      </div>
+
+      <!-- 과제 리스트에서 제목으로 검색 -->
+      <div
+        class="assignment-search-input"
+        :class="{ 'search-input-focused': isFocused }"
+      >
+        <!-- 초기화 버튼 -->
+        <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
+        <input
+          class="assignment-search"
+          type="text"
+          v-model="searchQuery"
+          placeholder="검색어를 입력하세요"
+          @focus="isFocused = true"
+          @blur="isFocused = false"
+          @keypress.enter="searchAssignment"
+        />
+        <i
+          class="fa-solid fa-magnifying-glass search-icon"
+          @click="searchAssignment"
+        ></i>
+      </div>
     </div>
   </div>
 
@@ -124,6 +178,13 @@ export default {
       sortDirection: "down",
       searchQuery: this.$store.getters.getAssignmentSearchHistory || "",
       isFocused: false,
+      // 필터링 관련 데이터
+      availableCancerTypes: [],
+      availableFolderNames: [],
+      availableAssignmentModes: [],
+      selectedCancerType: "",
+      selectedFolderName: "",
+      selectedAssignmentMode: "",
     };
   },
   computed: {
@@ -159,6 +220,24 @@ export default {
           key: "progress",
           sortable: true,
           class: "assignment-progress",
+        },
+        {
+          name: "평가방식",
+          key: "assignment_mode",
+          sortable: true,
+          class: "assignment-mode",
+        },
+        {
+          name: "암종",
+          key: "cancer_type",
+          sortable: true,
+          class: "assignment-cancer",
+        },
+        {
+          name: "폴더",
+          key: "folder_name",
+          sortable: true,
+          class: "assignment-folder",
         },
       ];
     },
@@ -211,34 +290,11 @@ export default {
   },
 
   mounted() {
+    // 필터 옵션 가져오기
+    this.loadFilterOptions();
+    
     // 헤더에 jwt 토큰을 담아서 요청
-    this.$axios
-      .get("/api/assignments", {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
-        },
-      })
-      .then((response) => {
-        this.originalAssignments = response.data;
-        this.assignments = response.data;
-
-        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-        if (this.searchQuery) {
-          this.assignAssignmentSearchFromStore();
-        }
-
-        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-        if (this.$store.getters.getAssignmentCurrentPage) {
-          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
-          this.current = Math.min(
-            this.$store.getters.getAssignmentCurrentPage,
-            this.total
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    this.loadAssignments();
   },
 
   methods: {
@@ -287,7 +343,10 @@ export default {
     },
     resetSearch() {
       this.searchQuery = "";
-      this.assignments = this.originalAssignments;
+      this.selectedCancerType = "";
+      this.selectedFolderName = "";
+      this.selectedAssignmentMode = "";
+      this.loadAssignments();
       this.current = 1; // 리셋 후 첫 페이지로 이동
     },
 
@@ -308,6 +367,66 @@ export default {
     updateAssignmentCurrentPage(page) {
       this.$store.commit("setAssignmentCurrentPage", page);
     },
+
+    // 필터 옵션 로드
+    async loadFilterOptions() {
+      try {
+        const response = await this.$axios.get("/api/assignments/filters", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
+        });
+        
+        this.availableCancerTypes = response.data.cancerTypes;
+        this.availableFolderNames = response.data.folderNames;
+        this.availableAssignmentModes = response.data.assignmentModes;
+      } catch (error) {
+        console.error("필터 옵션 로드 실패:", error);
+      }
+    },
+
+    // 과제 목록 로드
+    async loadAssignments() {
+      try {
+        const params = {};
+        
+        if (this.selectedCancerType) params.cancer_type = this.selectedCancerType;
+        if (this.selectedFolderName) params.folder_name = this.selectedFolderName;
+        if (this.selectedAssignmentMode) params.assignment_mode = this.selectedAssignmentMode;
+        
+        const response = await this.$axios.get("/api/assignments", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
+          params,
+        });
+        
+        this.originalAssignments = response.data;
+        this.assignments = response.data;
+
+        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+        if (this.searchQuery) {
+          this.assignAssignmentSearchFromStore();
+        }
+
+        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+        if (this.$store.getters.getAssignmentCurrentPage) {
+          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
+          this.current = Math.min(
+            this.$store.getters.getAssignmentCurrentPage,
+            this.total
+          );
+        }
+      } catch (error) {
+        console.error("과제 목록 로드 실패:", error);
+      }
+    },
+
+    // 필터 적용
+    applyFilters() {
+      this.loadAssignments();
+      this.current = 1; // 필터 적용 시 첫 페이지로 이동
+    },
   },
 };
 </script>
@@ -319,6 +438,39 @@ export default {
   align-items: center;
   border-bottom: 1px solid var(--light-gray);
   padding: 9px 24px;
+}
+
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: var(--white);
+  font-size: 14px;
+  min-width: 120px;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 5px var(--blue);
+}
+
+.filter-select:hover {
+  border-color: var(--blue);
 }
 
 .header-title {
@@ -443,7 +595,10 @@ tbody > tr:hover {
 .assignment-creation-date,
 .assignment-due-date,
 .assignment-status,
-.assignment-progress {
+.assignment-progress,
+.assignment-mode,
+.assignment-cancer,
+.assignment-folder {
   width: 95px;
 }
 

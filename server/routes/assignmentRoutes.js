@@ -8,6 +8,8 @@ const fsPromises = require("fs").promises;
 const path = require("path");
 
 const router = express.Router();
+// Runtime version marker to verify loaded file
+console.log("[assignmentRoutes] Loaded version: 2025-08-21-canvas-id");
 
 const handleError = (res, message, error) => {
   console.error(message, error);
@@ -158,16 +160,71 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   }
 });
 
+// 필터 옵션 가져오기 (고유한 Cancer와 Folder 값들)
+router.get("/filters", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 사용자가 접근 가능한 과제들의 고유한 cancer_type과 folder_name 가져오기
+    const filtersQuery = `
+      SELECT DISTINCT 
+        a.cancer_type,
+        a.folder_name,
+        a.assignment_mode
+      FROM assignments a
+      JOIN assignment_user au ON a.id = au.assignment_id
+      WHERE au.user_id = ? AND a.cancer_type IS NOT NULL AND a.folder_name IS NOT NULL
+      ORDER BY a.cancer_type, a.folder_name, a.assignment_mode;
+    `;
+    
+    const [filterData] = await db.query(filtersQuery, [userId]);
+    
+    const cancerTypes = [...new Set(filterData.map(item => item.cancer_type).filter(Boolean))];
+    const folderNames = [...new Set(filterData.map(item => item.folder_name).filter(Boolean))];
+    const assignmentModes = [...new Set(filterData.map(item => item.assignment_mode).filter(Boolean))];
+    
+    res.json({
+      cancerTypes,
+      folderNames,
+      assignmentModes
+    });
+  } catch (error) {
+    handleError(res, "Error fetching filter options", error);
+  }
+});
+
 // 과제 목록 가져오기
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const { cancer_type, folder_name, assignment_mode } = req.query;
+    
+    let whereClause = "WHERE au.user_id = ?";
+    let queryParams = [userId, userId];
+    
+    // 필터 조건 추가
+    if (cancer_type) {
+      whereClause += " AND a.cancer_type = ?";
+      queryParams.push(cancer_type);
+    }
+    if (folder_name) {
+      whereClause += " AND a.folder_name = ?";
+      queryParams.push(folder_name);
+    }
+    if (assignment_mode) {
+      whereClause += " AND a.assignment_mode = ?";
+      queryParams.push(assignment_mode);
+    }
+    
     const assignmentsQuery = `
       SELECT 
         a.id, 
         a.title, 
         a.creation_date AS CreationDate,
         a.deadline AS dueDate,
+        a.cancer_type,
+        a.folder_name,
+        a.assignment_mode,
         CASE
           WHEN a.deadline >= CURRENT_DATE THEN '진행 중'
           ELSE '완료'
@@ -182,10 +239,10 @@ router.get("/", authenticateToken, async (req, res) => {
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id
       LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id
-      WHERE au.user_id = ?;
+      ${whereClause};
     `;
 
-    const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
+    const [assignments] = await db.query(assignmentsQuery, queryParams);
 
     const uniqueAssignments = assignments.filter(
       (value, index, self) => index === self.findIndex((t) => t.id === value.id)
@@ -298,9 +355,10 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     });
 
     const totalScore = questions.length;
+    // selection_type이 NULL일 수 있으므로 안전 처리
     assignment[0].selectionType = assignment[0].selectionType
-      .split(",")
-      .map((s) => s.trim());
+      ? assignment[0].selectionType.split(",").map((s) => s.trim())
+      : [];
 
     const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time, start_time, end_time FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`; // 수정된 부분
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
@@ -315,6 +373,21 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       squares = squaresResult;
     }
 
+    let polygons = [];
+    if (canvas.length > 0) {
+      console.log("[assignmentRoutes] Fetching polygons by canvas_id", { canvasId: canvas[0].id, userId });
+      // polygon_info는 canvas_id를 참조하므로 canvas_id 기준으로 조회
+      const polygonsQuery = `SELECT id, coordinates, class_type, question_id as questionIndex FROM polygon_info WHERE canvas_id = ? AND user_id = ?;`;
+      const [polygonsResult] = await db.query(polygonsQuery, [canvas[0].id, userId]);
+      polygons = polygonsResult.map((p) => ({
+        id: p.id,
+        points: JSON.parse(p.coordinates),
+        class: p.class_type,
+        isComplete: true, // DB에서 가져온 폴리곤은 완성 상태로 간주
+        questionIndex: p.questionIndex,
+      }));
+    }
+
     const uniqueQuestionIndex = [
       ...new Set(squares.map((square) => square.questionIndex)),
     ];
@@ -327,6 +400,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       totalScore,
       beforeCanvas: canvas[0],
       squares,
+      polygons,
     };
 
     res.json(responseData);
@@ -410,6 +484,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     questions,
     beforeCanvas,
     squares,
+    polygons,
     lastQuestionIndex,
     evaluation_time, // 추가된 부분
   } = req.body;
@@ -476,6 +551,27 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           ]);
         })
       );
+    }
+
+    // Handle polygons (canvas_id 기준으로 관리)
+    if (polygons) {
+      const deletePolygonsQuery = `DELETE FROM polygon_info WHERE canvas_id = ? AND user_id = ?;`;
+      await db.query(deletePolygonsQuery, [beforeCanvas.id, req.user.id]);
+
+      if (polygons.length > 0) {
+        const insertPolygonQuery = `
+          INSERT INTO polygon_info (question_id, canvas_id, coordinates, class_type, user_id)
+          VALUES ?;
+        `;
+        const polygonValues = polygons.map((p) => [
+          p.questionIndex,
+          beforeCanvas.id,
+          JSON.stringify(p.points),
+          p.class,
+          req.user.id,
+        ]);
+        await db.query(insertPolygonQuery, [polygonValues]);
+      }
     }
 
     res.json({ message: "Assignment responses successfully updated." });
