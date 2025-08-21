@@ -63,57 +63,109 @@
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
-          <div class="assignment-field mode-field">
-            <span>
-              <label for="field-text-mode">택일형</label>
-              <input
-                type="radio"
-                id="field-text-mode"
-                name="mode"
-                value="TextBox"
-                v-model="assignmentDetails.mode"
-              />
-            </span>
-            <span>
-              <label for="field-bbox-mode">BBox</label>
-              <input
-                type="radio"
-                id="field-bbox-mode"
-                name="mode"
-                value="BBox"
-                v-model="assignmentDetails.mode"
-              />
-            </span>
-          </div>
+          <!-- 새로운 3개 그룹 레이아웃 -->
+          <div class="assignment-groups">
+            <!-- 그룹 1: Cancer, Folder -->
+            <div class="assignment-group group-cancer-folder">
+              <div class="assignment-field">
+                <label for="cancer-type">Cancer:</label>
+                <input
+                  type="text"
+                  id="cancer-type"
+                  v-model="assignmentDetails.cancer_type"
+                  placeholder="암종명 입력"
+                />
+              </div>
+              <div class="assignment-field">
+                <label for="folder-name">Folder:</label>
+                <input
+                  type="text"
+                  id="folder-name"
+                  v-model="assignmentDetails.folder_name"
+                  placeholder="폴더명 입력"
+                />
+              </div>
+            </div>
 
-          <div
-            class="assignment-field is_score_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
-              <input
-                type="checkbox"
-                name="is_score"
-                id="is_score"
-                v-model="assignmentDetails.is_score"
-              />
-              <label for="is_score">SCORE</label>
-            </span>
-          </div>
+            <!-- 그룹 2: 평가 유형 -->
+            <div class="assignment-group group-evaluation-type">
+              <div class="assignment-field mode-field">
+                <span>
+                  <input
+                    type="radio"
+                    id="field-text-mode"
+                    name="mode"
+                    value="TextBox"
+                    v-model="assignmentDetails.mode"
+                  />
+                  <label for="field-text-mode">택일형</label>
+                </span>
+                <span>
+                  <input
+                    type="radio"
+                    id="field-bbox-mode"
+                    name="mode"
+                    value="BBox"
+                    v-model="assignmentDetails.mode"
+                  />
+                  <label for="field-bbox-mode">BBox</label>
+                </span>
+                <span>
+                  <input
+                    type="radio"
+                    id="field-polygon-mode"
+                    name="mode"
+                    value="Polygon"
+                    v-model="assignmentDetails.mode"
+                  />
+                  <label for="field-polygon-mode">Polygon</label>
+                </span>
+              </div>
+            </div>
 
-          <div
-            class="assignment-field is_ai_use_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
-              <input
-                type="checkbox"
-                name="is_ai_use"
-                id="is_ai_use"
-                v-model="assignmentDetails.is_ai_use"
-              />
-              <label for="is_ai_use">AI</label>
-            </span>
+            <!-- 그룹 3: 과제제목, SCORE, AI (우측) -->
+            <div class="assignment-group group-options">
+              <!-- 과제 제목 (우측으로 이동) -->
+              <div class="assignment-field">
+                <label for="assignment-title">과제 제목:</label>
+                <input
+                  type="text"
+                  id="assignment-title"
+                  v-model="assignmentDetails.title"
+                  placeholder="과제 제목 입력"
+                />
+              </div>
+
+              <div
+                class="assignment-field is_score_field"
+                v-if="assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Polygon'"
+              >
+                <span>
+                  <input
+                    type="checkbox"
+                    name="is_score"
+                    id="is_score"
+                    v-model="assignmentDetails.is_score"
+                  />
+                  <label for="is_score">SCORE</label>
+                </span>
+              </div>
+
+              <div
+                class="assignment-field is_ai_use_field"
+                v-if="assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Polygon'"
+              >
+                <span>
+                  <input
+                    type="checkbox"
+                    name="is_ai_use"
+                    id="is_ai_use"
+                    v-model="assignmentDetails.is_ai_use"
+                  />
+                  <label for="is_ai_use">AI</label>
+                </span>
+              </div>
+            </div>
           </div>
 
           <div
@@ -264,18 +316,14 @@ export default {
         questions: [],
         gradingScale: null,
         mode: "TextBox",
+        cancer_type: "", // 새로 추가: 암종명
+        folder_name: "", // 새로 추가: 폴더명
         is_score: false, // 추가: is_score 초기화
         is_ai_use: false, // 추가: is_ai_use 초기화
       },
       activeQuestionId: null,
       selectedQuestions: [], // 추가: 선택된 질문을 추적하기 위한 배열
       assignmentFields: {
-        "assignment-title": {
-          label: "과제 제목 :",
-          component: "input",
-          model: "title",
-          options: {},
-        },
         "assignment-deadline": {
           label: "마감일 :",
           component: "input",
@@ -423,6 +471,8 @@ export default {
         questions: this.assignmentDetails.questions,
         users: this.addedUsers.map((user) => user.id),
         mode: this.assignmentDetails.mode,
+        cancer_type: this.assignmentDetails.cancer_type, // 새로 추가
+        folder_name: this.assignmentDetails.folder_name, // 새로 추가
         is_score: this.assignmentDetails.is_score,
         is_ai_use: this.assignmentDetails.is_ai_use,
         gradingScale:
@@ -596,6 +646,8 @@ export default {
           this.assignmentDetails.questions = response.data.questions;
           this.assignmentDetails.gradingScale = response.data.gradingScale;
           this.assignmentDetails.mode = response.data.assigment_mode;
+          this.assignmentDetails.cancer_type = response.data.cancer_type || ""; // 새로 추가
+          this.assignmentDetails.folder_name = response.data.folder_name || ""; // 새로 추가
           this.assignmentDetails.is_score =
             response.data.is_score === 1 ? true : false;
           this.assignmentDetails.is_ai_use =
@@ -836,6 +888,94 @@ hr {
   gap: 16px;
   display: flex;
   flex-wrap: wrap;
+}
+
+/* 새로운 3개 그룹 레이아웃 */
+.assignment-groups {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.assignment-group {
+  border: 2px solid var(--light-gray);
+  border-radius: 8px;
+  padding: 16px;
+  background-color: var(--white);
+}
+
+/* 그룹 1: Cancer, Folder */
+.group-cancer-folder {
+  flex: 1;
+  min-width: 200px;
+}
+
+.group-cancer-folder .assignment-field {
+  margin-bottom: 12px;
+}
+
+.group-cancer-folder .assignment-field:last-child {
+  margin-bottom: 0;
+}
+
+.group-cancer-folder label {
+  min-width: 60px;
+  font-weight: bold;
+}
+
+.group-cancer-folder input {
+  width: 150px;
+}
+
+/* 그룹 2: 평가 유형 */
+.group-evaluation-type {
+  flex: 1;
+  min-width: 250px;
+}
+
+.group-evaluation-type .mode-field {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group-evaluation-type .mode-field span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-evaluation-type input[type="radio"] {
+  width: auto;
+  height: auto;
+}
+
+/* 그룹 3: 과제제목, SCORE, AI (우측) */
+.group-options {
+  flex: 2;
+  min-width: 300px;
+}
+
+.group-options .assignment-field {
+  margin-bottom: 12px;
+}
+
+.group-options .assignment-field:last-child {
+  margin-bottom: 0;
+}
+
+.group-options input[type="checkbox"] {
+  width: auto;
+  height: auto;
+}
+
+.group-options input[type="text"] {
+  width: 250px;
+}
+
+.group-options label {
+  min-width: 80px;
+  font-weight: bold;
 }
 
 /* 과제 필드 */

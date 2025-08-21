@@ -49,8 +49,10 @@ const expectedColumns = {
     { name: "selection_type", definition: "VARCHAR(255)" },
     {
       name: "assignment_mode",
-      definition: "ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox'",
+      definition: "ENUM('TextBox', 'BBox', 'Polygon') NOT NULL DEFAULT 'TextBox'",
     },
+    { name: "cancer_type", definition: "VARCHAR(255) DEFAULT NULL" },
+    { name: "folder_name", definition: "VARCHAR(255) DEFAULT NULL" },
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "evaluation_time", definition: "INT DEFAULT NULL" },
@@ -246,6 +248,39 @@ const expectedColumns = {
       constraintName: "fk_squares_info_user",
     },
   ],
+  polygon_info: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "question_id", definition: "INT" },
+    { name: "canvas_id", definition: "INT" },
+    { name: "coordinates", definition: "TEXT NOT NULL" },
+    { name: "class_type", definition: "ENUM('Other', 'Stroma', 'Tumor') NOT NULL DEFAULT 'Tumor'" },
+    { name: "user_id", definition: "INT" },
+    { name: "isAI", definition: "TINYINT(1) DEFAULT 0" },
+    { name: "isTemporary", definition: "TINYINT(1) DEFAULT 0" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE",
+      constraintName: "fk_polygon_info_question",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE",
+      constraintName: "fk_polygon_info_canvas",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      constraintName: "fk_polygon_info_user",
+    },
+  ],
 };
 
 // 초기 테이블 생성 SQL
@@ -267,7 +302,9 @@ const createTablesSQL = {
     \`deadline\` DATE NOT NULL,
     \`assignment_type\` VARCHAR(255),
     \`selection_type\` VARCHAR(255),
-    \`assignment_mode\` ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
+    \`assignment_mode\` ENUM('TextBox', 'BBox', 'Polygon') NOT NULL DEFAULT 'TextBox',
+    \`cancer_type\` VARCHAR(255) DEFAULT NULL,
+    \`folder_name\` VARCHAR(255) DEFAULT NULL,
     \`is_score\` BOOLEAN NOT NULL DEFAULT 1,
     \`is_ai_use\` BOOLEAN NOT NULL DEFAULT 1,
     \`evaluation_time\` INT DEFAULT NULL,
@@ -348,6 +385,20 @@ const createTablesSQL = {
     \`canvas_id\` INT,
     \`x\` INT NOT NULL,
     \`y\` INT NOT NULL,
+    \`user_id\` INT,
+    \`isAI\` TINYINT(1) DEFAULT 0,
+    \`isTemporary\` TINYINT(1) DEFAULT 0,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
+  polygon_info: `CREATE TABLE IF NOT EXISTS \`polygon_info\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`question_id\` INT,
+    \`canvas_id\` INT,
+    \`coordinates\` TEXT NOT NULL,
+    \`class_type\` ENUM('Other', 'Stroma', 'Tumor') NOT NULL DEFAULT 'Tumor',
     \`user_id\` INT,
     \`isAI\` TINYINT(1) DEFAULT 0,
     \`isTemporary\` TINYINT(1) DEFAULT 0,

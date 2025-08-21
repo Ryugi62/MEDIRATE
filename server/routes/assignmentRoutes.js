@@ -24,14 +24,16 @@ router.post("/", authenticateToken, async (req, res) => {
     questions,
     users,
     mode,
+    cancer_type,
+    folder_name,
     is_score,
     is_ai_use,
   } = req.body;
 
   try {
     const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, cancer_type, folder_name, is_score, is_ai_use)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
@@ -39,6 +41,8 @@ router.post("/", authenticateToken, async (req, res) => {
       assignment_type,
       selection_type,
       mode,
+      cancer_type,
+      folder_name,
       is_score,
       is_ai_use,
     ]);
@@ -495,6 +499,8 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     questions,
     users,
     mode,
+    cancer_type,
+    folder_name,
     is_score,
     is_ai_use,
   } = req.body;
@@ -507,6 +513,8 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       assignment_type,
       selection_type,
       mode,
+      cancer_type,
+      folder_name,
       is_score,
       is_ai_use,
     });
@@ -641,13 +649,15 @@ const updateAssignment = async (params) => {
     assignment_type,
     selection_type,
     mode,
+    cancer_type,
+    folder_name,
     is_score,
     is_ai_use,
   } = params;
 
   const updateQuery = `
     UPDATE assignments
-    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, cancer_type = ?, folder_name = ?, is_score = ?, is_ai_use = ?
     WHERE id = ?;
   `;
 
@@ -657,6 +667,8 @@ const updateAssignment = async (params) => {
     assignment_type,
     selection_type,
     mode,
+    cancer_type,
+    folder_name,
     is_score,
     is_ai_use,
     assignmentId,
