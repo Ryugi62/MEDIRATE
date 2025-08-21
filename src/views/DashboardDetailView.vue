@@ -84,7 +84,7 @@
                     {{
                       assignmentMode === "TextBox"
                         ? person.questions[index].questionSelection === -1
-                          ? "선택되지 않음"
+                          ? "0"
                           : person.questions[index].questionSelection
                         : getValidSquaresCount(person.squares, item.questionId)
                     }}
@@ -271,9 +271,8 @@ export default {
 
     async loadAiData() {
       console.log(this.assignmentId);
-      
-      try {
 
+      try {
         const { data } = await this.$axios.get(
           `/api/assignments/${this.assignmentId}/ai/`,
           {
@@ -516,6 +515,9 @@ export default {
     },
 
     getValidSquaresCount(squares, questionId) {
+      if (!squares || !Array.isArray(squares)) {
+        return 0;
+      }
       const count = squares.filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       ).length;
