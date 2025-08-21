@@ -1,7 +1,7 @@
 <!-- DashboardDetailView.vue -->
 
 <template>
-  <div v-if="data.length" class="dashboard">
+  <div v-if="data && data.length" class="dashboard">
     <div v-if="isExporting" class="exporting-message">
       {{ exportingMessage }}
     </div>
@@ -82,11 +82,11 @@
                   </td>
                   <td v-for="person in data" :key="person.name">
                     {{
-                      assignmentMode === "TextBox"
-                        ? person.questions[index].questionSelection === -1
-                          ? "0"
-                          : person.questions[index].questionSelection
-                        : getValidSquaresCount(person.squares, item.questionId)
+                      assignmentMode === 'TextBox'
+                        ? (person.questions[index].questionSelection === -1 ? '0' : person.questions[index].questionSelection)
+                        : assignmentMode === 'BBox'
+                        ? getValidSquaresCount(person.squares, item.questionId)
+                        : getValidPolygonsCount(person.polygons, item.questionId)
                     }}
                   </td>
                   <template
@@ -135,11 +135,14 @@
               :is="
                 assignmentMode === 'TextBox'
                   ? 'ImageComponent'
-                  : 'BBoxViewerComponent'
+                  : assignmentMode === 'BBox'
+                  ? 'BBoxViewerComponent'
+                  : 'PolygonViewerComponent'
               "
               :src="activeImageUrl"
               :questionIndex="activeQuestionIndex"
               :userSquaresList="userSquaresList"
+              :userPolygonsList="userPolygonsList"
               :sliderValue="Number(sliderValue)"
               :updateSquares="updateSquares"
               :aiData="isAiMode ? aiData : []"
@@ -151,7 +154,7 @@
     </div>
     <img src="../assets/dashboard_detial_guide.png" alt="" width="600" />
   </div>
-  <div v-else-if="!data.length" class="loading-message">
+  <div v-else-if="!data || !data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
 </template>
@@ -159,6 +162,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
+import PolygonViewerComponent from "@/components/PolygonViewerComponent.vue";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 import ExcelJS from "exceljs";
@@ -170,6 +174,7 @@ export default {
   components: {
     ImageComponent,
     BBoxViewerComponent,
+  PolygonViewerComponent,
   },
 
   data() {
@@ -191,13 +196,14 @@ export default {
       ],
       sliderValue: 1,
       userSquaresList: [],
+  userPolygonsList: [],
       tempSquares: [],
       flatSquares: [],
       exportingMessageIndex: 0,
       isExporting: false,
       keyPressInterval: null,
       keyRepeatDelay: 200,
-      isAiMode: true,
+  isAiMode: false,
       aiData: [],
       score_percent: 50,
       overlaps: {},
@@ -211,7 +217,9 @@ export default {
 
     try {
       await this.loadData();
-      await this.loadAiData();
+      if (this.isAiMode) {
+        await this.loadAiData();
+      }
       await this.fix_loadData();
       await this.calculateOverlaps();
       await this.collectMetadataKeys();
@@ -242,7 +250,7 @@ export default {
   },
 
   methods: {
-    async loadData() {
+  async loadData() {
       try {
         const { data } = await this.$axios.get(
           `/api/dashboard/${this.assignmentId}`,
@@ -256,12 +264,22 @@ export default {
         this.assignmentMode = data.assignmentMode;
         this.data = data.assignment;
         this.originalData = JSON.parse(JSON.stringify(data.assignment));
-        this.activeImageUrl = this.data[0].questions[0].questionImage;
-        this.activeQuestionIndex = this.data[0].questions[0].questionId;
-        this.flatSquares = this.data.map((person) => person.squares).flat();
-        this.userSquaresList = this.data.map((person, index) => ({
-          beforeCanvas: person.beforeCanvas,
-          squares: person.squares,
+        if (this.data && this.data.length && this.data[0].questions && this.data[0].questions.length) {
+          this.activeImageUrl = this.data[0].questions[0].questionImage;
+          this.activeQuestionIndex = this.data[0].questions[0].questionId;
+        } else {
+          this.activeImageUrl = "";
+          this.activeQuestionIndex = null;
+        }
+        this.flatSquares = (this.data || []).map((person) => person.squares || []).flat();
+        this.userSquaresList = (this.data || []).map((person, index) => ({
+          beforeCanvas: person.beforeCanvas || { width: 0, height: 0 },
+          squares: person.squares || [],
+          color: this.colorList[index % this.colorList.length].backgroundColor,
+        }));
+        this.userPolygonsList = (this.data || []).map((person, index) => ({
+          beforeCanvas: person.beforeCanvas || { width: 0, height: 0 },
+          polygons: person.polygons || [],
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
       } catch (error) {
@@ -297,13 +315,11 @@ export default {
       try {
         let dataChanged = false;
 
-        for (
-          let userIndex = 0;
-          userIndex < this.userSquaresList.length;
-          userIndex++
-        ) {
+        const listLen = this.userSquaresList ? this.userSquaresList.length : 0;
+        for (let userIndex = 0; userIndex < listLen; userIndex++) {
           const user = this.userSquaresList[userIndex];
-          const originalUser = this.originalData[userIndex];
+          const originalUser = this.originalData ? this.originalData[userIndex] : null;
+          if (!user || !Array.isArray(user.squares) || !originalUser) continue;
 
           for (let i = 0; i < user.squares.length; i++) {
             const square = user.squares[i];
@@ -317,21 +333,23 @@ export default {
               );
 
               if (matchingAiData) {
+                const questions = (this.data && this.data[0] && this.data[0].questions) ? this.data[0].questions : [];
+                const q = questions.find((q) => q.questionId === square.questionIndex);
+                if (!q) continue;
+
                 const { width: originalWidth, height: originalHeight } =
-                  await this.getImageDimensions(
-                    this.data[0].questions.find(
-                      (q) => q.questionId === square.questionIndex
-                    ).questionImage
-                  );
+                  await this.getImageDimensions(q.questionImage);
+
+                if (!user.beforeCanvas || !user.beforeCanvas.width || !user.beforeCanvas.height) continue;
 
                 const { x: adjustedX, y: adjustedY } =
                   this.convertToOriginalImageCoordinates(
                     matchingAiData.x,
                     matchingAiData.y,
-                    originalWidth,
-                    originalHeight,
                     user.beforeCanvas.width,
-                    user.beforeCanvas.height
+                    user.beforeCanvas.height,
+                    originalWidth,
+                    originalHeight
                   );
 
                 const currentPosition = this.calculateImagePosition(
@@ -362,10 +380,7 @@ export default {
         }
 
         if (dataChanged) {
-          this.flatSquares = this.data.map((person) => person.squares).flat();
-          console.log("Coordinates have been updated.");
-        } else {
-          console.log("No changes were necessary.");
+          this.flatSquares = (this.data || []).map((person) => person.squares || []).flat();
         }
       } catch (error) {
         console.error("Failed to update data:", error);
@@ -375,7 +390,8 @@ export default {
     async calculateOverlaps() {
       this.overlaps = {};
 
-      for (const question of this.data[0].questions) {
+  if (!this.data || !this.data.length || !this.data[0].questions) return;
+  for (const question of this.data[0].questions) {
         const questionId = question.questionId;
         this.overlaps[questionId] = {};
 
@@ -393,14 +409,15 @@ export default {
     async getOverlaps(questionId, overlapCount) {
       if (this.assignmentMode !== "BBox") return "";
 
-      const question = this.data[0].questions.find(
+  const question = (this.data && this.data[0] && this.data[0].questions ? this.data[0].questions : []).find(
         (q) => q.questionId === questionId
       );
+  if (!question) return "";
       const { width: originalWidth, height: originalHeight } =
         await this.getImageDimensions(question.questionImage);
 
       let squares = [];
-      this.data.forEach((person) => {
+  (this.data || []).forEach((person) => {
         const adjustedSquares = person.squares
           .filter(
             (square) =>
@@ -411,8 +428,8 @@ export default {
               this.convertToOriginalImageCoordinates(
                 square.x,
                 square.y,
-                person.beforeCanvas.width,
-                person.beforeCanvas.height,
+        (person.beforeCanvas && person.beforeCanvas.width) || 0,
+        (person.beforeCanvas && person.beforeCanvas.height) || 0,
                 originalWidth,
                 originalHeight
               );
@@ -473,28 +490,33 @@ export default {
       return "";
     },
 
-    async collectMetadataKeys() {
-      const response = await this.$axios.get(
-        `/api/assignments/${this.assignmentId}/metadata`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-        }
-      );
+  async collectMetadataKeys() {
+      try {
+        const response = await this.$axios.get(
+          `/api/assignments/${this.assignmentId}/metadata`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+            validateStatus: (status) => status >= 200 && status < 500,
+          }
+        );
 
-      if (response.data) {
+    // 서버는 파일이 없을 때 200 + {} 를 반환하도록 변경됨. 과거와의 호환을 위해 404/빈 응답 모두 무시.
+    if (response.status === 404 || !response.data || (typeof response.data === 'object' && Object.keys(response.data).length === 0)) {
+          this.metadataJson = null;
+          return;
+        }
+
         this.metadataJson = response.data;
         Object.keys(this.metadataJson).forEach((key) => {
           if (key !== "userid") {
             this.metadataKeys.add(key);
           }
         });
+      } catch (error) {
+        console.error("Failed to fetch metadata:", error);
       }
-
-      console.log(`
-      this.metadataJson : ${JSON.stringify(this.metadataJson)}
-      `);
     },
 
     getFolderNameFromImageUrl(imageUrl) {
@@ -524,6 +546,13 @@ export default {
       return count;
     },
 
+    getValidPolygonsCount(polygons, questionId) {
+      if (!polygons || !Array.isArray(polygons)) return 0;
+      return polygons.filter(
+        (poly) => poly.questionIndex === questionId && Array.isArray(poly.points) && poly.points.length >= 3
+      ).length;
+    },
+
     handleKeyUp() {
       this.clearKeyPressInterval();
     },
@@ -537,7 +566,7 @@ export default {
 
     moveQuestion(key) {
       const currentIndex = this.activeIndex;
-      const questionsLength = this.data[0].questions.length;
+  const questionsLength = (this.data && this.data[0] && this.data[0].questions) ? this.data[0].questions.length : 0;
 
       if (key === "ArrowDown" && currentIndex < questionsLength - 1) {
         this.setActiveImage(
@@ -555,7 +584,7 @@ export default {
     setActiveImage(imageUrl, index) {
       this.activeImageUrl = imageUrl;
       this.activeIndex = index;
-      this.activeQuestionIndex = this.data[0].questions[index].questionId;
+  this.activeQuestionIndex = (this.data && this.data[0] && this.data[0].questions && this.data[0].questions[index]) ? this.data[0].questions[index].questionId : null;
 
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector(
@@ -574,7 +603,8 @@ export default {
     },
 
     updateActiveRowValues() {
-      const currentRow = this.data[0].questions[this.activeIndex];
+  if (!this.data || !this.data[0] || !this.data[0].questions) return;
+  const currentRow = this.data[0].questions[this.activeIndex];
 
       this.data.forEach((person) => {
         person.questions[this.activeIndex].questionSelection =
@@ -612,7 +642,7 @@ export default {
 
     getTotalBboxes(questionId) {
       if (this.assignmentMode !== "BBox") return "";
-      return this.data.reduce((acc, person) => {
+  return (this.data || []).reduce((acc, person) => {
         const count = person.squares.filter(
           (square) => square.questionIndex === questionId && !square.isTemporary
         ).length;
@@ -621,11 +651,11 @@ export default {
     },
 
     async getAdjustedSquares(users, question) {
-      const { width: originalWidth, height: originalHeight } =
+  const { width: originalWidth, height: originalHeight } =
         await this.getImageDimensions(question.questionImage);
 
       const squares = users.flatMap((user) =>
-        user.squares
+  (user.squares || [])
           .filter(
             (square) =>
               square.questionIndex === question.questionId &&
@@ -636,8 +666,8 @@ export default {
               this.convertToOriginalImageCoordinates(
                 square.x,
                 square.y,
-                user.beforeCanvas.width,
-                user.beforeCanvas.height,
+    (user.beforeCanvas && user.beforeCanvas.width) || 0,
+    (user.beforeCanvas && user.beforeCanvas.height) || 0,
                 originalWidth,
                 originalHeight
               );
@@ -814,6 +844,7 @@ export default {
         }
         resultSheet.columns = columns;
 
+        if (!this.data || !this.data[0] || !this.data[0].questions) return;
         for (let index = 0; index < this.data[0].questions.length; index++) {
           const question = this.data[0].questions[index];
           const questionImageFileName = question.questionImage.split("/").pop();
@@ -821,7 +852,7 @@ export default {
             assignmentId: this.assignmentId,
             questionNumber: questionImageFileName,
           };
-          this.data.forEach((user) => {
+          (this.data || []).forEach((user) => {
             row[user.name] = this.getValidSquaresCount(
               user.squares,
               question.questionId
@@ -1031,9 +1062,9 @@ export default {
   },
 
   computed: {
-    completionPercentage() {
+  completionPercentage() {
       if (this.assignmentMode === "TextBox") {
-        if (!this.data.length) return "0%";
+    if (!this.data || !this.data.length) return "0%";
         const totalAnswered = this.data.reduce(
           (acc, user) => acc + user.answeredCount,
           0
@@ -1059,11 +1090,11 @@ export default {
       }
     },
 
-    totalPercentage() {
+  totalPercentage() {
       if (this.assignmentMode === "TextBox") {
         return "100%";
       } else {
-        return this.flatSquares.filter(
+    return (this.flatSquares || []).filter(
           (s) => s.questionIndex === this.activeQuestionIndex && !s.isTemporary
         ).length;
       }
@@ -1071,7 +1102,7 @@ export default {
 
     sliderRange() {
       const rangeValues = Array.from(
-        { length: this.data.length },
+        { length: (this.data ? this.data.length : 0) },
         (_, i) => i + 1
       );
       return rangeValues[this.sliderValue - 1] || "";

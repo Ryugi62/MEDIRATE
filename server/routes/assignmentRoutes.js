@@ -18,6 +18,7 @@ const handleError = (res, message, error) => {
 
 // 과제 생성
 router.post("/", authenticateToken, async (req, res) => {
+  console.log("[/api/assignments] POST 요청 수신:", req.body);
   const {
     title,
     deadline,
@@ -33,6 +34,7 @@ router.post("/", authenticateToken, async (req, res) => {
   } = req.body;
 
   try {
+    console.log("1. assignments 테이블에 삽입 시작...");
     const insertAssignmentQuery = `
       INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, cancer_type, folder_name, is_score, is_ai_use)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -49,7 +51,9 @@ router.post("/", authenticateToken, async (req, res) => {
       is_ai_use,
     ]);
     const assignmentId = assignmentResult.insertId;
+    console.log(`2. assignments 테이블 삽입 성공. ID: ${assignmentId}`);
 
+    console.log("3. questions 테이블에 삽입 시작...");
     await Promise.all(
       questions.map(async (question) => {
         const insertQuestionQuery = `
@@ -59,7 +63,9 @@ router.post("/", authenticateToken, async (req, res) => {
         await db.query(insertQuestionQuery, [assignmentId, question.img]);
       })
     );
+    console.log("4. questions 테이블 삽입 성공.");
 
+    console.log("5. assignment_user 테이블에 삽입 시작...");
     await Promise.all(
       users.map(async (userId) => {
         const insertUserQuery = `
@@ -69,8 +75,11 @@ router.post("/", authenticateToken, async (req, res) => {
         await db.query(insertUserQuery, [assignmentId, userId]);
       })
     );
+    console.log("6. assignment_user 테이블 삽입 성공.");
 
+    console.log("7. canvas_info 테이블에 삽입 시작...");
     await createCanvasForUsers(assignmentId, users);
+    console.log("8. canvas_info 테이블 삽입 성공.");
 
     res
       .status(201)
@@ -87,15 +96,15 @@ router.post("/", authenticateToken, async (req, res) => {
 router.get("/ai", authenticateToken, async (req, res) => {
   try {
     const { src, assignmentType, questionIndex } = req.query;
-
     const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
+    const jsonPath = path.join(__dirname, "..", "..", "assets", assignmentType, jsonSrc);
 
-    // Asynchronous file reading with fs.promises.readFile
-    const jsonContent = await fsPromises.readFile(
-      `./assets/${assignmentType}/${jsonSrc}`,
-      "utf8"
-    );
+    if (!fs.existsSync(jsonPath)) {
+      // 파일이 없으면 빈 배열 반환 (프론트는 AI 미표시로 처리)
+      return res.json([]);
+    }
 
+    const jsonContent = await fsPromises.readFile(jsonPath, "utf8");
     const AI_BBOX = JSON.parse(jsonContent).annotation.map((annotation) => {
       const [x, y] = annotation.bbox;
       const score = annotation.score ? annotation.score : 0.6;
@@ -104,6 +113,7 @@ router.get("/ai", authenticateToken, async (req, res) => {
 
     res.json(AI_BBOX);
   } catch (error) {
+    // 예상치 못한 오류만 500, 파일 없음은 위에서 처리
     handleError(res, "Error fetching AI assignment", error);
   }
 });
@@ -122,37 +132,42 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
         .json({ message: "No questions found for this assignment." });
     }
 
-    const assignmentType = questions[0].image.split("/").slice(-2)[0];
+  const assignmentType = questions[0].image.split("/").slice(-2)[0];
 
     const AI_BBOX = [];
 
+    let missingCount = 0;
     questions.forEach((question) => {
       const jsonSrc = question.image
         .split("/")
         .pop()
         .replace(/\.(jpg|png)/, ".json");
 
-      try {
-        const jsonContent = fs.readFileSync(
-          `./assets/${assignmentType}/${jsonSrc}`,
-          "utf8"
-        );
+      const jsonPath = path.join(__dirname, "..", "..", "assets", assignmentType, jsonSrc);
+      if (!fs.existsSync(jsonPath)) {
+        missingCount++;
+        return;
+      }
 
-        if (!jsonContent) {
-          return;
-        }
+      try {
+        const jsonContent = fs.readFileSync(jsonPath, "utf8");
+        if (!jsonContent) return;
 
         const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
           const [x, y] = annotation.bbox;
           const score = annotation.score ? annotation.score : 0.6;
           return { x, y, questionIndex: question.id, score: score };
         });
-
         AI_BBOX.push(...bbox);
       } catch (error) {
-        console.error("Error reading JSON file:", error);
+        // JSON 파싱 오류 등만 요약 로그
+        console.warn("[AI JSON] Failed to parse:", jsonPath);
       }
     });
+
+    if (missingCount > 0) {
+      console.warn(`[AI JSON] Missing ${missingCount} json files under assets/${assignmentType}`);
+    }
 
     res.json(AI_BBOX || []);
   } catch (error) {
@@ -819,7 +834,8 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
     );
 
     if (questions.length === 0) {
-      return res.status(404).json({ error: "Assignment not found" });
+      // 과제는 존재하지만 질문이 없거나 접근 불가한 경우: 200 + 빈 객체로 응답하여 프론트 콘솔 404 방지
+      return res.json({});
     }
 
     const questionImageUrl = questions[0].image;
@@ -835,11 +851,11 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
       "metadata.json"
     );
 
-    console.log(`
-      metadataPath: ${metadataPath}
-      `);
+    if (process.env.DEBUG === 'true') {
+      console.log(`\n      metadataPath: ${metadataPath}\n      `);
+    }
 
-    let metadataJson = null;
+  let metadataJson = null;
 
     try {
       await fsPromises.access(metadataPath);
@@ -849,10 +865,15 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
       delete metadataJson["userid"];
       res.json(metadataJson);
     } catch (err) {
-      console.log(err);
-
-      // File not found or other error
-      res.status(404).json({ error: "Metadata not found" });
+      if (err && err.code === 'ENOENT') {
+        // 파일이 없으면 200 + 빈 객체로 조용히 응답하여 네트워크 404 경고 제거
+        return res.json({});
+      }
+      if (process.env.DEBUG === 'true') {
+        console.warn("[metadata] Error accessing file:", metadataPath, err?.message);
+      }
+      // 기타 오류는 200 + 빈 객체로 다운그레이드하여 UI를 방해하지 않음
+      return res.json({});
     }
   } catch (error) {
     console.error("Error fetching metadata:", error);

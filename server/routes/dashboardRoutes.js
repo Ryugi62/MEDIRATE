@@ -3,41 +3,81 @@ const router = express.Router();
 const db = require("../db");
 const authenticateToken = require("../jwt");
 
-// 공통된 날짜 변환 및 비율 계산 함수
-const formatDate = (date) => date.toISOString().split("T")[0];
+// 날짜 및 시간 형식 변환 함수 (YYYY-MM-DD HH:MM:SS)
+const formatDateTime = (date) => {
+  if (!date || isNaN(new Date(date))) return "N/A";
+  const d = new Date(date);
+  return (
+    d.getFullYear() +
+    "-" +
+    ("0" + (d.getMonth() + 1)).slice(-2) +
+    "-" +
+    ("0" + d.getDate()).slice(-2) +
+    " " +
+    ("0" + d.getHours()).slice(-2) +
+    ":" +
+    ("0" + d.getMinutes()).slice(-2) +
+    ":" +
+    ("0" + d.getSeconds()).slice(-2)
+  );
+};
+
+// 비율 계산 함수
 const calculateRates = (answered, total) => {
+  if (total === 0) return "0.00%";
   const rate = (answered / total) * 100;
   return `${rate.toFixed(2)}%`;
 };
 
 router.get("/", async (req, res) => {
   try {
-    const { assignment_mode } = req.query;
-    
-    let whereClause = "";
+    const { assignment_mode, cancer_type, folder_name } = req.query;
+
+    let whereClauses = [];
     let queryParams = [];
-    
+
     if (assignment_mode) {
-      whereClause = "WHERE a.assignment_mode = ?";
+      whereClauses.push("a.assignment_mode = ?");
       queryParams.push(assignment_mode);
     }
-    
-    const [assignments] = await db.query(`
-      SELECT a.id, a.title, a.creation_date AS createdAt, a.deadline AS endAt, a.assignment_mode AS assignmentMode,
-      COUNT(DISTINCT au.user_id) AS evaluatorCount,
-      (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
+    if (cancer_type) {
+      whereClauses.push("a.cancer_type = ?");
+      queryParams.push(cancer_type);
+    }
+    if (folder_name) {
+      whereClauses.push("a.folder_name = ?");
+      queryParams.push(folder_name);
+    }
+
+    const whereClause = whereClauses.length
+      ? `WHERE ${whereClauses.join(" AND ")}`
+      : "";
+
+    const assignmentsQuery = `
+      SELECT 
+        a.id, 
+        a.title, 
+        a.creation_date AS createdAt,
+        a.cancer_type,
+        a.folder_name,
+        a.assignment_mode AS assignmentMode,
+        (SELECT MAX(ci.end_time) FROM canvas_info ci WHERE ci.assignment_id = a.id) as endAt,
+        (SELECT SUM(ci.evaluation_time) FROM canvas_info ci WHERE ci.assignment_id = a.id) as duration,
+        COUNT(DISTINCT au.user_id) AS evaluatorCount,
+        (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
       FROM assignments a
       LEFT JOIN assignment_user au ON a.id = au.assignment_id
       ${whereClause}
       GROUP BY a.id
-    `, queryParams);
+    `;
+
+    const [assignments] = await db.query(assignmentsQuery, queryParams);
 
     for (const assignment of assignments) {
       const totalPossibleAnswers =
         assignment.totalQuestions * assignment.evaluatorCount;
 
       if (assignment.assignmentMode === "BBox") {
-        // BBox 모드: 각 사용자가 각 문제에 대해 사각형을 하나라도 그렸는지 확인
         const [bboxAnswers] = await db.query(
           `
           SELECT COUNT(*) AS answeredQuestions
@@ -52,7 +92,6 @@ router.get("/", async (req, res) => {
         );
         assignment.answeredQuestions = bboxAnswers[0].answeredQuestions;
       } else if (assignment.assignmentMode === "Polygon") {
-        // Polygon 모드: 각 사용자가 각 문제에 대해 폴리곤을 하나라도 그렸는지 확인
         const [polygonAnswers] = await db.query(
           `
           SELECT COUNT(*) AS answeredQuestions
@@ -67,7 +106,6 @@ router.get("/", async (req, res) => {
         );
         assignment.answeredQuestions = polygonAnswers[0].answeredQuestions;
       } else {
-        // TextBox 모드: 기존 로직 유지
         const [answeredQuestions] = await db.query(
           `
           SELECT COUNT(*) AS count
@@ -82,16 +120,14 @@ router.get("/", async (req, res) => {
 
       assignment.answerRate = calculateRates(
         assignment.answeredQuestions,
-        totalPossibleAnswers,
-        1 // evaluatorCount는 이미 totalPossibleAnswers에 포함되어 있으므로 1로 설정
+        totalPossibleAnswers
       );
       assignment.unansweredRate = calculateRates(
         totalPossibleAnswers - assignment.answeredQuestions,
-        totalPossibleAnswers,
-        1 // 마찬가지로 1로 설정
+        totalPossibleAnswers
       );
-      assignment.createdAt = formatDate(new Date(assignment.createdAt));
-      assignment.endAt = formatDate(new Date(assignment.endAt));
+      assignment.createdAt = formatDateTime(assignment.createdAt);
+      assignment.endAt = formatDateTime(assignment.endAt);
     }
 
     res.json(assignments);
@@ -143,15 +179,24 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
           )
         : [];
 
-    const canvasData =
-      assignment_mode === "BBox"
+    // Polygon 모드: 사용자별 폴리곤과 캔버스 정보 조회
+    const polygonsData =
+      assignment_mode === "Polygon"
         ? await fetchData(
-            `SELECT ci.id, ci.width, ci.height, ci.user_id
-             FROM canvas_info ci
-             WHERE ci.assignment_id = ?`,
+            `SELECT pi.question_id AS questionIndex, pi.coordinates, pi.class_type AS classType, pi.user_id
+             FROM polygon_info pi
+             JOIN questions q ON pi.question_id = q.id
+             WHERE q.assignment_id = ?`,
             [assignmentId]
           )
         : [];
+
+    const canvasData = await fetchData(
+      `SELECT ci.id, ci.width, ci.height, ci.user_id
+       FROM canvas_info ci
+       WHERE ci.assignment_id = ?`,
+      [assignmentId]
+    );
 
     let fileName = "";
 
@@ -168,8 +213,16 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       if (!fileName) {
         fileName = FileName;
       }
-      const selection =
-        assignment_mode === "BBox" ? squareCount : originalSelection;
+      let selection = originalSelection;
+      if (assignment_mode === "BBox") {
+        selection = squareCount;
+      } else if (assignment_mode === "Polygon") {
+        // 해당 사용자/문항의 폴리곤 개수
+        const userPolygonCount = polygonsData.filter(
+          (p) => p.user_id === userId && p.questionIndex === questionId
+        ).length;
+        selection = userPolygonCount;
+      }
       if (!acc[name]) {
         acc[name] = {
           name,
@@ -178,13 +231,23 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
           answeredCount: 0,
           unansweredCount: 0,
         };
+        // 공통 beforeCanvas (뷰어에서 스케일 계산용)
+        acc[name].beforeCanvas = canvasData.find(
+          (canvas) => canvas.user_id === userId
+        );
         if (assignment_mode === "BBox") {
           acc[name].squares = squaresData.filter(
             (square) => square.user_id === userId
           );
-          acc[name].beforeCanvas = canvasData.find(
-            (canvas) => canvas.user_id === userId
-          );
+        } else if (assignment_mode === "Polygon") {
+          acc[name].polygons = polygonsData
+            .filter((p) => p.user_id === userId)
+            .map((p) => ({
+              points: JSON.parse(p.coordinates || "[]"),
+              class: p.classType,
+              isComplete: true,
+              questionIndex: p.questionIndex,
+            }));
         }
       }
 
@@ -193,7 +256,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         questionImage,
         questionSelection: selection,
       });
-      selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
+  selection > 0 ? acc[name].answeredCount++ : acc[name].unansweredCount++;
       return acc;
     }, {});
 

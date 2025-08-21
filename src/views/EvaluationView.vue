@@ -64,99 +64,136 @@
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
-          <div class="assignment-field mode-field">
-            <span>
-              <input
-                type="radio"
-                id="field-text-mode"
-                name="mode"
-                value="TextBox"
-                v-model="assignmentDetails.mode"
-              />
-              <label for="field-text-mode">택일형</label>
-            </span>
-            <span>
-              <input
-                type="radio"
-                id="field-bbox-mode"
-                name="mode"
-                value="BBox"
-                v-model="assignmentDetails.mode"
-              />
-              <label for="field-bbox-mode">BBox</label>
-            </span>
+          <!-- Group 1: Evaluation Type -->
+          <div class="bordered-group">
+            <div class="assignment-field mode-field">
+              <span>
+                <input
+                  type="radio"
+                  id="field-text-mode"
+                  name="mode"
+                  value="TextBox"
+                  v-model="assignmentDetails.mode"
+                />
+                <label for="field-text-mode">택일형</label>
+              </span>
+              <span>
+                <input
+                  type="radio"
+                  id="field-bbox-mode"
+                  name="mode"
+                  value="BBox"
+                  v-model="assignmentDetails.mode"
+                />
+                <label for="field-bbox-mode">BBox</label>
+              </span>
+              <span>
+                <input
+                  type="radio"
+                  id="field-polygon-mode"
+                  name="mode"
+                  value="Polygon"
+                  v-model="assignmentDetails.mode"
+                />
+                <label for="field-polygon-mode">Polygon</label>
+              </span>
+            </div>
           </div>
 
-          <div
-            class="assignment-field is_score_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
+          <!-- Group 2: Assignment Details -->
+          <div class="bordered-group assignment-details-group">
+            <div class="assignment-field">
+              <label for="field-cancer-type">Cancer:</label>
               <input
-                type="checkbox"
-                name="is_score"
-                id="is_score"
-                v-model="assignmentDetails.is_score"
+                id="field-cancer-type"
+                type="text"
+                v-model="assignmentDetails.cancer_type"
               />
-              <label for="is_score">SCORE</label>
-            </span>
-          </div>
-
-          <div
-            class="assignment-field is_ai_use_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
+            </div>
+            <div class="assignment-field">
+              <label for="field-folder-name">Folder:</label>
               <input
-                type="checkbox"
-                name="is_ai_use"
-                id="is_ai_use"
-                v-model="assignmentDetails.is_ai_use"
+                id="field-folder-name"
+                type="text"
+                v-model="assignmentDetails.folder_name"
               />
-              <label for="is_ai_use">AI</label>
-            </span>
-          </div>
-
-          <div
-            v-for="(field, fieldName) in assignmentFields"
-            :key="fieldName"
-            class="assignment-field"
-          >
-            <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
-            <template
-              v-if="
-                !(
-                  fieldName === 'assignment-type' &&
-                  assignmentDetails.mode === 'BBox'
-                )
-              "
+            </div>
+            <div
+              v-for="(field, fieldName) in assignmentFields"
+              :key="fieldName"
+              class="assignment-field"
             >
-              <label :for="`field-${fieldName}`">{{ field.label }}</label>
-              <input
-                v-if="field.component === 'input'"
-                :id="`field-${fieldName}`"
-                :type="field.options?.type"
-                v-model="assignmentDetails[field.model]"
-                :list="
-                  fieldName === 'assignment-id' ? 'assignment-id-list' : null
+              <!-- '선택 유형'은 TextBox 모드일 때만 표시 -->
+              <template
+                v-if="
+                  !(
+                    fieldName === 'assignment-type' &&
+                    assignmentDetails.mode !== 'TextBox'
+                  )
                 "
-              />
-              <datalist id="assignment-id-list">
-                <option
-                  v-for="folder in folderList"
-                  :key="folder"
-                  :value="folder"
-                >
-                  {{ folder }}
-                </option>
-              </datalist>
-              <button
-                v-if="field.method"
-                @click="field.method ? this[field.method]() : null"
               >
-                조회
-              </button>
-            </template>
+                <label :for="`field-${fieldName}`">{{ field.label }}</label>
+                <input
+                  v-if="field.component === 'input'"
+                  :id="`field-${fieldName}`"
+                  :type="field.options?.type"
+                  v-model="assignmentDetails[field.model]"
+                  :list="
+                    fieldName === 'assignment-id'
+                      ? 'assignment-id-list'
+                      : null
+                  "
+                />
+                <datalist id="assignment-id-list">
+                  <option
+                    v-for="folder in folderList"
+                    :key="folder"
+                    :value="folder"
+                  >
+                    {{ folder }}
+                  </option>
+                </datalist>
+                <button
+                  v-if="field.method"
+                  @click="field.method ? this[field.method]() : null"
+                >
+                  조회
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Group 3: Options -->
+          <div class="bordered-group options-group">
+            <div
+              class="assignment-field is_score_field"
+              v-if="assignmentDetails.mode === 'BBox'"
+            >
+              <span>
+                <input
+                  type="checkbox"
+                  name="is_score"
+                  id="is_score"
+                  v-model="assignmentDetails.is_score"
+                />
+                <label for="is_score">SCORE</label>
+              </span>
+            </div>
+
+            <div
+              class="assignment-field is_ai_use_field"
+              v-if="assignmentDetails.mode === 'BBox'"
+            >
+              <span>
+                <input
+                  type="checkbox"
+                  name="is_ai_use"
+                  id="is_ai_use"
+                  v-model="assignmentDetails.is_ai_use"
+                />
+                <label for="is_ai_use">AI</label>
+              </span>
+            </div>
           </div>
         </div>
         <hr />
@@ -254,6 +291,8 @@ export default {
         deadline: "",
         selectedAssignmentId: "",
         selectedAssignmentType: "",
+        cancer_type: "",
+        folder_name: "",
         questions: [],
         gradingScale: null,
         mode: "BBox",
@@ -406,6 +445,8 @@ export default {
           deadline: this.assignmentDetails.deadline,
           assignment_type: this.assignmentDetails.selectedAssignmentId,
           selection_type: this.assignmentDetails.selectedAssignmentType,
+          cancer_type: this.assignmentDetails.cancer_type,
+          folder_name: this.assignmentDetails.folder_name,
           questions: this.assignmentDetails.questions,
           users: this.addedUsers.map((user) => user.id),
           mode: this.assignmentDetails.mode,
@@ -966,5 +1007,24 @@ tbody tr.active {
 /* 전체 화면 아이콘 호버 */
 .fa-expand:hover {
   max-height: fit-content;
+}
+
+.bordered-group {
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.assignment-details-group {
+  flex-grow: 1;
+}
+
+.options-group {
+  flex-direction: column;
+  align-items: flex-start;
 }
 </style>

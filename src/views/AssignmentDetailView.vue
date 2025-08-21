@@ -80,7 +80,7 @@
               <td>
                 <img :src="question.image" alt="Question" />
               </td>
-              <td v-if="!isTextBoxMode">{{ getBBoxCount(question.id) }}</td>
+              <td v-if="!isTextBoxMode">{{ getAnnotationCount(question.id) }}</td>
               <td
                 v-for="(grade, index) in currentAssignmentDetails.selectionType"
                 :key="index"
@@ -383,16 +383,22 @@ export default {
     },
 
     updateQuestionStatus() {
-      this.currentAssignmentDetails.questions =
-        this.currentAssignmentDetails.questions.map((question) => {
-          const hasSquare = this.currentAssignmentDetails.squares.some(
-            (square) => square.questionIndex === question.id
+      const polygons = this.currentAssignmentDetails.polygons || [];
+      const squares = (this.currentAssignmentDetails.squares || []).filter(
+        (s) => !s.isTemporary
+      );
+      this.currentAssignmentDetails.questions = this.currentAssignmentDetails.questions.map(
+        (question) => {
+          const hasPolygon = polygons.some(
+            (p) => p.questionIndex === question.id
           );
+          const hasSquare = squares.some((s) => s.questionIndex === question.id);
           return {
             ...question,
-            isInspected: hasSquare,
+            isInspected: this.isPolygonMode ? hasPolygon : hasSquare,
           };
-        });
+        }
+      );
 
       this.recalculateScore();
     },
@@ -488,12 +494,17 @@ export default {
       }
     },
 
-    getBBoxCount(questionId) {
-      if (this.originalAssignmentDetails) {
-        return this.originalAssignmentDetails.squares.filter(
-          (square) => square.questionIndex === questionId && !square.isTemporary
-        ).length;
+    // 모드별 개수 집계: Polygon은 폴리곤 개수, BBox는 사각형 개수(임시 제외)
+    getAnnotationCount(questionId) {
+      if (!this.currentAssignmentDetails) return 0;
+      if (this.isPolygonMode) {
+        const polygons = this.currentAssignmentDetails.polygons || [];
+        return polygons.filter((p) => p.questionIndex === questionId).length;
       }
+      const squares = (this.currentAssignmentDetails.squares || []).filter(
+        (s) => s.questionIndex === questionId && !s.isTemporary
+      );
+      return squares.length;
     },
 
     onRowClick(question, idx) {
@@ -525,14 +536,21 @@ export default {
     },
 
     recalculateScore() {
-      const uniqueQuestionIndices = [
-        ...new Set(
-          this.currentAssignmentDetails.squares.map(
-            (square) => square.questionIndex
+      if (this.isPolygonMode) {
+        const set = new Set(
+          (this.currentAssignmentDetails.polygons || []).map(
+            (p) => p.questionIndex
           )
-        ),
-      ];
-      this.currentAssignmentDetails.score = uniqueQuestionIndices.length;
+        );
+        this.currentAssignmentDetails.score = set.size;
+      } else {
+        const set = new Set(
+          (this.currentAssignmentDetails.squares || [])
+            .filter((s) => !s.isTemporary)
+            .map((s) => s.questionIndex)
+        );
+        this.currentAssignmentDetails.score = set.size;
+      }
     },
 
     toggleFullScreenImage() {
@@ -550,6 +568,13 @@ export default {
           console.warn("Active row not found!");
         }
       });
+    },
+    // 폴리곤이 변경되면 행의 isInspected와 점수를 즉시 갱신
+    'currentAssignmentDetails.polygons': {
+      handler() {
+        if (this.isPolygonMode) this.updateQuestionStatus();
+      },
+      deep: true,
     },
   },
 };

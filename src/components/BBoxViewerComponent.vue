@@ -76,17 +76,26 @@ export default {
 
   methods: {
     async fetchLocalInfo() {
-      const { width, height } = this.$refs.canvas.getBoundingClientRect();
+      const canvas = this.$refs.canvas;
+      if (!canvas) return; // 안전 가드: 캔버스 ref가 아직 없을 때
+      const { width, height } = canvas.getBoundingClientRect();
       const img = await this.createImage(this.src);
       this.setBackgroundImage(img);
       this.localBeforeCanvas = { width, height };
 
       this.localSquares = []; // 기존 데이터 초기화
 
-      for (const user of this.userSquaresList) {
-        if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
-          user.beforeCanvas.width = img.width;
-          user.beforeCanvas.height = img.height;
+      for (const user of this.userSquaresList || []) {
+        if (!user || !Array.isArray(user.squares)) continue; // 잘못된 항목 스킵
+
+        // beforeCanvas가 없거나 이상하면 기본값 채우기
+        if (!user.beforeCanvas || typeof user.beforeCanvas !== "object") {
+          user.beforeCanvas = { width: img.width, height: img.height };
+        } else {
+          if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
+            user.beforeCanvas.width = img.width;
+            user.beforeCanvas.height = img.height;
+          }
         }
 
         const beforePosition = this.calculateImagePosition(width, height);
@@ -482,7 +491,9 @@ export default {
 
     aiData: {
       handler(newAiData) {
-        const { width, height } = this.$refs.canvas.getBoundingClientRect();
+  const canvas = this.$refs.canvas;
+  if (!canvas) return; // 캔버스가 아직 준비되지 않음
+  const { width, height } = canvas.getBoundingClientRect();
         const {
           x: imgX,
           y: imgY,

@@ -5,77 +5,79 @@
 
     <!-- 필터링 및 검색 컨트롤 -->
     <div class="controls-container">
-      <!-- 필터링 드롭다운들 -->
-      <div class="filter-controls">
-        <!-- 암종 선택 -->
-        <select 
-          v-model="selectedCancerType" 
-          @change="applyFilters"
-          class="filter-select"
-        >
-          <option value="">모든 암종</option>
-          <option 
-            v-for="cancer in availableCancerTypes" 
-            :key="cancer" 
-            :value="cancer"
+      <div class="filter-group">
+        <!-- 필터링 드롭다운들 -->
+        <div class="filter-controls">
+          <!-- 평가방식 선택 -->
+          <select
+            v-model="selectedAssignmentMode"
+            @change="applyFilters"
+            class="filter-select"
           >
-            {{ cancer }}
-          </option>
-        </select>
+            <option value="">모든 평가방식</option>
+            <option
+              v-for="mode in availableAssignmentModes"
+              :key="mode"
+              :value="mode"
+            >
+              {{ mode }}
+            </option>
+          </select>
 
-        <!-- 폴더 선택 -->
-        <select 
-          v-model="selectedFolderName" 
-          @change="applyFilters"
-          class="filter-select"
-        >
-          <option value="">모든 폴더</option>
-          <option 
-            v-for="folder in availableFolderNames" 
-            :key="folder" 
-            :value="folder"
+          <!-- 암종 선택 -->
+          <select
+            v-model="selectedCancerType"
+            @change="applyFilters"
+            class="filter-select"
           >
-            {{ folder }}
-          </option>
-        </select>
+            <option value="">모든 암종</option>
+            <option
+              v-for="cancer in availableCancerTypes"
+              :key="cancer"
+              :value="cancer"
+            >
+              {{ cancer }}
+            </option>
+          </select>
 
-        <!-- 평가방식 선택 -->
-        <select 
-          v-model="selectedAssignmentMode" 
-          @change="applyFilters"
-          class="filter-select"
-        >
-          <option value="">모든 평가방식</option>
-          <option 
-            v-for="mode in availableAssignmentModes" 
-            :key="mode" 
-            :value="mode"
+          <!-- 폴더 선택 -->
+          <select
+            v-model="selectedFolderName"
+            @change="applyFilters"
+            class="filter-select"
           >
-            {{ mode }}
-          </option>
-        </select>
-      </div>
+            <option value="">모든 폴더</option>
+            <option
+              v-for="folder in availableFolderNames"
+              :key="folder"
+              :value="folder"
+            >
+              {{ folder }}
+            </option>
+          </select>
+        </div>
 
-      <!-- 과제 리스트에서 제목으로 검색 -->
-      <div
-        class="assignment-search-input"
-        :class="{ 'search-input-focused': isFocused }"
-      >
-        <!-- 초기화 버튼 -->
-        <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
-        <input
-          class="assignment-search"
-          type="text"
-          v-model="searchQuery"
-          placeholder="검색어를 입력하세요"
-          @focus="isFocused = true"
-          @blur="isFocused = false"
-          @keypress.enter="searchAssignment"
-        />
-        <i
-          class="fa-solid fa-magnifying-glass search-icon"
-          @click="searchAssignment"
-        ></i>
+        <!-- 과제 리스트에서 제목으로 검색 -->
+        <div
+          class="assignment-search-input"
+          :class="{ 'search-input-focused': isFocused }"
+        >
+          <!-- 초기화 버튼 -->
+          <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
+          <input
+            class="assignment-search"
+            type="text"
+            v-model="searchQuery"
+            placeholder="검색어를 입력하세요"
+            @focus="isFocused = true"
+            @blur="isFocused = false"
+            @keypress.enter="searchAssignment"
+          />
+          <i
+            class="fa-solid fa-magnifying-glass search-icon"
+            @click="searchAssignment"
+          ></i>
+        </div>
       </div>
     </div>
   </div>
@@ -192,20 +194,38 @@ export default {
       return [
         { name: "ID", key: "id", sortable: true, class: "assignment-id" },
         {
+          name: "평가유형",
+          key: "assignment_mode",
+          sortable: true,
+          class: "assignment-mode",
+        },
+        {
+          name: "암종명",
+          key: "cancer_type",
+          sortable: true,
+          class: "assignment-cancer",
+        },
+        {
+          name: "폴더명",
+          key: "folder_name",
+          sortable: true,
+          class: "assignment-folder",
+        },
+        {
           name: "제목",
           key: "title",
           sortable: true,
           class: "assignment-title",
         },
         {
-          name: "생성",
+          name: "생성시간",
           key: "CreationDate",
           sortable: true,
           class: "assignment-creation-date",
         },
         {
-          name: "종료",
-          key: "dueDate",
+          name: "종료시간",
+          key: "end_time",
           sortable: true,
           class: "assignment-due-date",
         },
@@ -222,22 +242,10 @@ export default {
           class: "assignment-progress",
         },
         {
-          name: "평가방식",
-          key: "assignment_mode",
+          name: "소요시간",
+          key: "evaluation_time",
           sortable: true,
-          class: "assignment-mode",
-        },
-        {
-          name: "암종",
-          key: "cancer_type",
-          sortable: true,
-          class: "assignment-cancer",
-        },
-        {
-          name: "폴더",
-          key: "folder_name",
-          sortable: true,
-          class: "assignment-folder",
+          class: "assignment-duration",
         },
       ];
     },
@@ -322,12 +330,37 @@ export default {
       if (key === "progress") {
         return `${obj.completed || 0} / ${obj.total || 0}`;
       }
-      if (key === "CreationDate" || key === "dueDate") {
+      if (key === "CreationDate" || key === "end_time") {
         if (obj[key] && !isNaN(Date.parse(obj[key]))) {
           const date = new Date(obj[key]);
-          return date.toISOString().split("T")[0]; // YYYY-MM-DD 형식으로 반환
+          // YYYY-MM-DD HH:MM:SS 형식으로 반환
+          return (
+            date.getFullYear() +
+            "-" +
+            ("0" + (date.getMonth() + 1)).slice(-2) +
+            "-" +
+            ("0" + date.getDate()).slice(-2) +
+            " " +
+            ("0" + date.getHours()).slice(-2) +
+            ":" +
+            ("0" + date.getMinutes()).slice(-2) +
+            ":" +
+            ("0" + date.getSeconds()).slice(-2)
+          );
         }
         return "N/A";
+      }
+      if (key === "evaluation_time") {
+        if (obj[key] === null || obj[key] === undefined) return "N/A";
+        const seconds = parseInt(obj[key], 10);
+        const h = Math.floor(seconds / 3600)
+          .toString()
+          .padStart(2, "0");
+        const m = Math.floor((seconds % 3600) / 60)
+          .toString()
+          .padStart(2, "0");
+        const s = (seconds % 60).toString().padStart(2, "0");
+        return `${h}:${m}:${s}`;
       }
       return obj[key] || "N/A";
     },
@@ -648,5 +681,13 @@ tbody > tr:hover {
 .pagination__item--active .pagination__link {
   color: var(--blue);
   border: 1px solid var(--blue);
+}
+
+.filter-group {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
 }
 </style>

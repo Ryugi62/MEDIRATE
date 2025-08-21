@@ -8,63 +8,47 @@
   <div class="dashboard-header">
     <h1 class="header-title">TSR 대시보드 (Polygon)</h1>
 
-    <!-- 검색 입력 -->
-    <div
-      class="dashboard-search-input"
-      :class="{ 'search-input-focused': isFocused }"
-    >
-      <span class="slider-value"> {{ score_value }}% </span>
-      <input
-        type="range"
-        name="score_value"
-        id="score_value"
-        v-model="score_value"
-        min="0"
-        max="100"
-      />
-
-      <span class="slider-value">{{ sliderValue }}인 일치</span>
-      <input
-        type="range"
-        min="1"
-        max="5"
-        class="slider"
-        :value="sliderValue"
-        @input="changeSliderValue"
-      />
-
-      <div class="search-input-container">
-        <i
-          class="fa-solid fa-rotate-left reset-button"
-          @click="resetSearch"
-        ></i>
-        <input
-          class="search-input"
-          type="text"
-          v-model="searchQuery"
-          placeholder="검색어를 입력하세요"
-          @focus="isFocused = true"
-          @blur="isFocused = false"
-          @keypress.enter="searchDashboard"
-        />
-        <i
-          class="fa-solid fa-magnifying-glass search-button"
-          @click="searchDashboard"
-        ></i>
+    <div class="filter-group">
+      <!-- 필터링 드롭다운들 -->
+      <div class="filter-controls">
+        <select v-model="selectedCancerType" @change="applyFilters" class="filter-select">
+          <option value="">모든 암종</option>
+          <option v-for="cancer in availableCancerTypes" :key="cancer" :value="cancer">
+            {{ cancer }}
+          </option>
+        </select>
+        <select v-model="selectedFolderName" @change="applyFilters" class="filter-select">
+          <option value="">모든 폴더</option>
+          <option v-for="folder in availableFolderNames" :key="folder" :value="folder">
+            {{ folder }}
+          </option>
+        </select>
       </div>
 
-      <button class="metrics-button" @click="showMetrics">Metrics 보기</button>
+      <!-- 검색 입력 -->
+      <div class="dashboard-search-input" :class="{ 'search-input-focused': isFocused }">
+        <span class="slider-value"> {{ score_value }}% </span>
+        <input type="range" name="score_value" id="score_value" v-model="score_value" min="0" max="100" />
 
-      <button
-        class="download-image-button"
-        @click="downloadSearchedItemsAssets"
-      >
-        검색된 과제 이미지 다운로드
-      </button>
+        <span class="slider-value">{{ sliderValue }}인 일치</span>
+        <input type="range" min="1" max="5" class="slider" :value="sliderValue" @input="changeSliderValue" />
 
-      <button class="download-button" @click="downloadSearchedItems">
-        검색된 과제 다운로드
-      </button>
+        <div class="search-input-container">
+          <i class="fa-solid fa-rotate-left reset-button" @click="resetSearch"></i>
+          <input class="search-input" type="text" v-model="searchQuery" placeholder="검색어를 입력하세요" @focus="isFocused = true" @blur="isFocused = false" @keypress.enter="searchDashboard" />
+          <i class="fa-solid fa-magnifying-glass search-button" @click="searchDashboard"></i>
+        </div>
+
+        <button class="metrics-button" @click="showMetrics">Metrics 보기</button>
+
+        <button class="download-image-button" @click="downloadSearchedItemsAssets">
+          검색된 과제 이미지 다운로드
+        </button>
+
+        <button class="download-button" @click="downloadSearchedItems">
+          검색된 과제 다운로드
+        </button>
+      </div>
     </div>
   </div>
 
@@ -75,43 +59,17 @@
       <!-- 테이블 헤더 -->
       <thead>
         <tr>
-          <!-- 각 열의 제목 -->
-          <th
-            v-for="column in columns"
-            :key="column.key"
-            @click="column.sortable && sortBy(column.key)"
-            :class="{ sortable: column.sortable }"
-          >
-            <!-- 화살표 아이콘과 열 이름 -->
-            <i
-              v-if="column.sortable"
-              :class="[
-                'fa-solid',
-                'fa-arrow-' +
-                  (sortColumn === column.key ? sortDirection : 'down'),
-              ]"
-            ></i>
+          <th v-for="column in columns" :key="column.key" @click="column.sortable && sortBy(column.key)" :class="{ sortable: column.sortable }">
+            <i v-if="column.sortable" :class="['fa-solid', 'fa-arrow-' + (sortColumn === column.key ? sortDirection : 'down')]" ></i>
             {{ column.name }}
           </th>
         </tr>
       </thead>
       <!-- 테이블 바디 -->
       <tbody>
-        <tr
-          v-for="item in paginatedData"
-          :key="item.id"
-          :class="{
-            completed: item.answerRate === '100%',
-          }"
-          @click="goToDetail(item.id)"
-        >
-          <!-- 각 열의 데이터 -->
+        <tr v-for="item in paginatedData" :key="item.id" :class="{ completed: item.answerRate === '100.00%' }" @click="goToDetail(item.id)">
           <td v-for="column in columns" :key="column.key" :class="column.class">
-            {{
-              column.key === "answerRate" || column.key === "unansweredRate"
-                ? formatPercentage(item[column.key])
-                : item[column.key]
-            }}
+            {{ getValue(item, column.key) }}
           </td>
         </tr>
       </tbody>
@@ -122,42 +80,19 @@
   <nav class="pagination-nav" aria-label="Pagination">
     <ul class="pagination">
       <li>
-        <i
-          class="fa-solid fa-angles-left pagination__button"
-          @click="changePage(1)"
-          :class="{ 'pagination__button--disabled': current === 1 }"
-        ></i>
+        <i class="fa-solid fa-angles-left pagination__button" @click="changePage(1)" :class="{ 'pagination__button--disabled': current === 1 }" ></i>
       </li>
       <li>
-        <i
-          class="fa-solid fa-angle-left pagination__button"
-          @click="changePage(current - 1)"
-          :class="{ 'pagination__button--disabled': current === 1 }"
-        ></i>
+        <i class="fa-solid fa-angle-left pagination__button" @click="changePage(current - 1)" :class="{ 'pagination__button--disabled': current === 1 }" ></i>
       </li>
-      <li
-        v-for="page in visiblePages"
-        :key="page"
-        :class="{ 'pagination__item--active': current === page }"
-        class="pagination__item"
-      >
-        <a @click.prevent="changePage(page)" class="pagination__link">{{
-          page
-        }}</a>
+      <li v-for="page in visiblePages" :key="page" :class="{ 'pagination__item--active': current === page }" class="pagination__item">
+        <a @click.prevent="changePage(page)" class="pagination__link">{{ page }}</a>
       </li>
       <li>
-        <i
-          class="fa-solid fa-angle-right pagination__button"
-          @click="changePage(current + 1)"
-          :class="{ 'pagination__button--disabled': current === total }"
-        ></i>
+        <i class="fa-solid fa-angle-right pagination__button" @click="changePage(current + 1)" :class="{ 'pagination__button--disabled': current === lastPage }" ></i>
       </li>
       <li>
-        <i
-          class="fa-solid fa-angles-right pagination__button"
-          @click="changePage(lastPage)"
-          :class="{ 'pagination__button--disabled': current === total }"
-        ></i>
+        <i class="fa-solid fa-angles-right pagination__button" @click="changePage(lastPage)" :class="{ 'pagination__button--disabled': current === lastPage }" ></i>
       </li>
     </ul>
   </nav>
@@ -183,6 +118,10 @@ export default {
       exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
       sliderValue: 1,
       score_value: 50,
+      availableCancerTypes: [],
+      availableFolderNames: [],
+      selectedCancerType: "",
+      selectedFolderName: "",
     };
   },
 
@@ -205,32 +144,15 @@ export default {
     columns() {
       return [
         { name: "ID", key: "id", sortable: true, class: "id" },
-        {
-          name: "제목",
-          key: "title",
-          sortable: false,
-          class: "assignment-title",
-        },
-        { name: "생성", key: "createdAt", sortable: true, class: "created-at" },
-        { name: "종료", key: "endAt", sortable: true, class: "end-at" },
-        {
-          name: "평가자 수",
-          key: "evaluatorCount",
-          sortable: true,
-          class: "evaluator",
-        },
-        {
-          name: "답변완료율",
-          key: "answerRate",
-          sortable: true,
-          class: "answer-rate",
-        },
-        {
-          name: "미답변율",
-          key: "unansweredRate",
-          sortable: true,
-          class: "unanswered-rate",
-        },
+        { name: "암종명", key: "cancer_type", sortable: true, class: "cancer-type" },
+        { name: "폴더명", key: "folder_name", sortable: true, class: "folder-name" },
+        { name: "제목", key: "title", sortable: false, class: "assignment-title" },
+        { name: "생성시간", key: "createdAt", sortable: true, class: "created-at" },
+        { name: "종료시간", key: "endAt", sortable: true, class: "end-at" },
+        { name: "소요시간", key: "duration", sortable: true, class: "duration" },
+        { name: "평가자 수", key: "evaluatorCount", sortable: true, class: "evaluator" },
+        { name: "답변완료율", key: "answerRate", sortable: true, class: "answer-rate" },
+        { name: "미답변율", key: "unansweredRate", sortable: true, class: "unanswered-rate" },
       ];
     },
   },
@@ -245,17 +167,50 @@ export default {
   },
 
   mounted() {
-    // Polygon 과제만 가져오기
-    this.$axios
-      .get("/api/dashboard", {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-        },
-        params: {
-          assignment_mode: 'Polygon'
-        }
-      })
-      .then((response) => {
+    this.loadFilterOptions();
+    this.loadDashboardData();
+  },
+
+  methods: {
+    getValue(obj, key) {
+      if (key === 'duration') {
+        if (obj[key] === null || obj[key] === undefined) return "N/A";
+        const seconds = parseInt(obj[key], 10);
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+      }
+      return obj[key] || "N/A";
+    },
+    async loadFilterOptions() {
+      try {
+        const response = await this.$axios.get("/api/assignments/filters", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
+        });
+        this.availableCancerTypes = response.data.cancerTypes;
+        this.availableFolderNames = response.data.folderNames;
+      } catch (error) {
+        console.error("필터 옵션 로드 실패:", error);
+      }
+    },
+    async loadDashboardData() {
+      try {
+        const params = {
+          assignment_mode: 'Polygon',
+        };
+        if (this.selectedCancerType) params.cancer_type = this.selectedCancerType;
+        if (this.selectedFolderName) params.folder_name = this.selectedFolderName;
+
+        const response = await this.$axios.get("/api/dashboard", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+          params,
+        });
+
         this.originalData = response.data;
         this.data = response.data;
         this.total = this.data.length;
@@ -272,31 +227,28 @@ export default {
             this.lastPage
           );
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(error);
-      });
-  },
-
-  methods: {
+      }
+    },
+    applyFilters() {
+      this.loadDashboardData();
+      this.current = 1;
+    },
     goToDetail(id) {
       this.$router.push({ name: "dashboardDetail", params: { id } });
     },
-
     changePage(pageNumber) {
-      const totalPages = Math.ceil(this.total / this.itemsPerPage);
-      if (pageNumber >= 1 && pageNumber <= totalPages) {
+      if (pageNumber >= 1 && pageNumber <= this.lastPage) {
         this.current = pageNumber;
       }
     },
-
     formatPercentage(value) {
       if (typeof value === "string") {
         value = parseFloat(value.replace("%", ""));
       }
       return Math.round(value) + "%";
     },
-
     sortBy(columnKey) {
       if (this.sortColumn === columnKey) {
         this.sortDirection = this.sortDirection === "up" ? "down" : "up";
@@ -328,11 +280,9 @@ export default {
 
       this.current = 1;
     },
-
     changeSliderValue(event) {
       this.sliderValue = event.target.value;
     },
-
     searchDashboard() {
       if (this.searchQuery === "") {
         this.resetSearch();
@@ -346,16 +296,14 @@ export default {
       this.current = 1;
       this.$store.commit("setTSRDashboardSearchHistory", this.searchQuery);
     },
-
     resetSearch() {
       this.searchQuery = "";
-      this.data = this.originalData;
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.selectedCancerType = "";
+      this.selectedFolderName = "";
+      this.loadDashboardData();
       this.current = 1;
       this.$store.commit("setTSRDashboardSearchHistory", "");
     },
-
     downloadSearchedItems() {
       this.isExporting = true;
       this.$axios
@@ -394,7 +342,6 @@ export default {
           this.isExporting = false;
         });
     },
-
     downloadSearchedItemsAssets() {
       this.isExporting = true;
       this.$axios
@@ -433,7 +380,6 @@ export default {
           this.isExporting = false;
         });
     },
-
     assignTSRDashboardSearchFromStore() {
       this.data = this.originalData.filter((item) =>
         item.title.toLowerCase().includes(this.searchQuery.toLowerCase())
@@ -442,15 +388,12 @@ export default {
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
       this.current = 1;
     },
-
     updateTSRDashboardSearchHistory(history) {
       this.$store.commit("setTSRDashboardSearchHistory", history);
     },
-
     updateTSRDashboardCurrentPage(page) {
       this.$store.commit("setTSRDashboardCurrentPage", page);
     },
-
     async showMetrics() {
       if (this.data.length === 0) {
         alert("검색된 과제가 없습니다.");
@@ -526,12 +469,39 @@ export default {
   color: var(--pink);
 }
 
+.filter-group {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  align-items: center;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: var(--white);
+  font-size: 14px;
+  min-width: 120px;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
 .dashboard-search-input {
   display: flex;
   height: 100%;
   overflow: hidden;
   margin-right: 22px;
   gap: 8px;
+  align-items: center;
 }
 
 .slider-value {
@@ -543,6 +513,7 @@ export default {
   border-radius: 4px;
   border: 1px solid var(--light-gray);
   transition: all 0.3s ease;
+  display: flex;
 }
 
 .search-input-focused .search-input-container {

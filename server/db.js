@@ -455,6 +455,39 @@ async function initializeDb() {
       // 예상 열 가져오기
       const expectedCols = expectedColumns[table];
 
+      // 스키마 불일치 자동 수정: assignments.assignment_mode ENUM 보정
+      if (table === "assignments") {
+        try {
+          const assignmentModeCol = existingColumns.find(
+            (col) => col.Field === "assignment_mode"
+          );
+          if (
+            assignmentModeCol &&
+            typeof assignmentModeCol.Type === "string" &&
+            assignmentModeCol.Type.startsWith("enum(")
+          ) {
+            const typeLower = assignmentModeCol.Type.toLowerCase();
+            // enum 항목에 'polygon'이 포함되지 않으면 ALTER로 수정
+            if (!typeLower.includes("'polygon'")) {
+              console.log(
+                "Altering assignments.assignment_mode to include 'Polygon'"
+              );
+              await pool.execute(
+                "ALTER TABLE `assignments` MODIFY COLUMN `assignment_mode` ENUM('TextBox', 'BBox', 'Polygon') NOT NULL DEFAULT 'TextBox'"
+              );
+              console.log(
+                "Updated ENUM values for assignments.assignment_mode successfully."
+              );
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "Warning: Failed to verify/alter assignments.assignment_mode:",
+            e.message
+          );
+        }
+      }
+
       // 예상 열과 기존 열 비교하여 누락된 열 추가
       for (const col of expectedCols) {
         if (
