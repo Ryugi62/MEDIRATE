@@ -16,21 +16,77 @@
 
       <div class="tool-selector">
         <span class="tool-label">모드:</span>
-        <button class="tool-btn" :class="{ active: mode==='draw' }" @click="setMode('draw')">✏️ 그리기</button>
-        <button class="tool-btn" :class="{ active: mode==='add' }" @click="setMode('add')">➕ 추가</button>
-        <button class="tool-btn" :class="{ active: mode==='subtract' }" @click="setMode('subtract')">➖ 삭제</button>
+        <button
+          class="tool-btn"
+          :class="{ active: mode === 'draw' }"
+          @click="setMode('draw')"
+        >
+          ✏️ 그리기
+        </button>
+        <button
+          class="tool-btn"
+          :class="{ active: mode === 'add' }"
+          @click="setMode('add')"
+        >
+          ➕ 추가
+        </button>
+        <button
+          class="tool-btn"
+          :class="{ active: mode === 'subtract' }"
+          @click="setMode('subtract')"
+        >
+          ➖ 삭제
+        </button>
         <span class="tool-sep"></span>
         <span class="tool-label">도형:</span>
-        <button class="shape-btn" :class="{ active: shape==='freehand' }" @click="setShape('freehand')" title="자유">✏️</button>
-        <button class="shape-btn" :class="{ active: shape==='circle' }" @click="setShape('circle')" title="원">⭕</button>
-        <button class="shape-btn" :class="{ active: shape==='rectangle' }" @click="setShape('rectangle')" title="사각">⬜</button>
-        <button class="shape-btn" :class="{ active: shape==='triangle' }" @click="setShape('triangle')" title="삼각">🔺</button>
+        <button
+          class="shape-btn"
+          :class="{ active: shape === 'freehand' }"
+          @click="setShape('freehand')"
+          title="자유"
+        >
+          ✏️
+        </button>
+        <button
+          class="shape-btn"
+          :class="{ active: shape === 'circle' }"
+          @click="setShape('circle')"
+          title="원"
+        >
+          ⭕
+        </button>
+        <button
+          class="shape-btn"
+          :class="{ active: shape === 'rectangle' }"
+          @click="setShape('rectangle')"
+          title="사각"
+        >
+          ⬜
+        </button>
+        <button
+          class="shape-btn"
+          :class="{ active: shape === 'triangle' }"
+          @click="setShape('triangle')"
+          title="삼각"
+        >
+          🔺
+        </button>
       </div>
 
       <div class="polygon-actions">
         <span v-for="c in availableClasses" :key="c" class="radio-group">
-          <input type="radio" :id="`class-${c}`" :value="c" v-model="currentClass" @change="updateSelectedPolygonClass">
-          <label :for="`class-${c}`" :style="{ color: getClassColor(c, 1), fontWeight: 'bold' }">{{ c }}</label>
+          <input
+            type="radio"
+            :id="`class-${c}`"
+            :value="c"
+            v-model="currentClass"
+            @change="updateSelectedPolygonClass"
+          />
+          <label
+            :for="`class-${c}`"
+            :style="{ color: getClassColor(c, 1), fontWeight: 'bold' }"
+            >{{ getClassLabel(c) }}</label
+          >
         </span>
       </div>
 
@@ -64,9 +120,16 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(p, index) in localPolygons.filter(p => p.questionIndex === questionIndex)" :key="p.id" @click="selectPolygonFromList(p)" :class="{ 'selected-row': p === selectedPolygon }">
+            <tr
+              v-for="(p, index) in localPolygons.filter(
+                (p) => p.questionIndex === questionIndex
+              )"
+              :key="p.id"
+              @click="selectPolygonFromList(p)"
+              :class="{ 'selected-row': p === selectedPolygon }"
+            >
               <td>{{ index + 1 }}</td>
-              <td>{{ p.class }}</td>
+              <td>{{ getClassLabel(p.class) }}</td>
             </tr>
           </tbody>
         </table>
@@ -95,44 +158,50 @@ export default {
       iconList: [
         { name: "fa-draw-polygon", active: true, explanation: "Add (추가)" },
         { name: "fa-eraser", active: false, explanation: "Delete (삭제)" },
-        { name: "fa-circle-minus", active: false, explanation: "Clear All (전체 삭제)" },
+        {
+          name: "fa-circle-minus",
+          active: false,
+          explanation: "Clear All (전체 삭제)",
+        },
       ],
       localPolygons: [],
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
-      
+
       isDrawing: false,
       currentPolygon: null,
-  currentPath: [],
-  startPoint: null,
-  lastMousePos: null,
+      currentPath: [],
+      startPoint: null,
+      lastMousePos: null,
       selectedPolygon: null,
       hoveredPoint: null,
       isDraggingPoint: false,
-      
-      availableClasses: ['Tumor', 'Stroma', 'Other'],
-      currentClass: 'Tumor', // Default class
 
-  // Tools
-  mode: 'draw', // 'draw' | 'add' | 'subtract'
-  shape: 'freehand', // 'freehand' | 'circle' | 'rectangle' | 'triangle'
-  history: [],
-  // 표시 설정: 정점 점(버텍스 점) 표시 여부
-  showPoints: false,
+      // UI 표시는 요구사항 순서(Other-0, Stroma-1, Tumor-2)로, 저장 값은 기존 문자열을 유지
+      availableClasses: ["Other", "Stroma", "Tumor"],
+      currentClass: "Tumor", // Default: Tumor (2)
+
+      // Tools
+      mode: "draw", // 'draw' | 'add' | 'subtract'
+      shape: "freehand", // 'freehand' | 'circle' | 'rectangle' | 'triangle'
+      history: [],
+      // 표시 설정: 정점 점(버텍스 점) 표시 여부
+      showPoints: false,
     };
   },
 
   computed: {
     // Polygon 모드 아이콘 중 동작하는 '전체 삭제'만 표시
     displayedIcons() {
-      return this.iconList.filter(icon => icon.name === 'fa-circle-minus');
+      return this.iconList.filter((icon) => icon.name === "fa-circle-minus");
     },
     addToolActive() {
-      return this.iconList.find(icon => icon.name === 'fa-draw-polygon')?.active;
+      return this.iconList.find((icon) => icon.name === "fa-draw-polygon")
+        ?.active;
     },
     eraseToolActive() {
-      return this.iconList.find(icon => icon.name === 'fa-eraser')?.active;
+      return this.iconList.find((icon) => icon.name === "fa-eraser")?.active;
     },
     fileName() {
       return this.src ? this.src.split("/").pop() : "";
@@ -140,12 +209,25 @@ export default {
   },
 
   methods: {
+    // Class 라벨을 요구사항 형식으로 매핑하여 표시
+    getClassLabel(c) {
+      switch (c) {
+        case "Other":
+          return "Other-0";
+        case "Stroma":
+          return "Stroma-1";
+        case "Tumor":
+          return "Tumor-2";
+        default:
+          return c;
+      }
+    },
     // --- Initialization and Drawing ---
     async initialize() {
       this.localPolygons = JSON.parse(JSON.stringify(this.polygons));
       await this.loadBackgroundImage();
       this.resizeCanvas();
-  this.saveState();
+      this.saveState();
     },
 
     async loadBackgroundImage() {
@@ -174,17 +256,18 @@ export default {
       this.redrawPolygons();
     },
 
-  redrawPolygons() {
+    redrawPolygons() {
       const canvas = this.$refs.canvas;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       this.drawBackgroundImage();
 
-  const allPolygons = [...this.localPolygons, this.currentPolygon]
-        .filter(p => p && Array.isArray(p.points) && p.points.length > 0);
+      const allPolygons = [...this.localPolygons, this.currentPolygon].filter(
+        (p) => p && Array.isArray(p.points) && p.points.length > 0
+      );
 
-  allPolygons.forEach(polygon => {
+      allPolygons.forEach((polygon) => {
         if (polygon.questionIndex !== this.questionIndex) return;
 
         ctx.beginPath();
@@ -201,48 +284,52 @@ export default {
           ctx.fillStyle = this.getClassColor(polygon.class, 0.4);
           ctx.fill();
           ctx.strokeStyle = this.getClassColor(polygon.class, 1);
-          ctx.lineWidth = (this.selectedPolygon === polygon) ? 3 : 2;
+          ctx.lineWidth = this.selectedPolygon === polygon ? 3 : 2;
           ctx.stroke();
         } else {
           ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
-        
+
         // Draw points (옵션)
         if (this.showPoints) {
-          polygon.points.forEach(p => {
-              const canvasP = this.getCanvasCoordinates(p);
-              ctx.beginPath();
-              ctx.arc(canvasP.x, canvasP.y, 5, 0, 2 * Math.PI);
-              ctx.fillStyle = 'white';
-              ctx.fill();
-              ctx.strokeStyle = 'black';
-              ctx.stroke();
+          polygon.points.forEach((p) => {
+            const canvasP = this.getCanvasCoordinates(p);
+            ctx.beginPath();
+            ctx.arc(canvasP.x, canvasP.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "white";
+            ctx.fill();
+            ctx.strokeStyle = "black";
+            ctx.stroke();
           });
         }
       });
 
       // Live preview while drawing
       if (this.isDrawing) {
-        const ctx2 = this.$refs.canvas.getContext('2d');
+        const ctx2 = this.$refs.canvas.getContext("2d");
         ctx2.save();
         ctx2.setLineDash([5, 5]);
-        ctx2.strokeStyle = 'rgba(255,0,0,0.8)';
+        ctx2.strokeStyle = "rgba(255,0,0,0.8)";
         ctx2.lineWidth = 2;
-        if (this.shape === 'freehand' && this.currentPath.length > 1) {
-          const pts = this.currentPath.map(p => this.getCanvasCoordinates(p));
+        if (this.shape === "freehand" && this.currentPath.length > 1) {
+          const pts = this.currentPath.map((p) => this.getCanvasCoordinates(p));
           ctx2.beginPath();
           ctx2.moveTo(pts[0].x, pts[0].y);
           for (let i = 1; i < pts.length; i++) ctx2.lineTo(pts[i].x, pts[i].y);
           ctx2.stroke();
         } else if (this.startPoint && this.lastMousePos) {
-          const preview = this.generateShapePath(this.startPoint, this.getOriginalCoordinates(this.lastMousePos));
+          const preview = this.generateShapePath(
+            this.startPoint,
+            this.getOriginalCoordinates(this.lastMousePos)
+          );
           if (preview && preview.length) {
-            const pts = preview.map(p => this.getCanvasCoordinates(p));
+            const pts = preview.map((p) => this.getCanvasCoordinates(p));
             ctx2.beginPath();
             ctx2.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) ctx2.lineTo(pts[i].x, pts[i].y);
+            for (let i = 1; i < pts.length; i++)
+              ctx2.lineTo(pts[i].x, pts[i].y);
             ctx2.closePath();
             ctx2.stroke();
           }
@@ -255,8 +342,17 @@ export default {
       const canvas = this.$refs.canvas;
       if (!this.backgroundImage || !canvas) return;
       const ctx = canvas.getContext("2d");
-      const { x, y, scale } = this.calculateImagePosition(canvas.width, canvas.height);
-      ctx.drawImage(this.backgroundImage, x, y, this.originalWidth * scale, this.originalHeight * scale);
+      const { x, y, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+      ctx.drawImage(
+        this.backgroundImage,
+        x,
+        y,
+        this.originalWidth * scale,
+        this.originalHeight * scale
+      );
     },
 
     // --- Event Handlers ---
@@ -264,10 +360,12 @@ export default {
       if (event.button !== 0) return; // Only left click
       const mousePos = this.getMousePos(event);
       this.lastMousePos = mousePos;
-      const originalPos = this.clampToImage(this.getOriginalCoordinates(mousePos));
+      const originalPos = this.clampToImage(
+        this.getOriginalCoordinates(mousePos)
+      );
 
       // Drag existing point (only in draw mode when not currently drawing)
-      if (!this.isDrawing && this.mode === 'draw') {
+      if (!this.isDrawing && this.mode === "draw") {
         const pointInfo = this.getPointAt(mousePos);
         if (pointInfo) {
           this.isDraggingPoint = true;
@@ -280,24 +378,26 @@ export default {
       // Start drawing
       this.isDrawing = true;
       this.startPoint = originalPos;
-      this.currentPath = this.shape === 'freehand' ? [originalPos] : [];
+      this.currentPath = this.shape === "freehand" ? [originalPos] : [];
       this.currentPolygon = {
         id: Date.now(),
-        points: this.shape === 'freehand' ? [originalPos] : [],
+        points: this.shape === "freehand" ? [originalPos] : [],
         class: this.currentClass,
         isComplete: false,
         questionIndex: this.questionIndex,
       };
       this.redrawPolygons();
-  this.startGlobalMouseTracking();
+      this.startGlobalMouseTracking();
     },
 
     handleMouseMove(event) {
       const mousePos = this.getMousePos(event);
       this.lastMousePos = mousePos;
       if (this.isDrawing) {
-        if (this.shape === 'freehand') {
-          const originalPos = this.clampToImage(this.getOriginalCoordinates(mousePos));
+        if (this.shape === "freehand") {
+          const originalPos = this.clampToImage(
+            this.getOriginalCoordinates(mousePos)
+          );
           const last = this.currentPath[this.currentPath.length - 1];
           if (!last) {
             this.currentPath.push(originalPos);
@@ -305,7 +405,7 @@ export default {
             const dx = originalPos.x - last.x;
             const dy = originalPos.y - last.y;
             // 2px 이상 이동했을 때만 포인트 추가 (노이즈/무거움 방지)
-            if ((dx * dx + dy * dy) > 4) {
+            if (dx * dx + dy * dy > 4) {
               this.currentPath.push(originalPos);
             }
           }
@@ -313,22 +413,26 @@ export default {
         }
         this.redrawPolygons();
       } else if (this.isDraggingPoint && this.hoveredPoint) {
-        const originalPos = this.clampToImage(this.getOriginalCoordinates(mousePos));
+        const originalPos = this.clampToImage(
+          this.getOriginalCoordinates(mousePos)
+        );
         this.hoveredPoint.x = originalPos.x;
         this.hoveredPoint.y = originalPos.y;
         this.redrawPolygons();
       }
     },
-    
+
     handleMouseUp(event) {
       if (event.button !== 0) return;
       if (this.isDrawing) {
-        const endOriginal = this.clampToImage(this.getOriginalCoordinates(this.getMousePos(event)));
+        const endOriginal = this.clampToImage(
+          this.getOriginalCoordinates(this.getMousePos(event))
+        );
         this.finalizePath(endOriginal);
       }
       this.isDraggingPoint = false;
       this.hoveredPoint = null;
-  this.stopGlobalMouseTracking();
+      this.stopGlobalMouseTracking();
     },
 
     handleRightClick() {
@@ -337,11 +441,11 @@ export default {
       this.currentPath = [];
       this.startPoint = null;
       this.redrawPolygons();
-  this.stopGlobalMouseTracking();
+      this.stopGlobalMouseTracking();
     },
 
     handleMouseLeave() {
-        this.redrawPolygons();
+      this.redrawPolygons();
     },
 
     // --- Tool Logic ---
@@ -360,38 +464,48 @@ export default {
     },
 
     handleKeyDown(e) {
-      if (e.shiftKey && this.mode !== 'add') {
-        this.setMode('add');
-      } else if ((e.ctrlKey || e.metaKey) && this.mode !== 'subtract') {
-        this.setMode('subtract');
+      if (e.shiftKey && this.mode !== "add") {
+        this.setMode("add");
+      } else if ((e.ctrlKey || e.metaKey) && this.mode !== "subtract") {
+        this.setMode("subtract");
       }
     },
 
     handleKeyUp(e) {
-      if (!e.shiftKey && !e.ctrlKey && !e.metaKey && this.mode !== 'draw') {
-        this.setMode('draw');
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey && this.mode !== "draw") {
+        this.setMode("draw");
       }
     },
     handleIconClick(selectedIcon) {
-      this.iconList.forEach(icon => (icon.active = icon.name === selectedIcon.name));
+      this.iconList.forEach(
+        (icon) => (icon.active = icon.name === selectedIcon.name)
+      );
       this.selectedPolygon = null;
       this.isDrawing = false;
       this.currentPolygon = null;
 
-      if (selectedIcon.name === 'fa-circle-minus') {
-        if (confirm('Are you sure you want to delete all polygons on this slide?')) {
-          this.localPolygons = this.localPolygons.filter(p => p.questionIndex !== this.questionIndex);
+      if (selectedIcon.name === "fa-circle-minus") {
+        if (
+          confirm("Are you sure you want to delete all polygons on this slide?")
+        ) {
+          this.localPolygons = this.localPolygons.filter(
+            (p) => p.questionIndex !== this.questionIndex
+          );
           this.redrawPolygons();
         }
         // De-select the clear all button after use
-        this.iconList.find(icon => icon.name === 'fa-circle-minus').active = false;
-        this.iconList.find(icon => icon.name === 'fa-draw-polygon').active = true;
-      } else if (selectedIcon.name === 'fa-eraser' && this.selectedPolygon) {
-          const index = this.localPolygons.indexOf(this.selectedPolygon);
-          if (index > -1) {
-              this.localPolygons.splice(index, 1);
-              this.selectedPolygon = null;
-          }
+        this.iconList.find(
+          (icon) => icon.name === "fa-circle-minus"
+        ).active = false;
+        this.iconList.find(
+          (icon) => icon.name === "fa-draw-polygon"
+        ).active = true;
+      } else if (selectedIcon.name === "fa-eraser" && this.selectedPolygon) {
+        const index = this.localPolygons.indexOf(this.selectedPolygon);
+        if (index > -1) {
+          this.localPolygons.splice(index, 1);
+          this.selectedPolygon = null;
+        }
       }
       this.redrawPolygons();
     },
@@ -399,7 +513,9 @@ export default {
     undo() {
       if (this.history.length > 1) {
         this.history.pop();
-        this.localPolygons = JSON.parse(JSON.stringify(this.history[this.history.length - 1]));
+        this.localPolygons = JSON.parse(
+          JSON.stringify(this.history[this.history.length - 1])
+        );
         this.redrawPolygons();
       }
     },
@@ -428,31 +544,43 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {
-      if (!this.originalWidth || !this.originalHeight) return { x: 0, y: 0, scale: 1 };
-      const scale = Math.min(canvasWidth / this.originalWidth, canvasHeight / this.originalHeight);
+      if (!this.originalWidth || !this.originalHeight)
+        return { x: 0, y: 0, scale: 1 };
+      const scale = Math.min(
+        canvasWidth / this.originalWidth,
+        canvasHeight / this.originalHeight
+      );
       const x = (canvasWidth - this.originalWidth * scale) / 2;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
       return { x, y, scale };
     },
 
     getCanvasCoordinates(originalPoint) {
-        const canvas = this.$refs.canvas;
-        if (!canvas) return originalPoint;
-        const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
-        return {
-            x: originalPoint.x * scale + imgX,
-            y: originalPoint.y * scale + imgY,
-        };
+      const canvas = this.$refs.canvas;
+      if (!canvas) return originalPoint;
+      const {
+        x: imgX,
+        y: imgY,
+        scale,
+      } = this.calculateImagePosition(canvas.width, canvas.height);
+      return {
+        x: originalPoint.x * scale + imgX,
+        y: originalPoint.y * scale + imgY,
+      };
     },
 
     getOriginalCoordinates(canvasPoint) {
-        const canvas = this.$refs.canvas;
-        if (!canvas) return canvasPoint;
-        const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
-        return {
-            x: (canvasPoint.x - imgX) / scale,
-            y: (canvasPoint.y - imgY) / scale,
-        };
+      const canvas = this.$refs.canvas;
+      if (!canvas) return canvasPoint;
+      const {
+        x: imgX,
+        y: imgY,
+        scale,
+      } = this.calculateImagePosition(canvas.width, canvas.height);
+      return {
+        x: (canvasPoint.x - imgX) / scale,
+        y: (canvasPoint.y - imgY) / scale,
+      };
     },
 
     clampToImage(p) {
@@ -464,47 +592,52 @@ export default {
       }
       return p;
     },
-    
+
     getPointAt(mousePos) {
-        for (const polygon of this.localPolygons) {
-            for (const point of polygon.points) {
-                const canvasP = this.getCanvasCoordinates(point);
-                const distance = Math.hypot(canvasP.x - mousePos.x, canvasP.y - mousePos.y);
-                if (distance < 6) { // 6px tolerance
-                    return { polygon, point };
-                }
-            }
+      for (const polygon of this.localPolygons) {
+        for (const point of polygon.points) {
+          const canvasP = this.getCanvasCoordinates(point);
+          const distance = Math.hypot(
+            canvasP.x - mousePos.x,
+            canvasP.y - mousePos.y
+          );
+          if (distance < 6) {
+            // 6px tolerance
+            return { polygon, point };
+          }
         }
-        return null;
+      }
+      return null;
     },
 
     getPolygonAt(mousePos) {
-        const ctx = this.$refs.canvas.getContext('2d');
-        // Check in reverse order so top polygons are checked first
-        for (let i = this.localPolygons.length - 1; i >= 0; i--) {
-            const polygon = this.localPolygons[i];
-            if (polygon.questionIndex !== this.questionIndex || !polygon.isComplete) continue;
+      const ctx = this.$refs.canvas.getContext("2d");
+      // Check in reverse order so top polygons are checked first
+      for (let i = this.localPolygons.length - 1; i >= 0; i--) {
+        const polygon = this.localPolygons[i];
+        if (polygon.questionIndex !== this.questionIndex || !polygon.isComplete)
+          continue;
 
-            ctx.beginPath();
-            const firstPoint = this.getCanvasCoordinates(polygon.points[0]);
-            ctx.moveTo(firstPoint.x, firstPoint.y);
-            for (let j = 1; j < polygon.points.length; j++) {
-                const point = this.getCanvasCoordinates(polygon.points[j]);
-                ctx.lineTo(point.x, point.y);
-            }
-            ctx.closePath();
-            if (ctx.isPointInPath(mousePos.x, mousePos.y)) {
-                return polygon;
-            }
+        ctx.beginPath();
+        const firstPoint = this.getCanvasCoordinates(polygon.points[0]);
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        for (let j = 1; j < polygon.points.length; j++) {
+          const point = this.getCanvasCoordinates(polygon.points[j]);
+          ctx.lineTo(point.x, point.y);
         }
-        return null;
+        ctx.closePath();
+        if (ctx.isPointInPath(mousePos.x, mousePos.y)) {
+          return polygon;
+        }
+      }
+      return null;
     },
 
     getClassColor(className, opacity) {
       const colors = {
-        'Tumor': `rgba(255, 0, 0, ${opacity})`,   // Red
-        'Stroma': `rgba(0, 255, 0, ${opacity})`,  // Green
-        'Other': `rgba(0, 0, 255, ${opacity})`,   // Blue
+        Tumor: `rgba(255, 0, 0, ${opacity})`, // Red
+        Stroma: `rgba(0, 255, 0, ${opacity})`, // Green
+        Other: `rgba(0, 0, 255, ${opacity})`, // Blue
       };
       return colors[className] || `rgba(255, 255, 0, ${opacity})`; // Default Yellow
     },
@@ -516,11 +649,15 @@ export default {
       const width = Math.abs(end.x - start.x);
       const height = Math.abs(end.y - start.y);
       switch (this.shape) {
-        case 'circle':
-          return this.generateCircle(centerX, centerY, Math.max(width, height) / 2);
-        case 'rectangle':
+        case "circle":
+          return this.generateCircle(
+            centerX,
+            centerY,
+            Math.max(width, height) / 2
+          );
+        case "rectangle":
           return this.generateRectangle(start.x, start.y, end.x, end.y);
-        case 'triangle':
+        case "triangle":
           return this.generateTriangle(start.x, start.y, end.x, end.y);
         default:
           return [];
@@ -532,7 +669,10 @@ export default {
       const segments = 32;
       for (let i = 0; i < segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        points.push({ x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius });
+        points.push({
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius,
+        });
       }
       return points;
     },
@@ -560,7 +700,10 @@ export default {
       const simplified = [path[0]];
       let lastIndex = 0;
       for (let i = 1; i < path.length; i++) {
-        const d = Math.hypot(path[i].x - path[lastIndex].x, path[i].y - path[lastIndex].y);
+        const d = Math.hypot(
+          path[i].x - path[lastIndex].x,
+          path[i].y - path[lastIndex].y
+        );
         if (d > tolerance || i === path.length - 1) {
           simplified.push(path[i]);
           lastIndex = i;
@@ -571,7 +714,7 @@ export default {
 
     finalizePath(endOriginal) {
       let finalPath = [];
-      if (this.shape === 'freehand') {
+      if (this.shape === "freehand") {
         finalPath = this.simplifyPath(this.currentPath, 3);
       } else {
         finalPath = this.generateShapePath(this.startPoint, endOriginal);
@@ -585,22 +728,22 @@ export default {
         return;
       }
 
-      if (this.mode === 'draw') {
+      if (this.mode === "draw") {
         this.addNewPolygon(finalPath);
-      } else if (this.mode === 'add') {
+      } else if (this.mode === "add") {
         this.addAreaToExisting(finalPath);
-      } else if (this.mode === 'subtract') {
+      } else if (this.mode === "subtract") {
         this.subtractAreaFromExisting(finalPath);
       }
 
-  // Reset transient drawing state to stop preview following the cursor
-  this.isDrawing = false;
-  this.currentPath = [];
-  this.currentPolygon = null;
-  this.startPoint = null;
-  this.lastMousePos = null;
-  this.stopGlobalMouseTracking();
-  this.redrawPolygons();
+      // Reset transient drawing state to stop preview following the cursor
+      this.isDrawing = false;
+      this.currentPath = [];
+      this.currentPolygon = null;
+      this.startPoint = null;
+      this.lastMousePos = null;
+      this.stopGlobalMouseTracking();
+      this.redrawPolygons();
     },
 
     addNewPolygon(points) {
@@ -655,8 +798,8 @@ export default {
     saveState() {
       this.history.push(JSON.parse(JSON.stringify(this.localPolygons)));
       if (this.history.length > 30) this.history.shift();
-  // 부모(v-model:polygons)로 즉시 반영해 리스트/다른 뷰와 동기화
-  this.$emit("update:polygons", this.localPolygons);
+      // 부모(v-model:polygons)로 즉시 반영해 리스트/다른 뷰와 동기화
+      this.$emit("update:polygons", this.localPolygons);
     },
 
     // Geometry helpers
@@ -677,8 +820,12 @@ export default {
 
     calculateOverlapScore(poly1, poly2) {
       let count = 0;
-      poly1.forEach(pt => { if (this.isPointInPolygon(pt, poly2)) count++; });
-      poly2.forEach(pt => { if (this.isPointInPolygon(pt, poly1)) count++; });
+      poly1.forEach((pt) => {
+        if (this.isPointInPolygon(pt, poly2)) count++;
+      });
+      poly2.forEach((pt) => {
+        if (this.isPointInPolygon(pt, poly1)) count++;
+      });
       return count;
     },
 
@@ -694,23 +841,37 @@ export default {
     },
 
     subtractFromPolygon(poly1, poly2) {
-      return poly1.filter(pt => !this.isPointInPolygon(pt, poly2));
+      return poly1.filter((pt) => !this.isPointInPolygon(pt, poly2));
     },
 
     convexHull(points) {
       if (!points || points.length < 3) return points || [];
-      const unique = points.filter((p, idx, arr) => idx === arr.findIndex(q => Math.abs(q.x - p.x) < 2 && Math.abs(q.y - p.y) < 2));
+      const unique = points.filter(
+        (p, idx, arr) =>
+          idx ===
+          arr.findIndex(
+            (q) => Math.abs(q.x - p.x) < 2 && Math.abs(q.y - p.y) < 2
+          )
+      );
       if (unique.length < 3) return unique;
       let start = unique[0];
-      for (const p of unique) if (p.y < start.y || (p.y === start.y && p.x < start.x)) start = p;
-      const sorted = unique.filter(p => p !== start).sort((a, b) => {
-        const A = Math.atan2(a.y - start.y, a.x - start.x);
-        const B = Math.atan2(b.y - start.y, b.x - start.x);
-        return A - B;
-      });
+      for (const p of unique)
+        if (p.y < start.y || (p.y === start.y && p.x < start.x)) start = p;
+      const sorted = unique
+        .filter((p) => p !== start)
+        .sort((a, b) => {
+          const A = Math.atan2(a.y - start.y, a.x - start.x);
+          const B = Math.atan2(b.y - start.y, b.x - start.x);
+          return A - B;
+        });
       const hull = [start];
       for (const p of sorted) {
-        while (hull.length > 1 && this.crossProduct(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop();
+        while (
+          hull.length > 1 &&
+          this.crossProduct(hull[hull.length - 2], hull[hull.length - 1], p) <=
+            0
+        )
+          hull.pop();
         hull.push(p);
       }
       return hull;
@@ -723,8 +884,13 @@ export default {
     isPointInPolygon(point, polygon) {
       let inside = false;
       for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
-            (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+        if (
+          polygon[i].y > point.y !== polygon[j].y > point.y &&
+          point.x <
+            ((polygon[j].x - polygon[i].x) * (point.y - polygon[i].y)) /
+              (polygon[j].y - polygon[i].y) +
+              polygon[i].x
+        ) {
           inside = !inside;
         }
       }
@@ -740,15 +906,16 @@ export default {
       }
       return Math.abs(area / 2);
     },
-    
+
     recalculatePolygonArea(polygon) {
-      if (polygon && polygon.points) polygon.area = this.calculateArea(polygon.points);
+      if (polygon && polygon.points)
+        polygon.area = this.calculateArea(polygon.points);
     },
 
     // --- Component Actions ---
     commitChanges() {
       this.$emit("update:polygons", this.localPolygons);
-      this.$emit("commitAssignmentChanges", 'polygon');
+      this.$emit("commitAssignmentChanges", "polygon");
     },
 
     // --- Global mouse tracking to end drawing outside the canvas ---
@@ -756,14 +923,14 @@ export default {
       if (!this._globalMouseMove) {
         this._globalMouseMove = (e) => this.handleMouseMove(e);
         this._globalMouseUp = (e) => this.handleMouseUp(e);
-        window.addEventListener('mousemove', this._globalMouseMove);
-        window.addEventListener('mouseup', this._globalMouseUp);
+        window.addEventListener("mousemove", this._globalMouseMove);
+        window.addEventListener("mouseup", this._globalMouseUp);
       }
     },
     stopGlobalMouseTracking() {
       if (this._globalMouseMove) {
-        window.removeEventListener('mousemove', this._globalMouseMove);
-        window.removeEventListener('mouseup', this._globalMouseUp);
+        window.removeEventListener("mousemove", this._globalMouseMove);
+        window.removeEventListener("mouseup", this._globalMouseUp);
         this._globalMouseMove = null;
         this._globalMouseUp = null;
       }
@@ -771,17 +938,17 @@ export default {
   },
 
   mounted() {
-  this.initialize();
-  window.addEventListener("resize", this.resizeCanvas);
-  window.addEventListener('keydown', this.handleKeyDown);
-  window.addEventListener('keyup', this.handleKeyUp);
+    this.initialize();
+    window.addEventListener("resize", this.resizeCanvas);
+    window.addEventListener("keydown", this.handleKeyDown);
+    window.addEventListener("keyup", this.handleKeyUp);
   },
 
   beforeUnmount() {
-  window.removeEventListener("resize", this.resizeCanvas);
-  window.removeEventListener('keydown', this.handleKeyDown);
-  window.removeEventListener('keyup', this.handleKeyUp);
-  this.stopGlobalMouseTracking();
+    window.removeEventListener("resize", this.resizeCanvas);
+    window.removeEventListener("keydown", this.handleKeyDown);
+    window.removeEventListener("keyup", this.handleKeyUp);
+    this.stopGlobalMouseTracking();
   },
 
   watch: {
@@ -794,12 +961,12 @@ export default {
       },
     },
     polygons: {
-        handler(newPolygons) {
-            this.localPolygons = JSON.parse(JSON.stringify(newPolygons));
-            this.redrawPolygons();
-        },
-        deep: true,
-    }
+      handler(newPolygons) {
+        this.localPolygons = JSON.parse(JSON.stringify(newPolygons));
+        this.redrawPolygons();
+      },
+      deep: true,
+    },
   },
 };
 </script>
@@ -878,37 +1045,45 @@ export default {
 .tool-label {
   font-weight: bold;
 }
-.tool-btn, .shape-btn {
+.tool-btn,
+.shape-btn {
   padding: 6px 10px;
   border: 1px solid #ddd;
   background: #fff;
   border-radius: 6px;
   cursor: pointer;
 }
-.tool-btn.active, .shape-btn.active {
+.tool-btn.active,
+.shape-btn.active {
   background: var(--blue);
   color: #fff;
   border-color: var(--blue);
 }
-.tool-sep { width: 1px; height: 20px; background: #ddd; display: inline-block; margin: 0 6px; }
+.tool-sep {
+  width: 1px;
+  height: 20px;
+  background: #ddd;
+  display: inline-block;
+  margin: 0 6px;
+}
 
 .polygon-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .component-actions button {
-    padding: 8px 16px;
-    border: none;
-    background-color: var(--blue);
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
+  padding: 8px 16px;
+  border: none;
+  background-color: var(--blue);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .component-actions button:hover {
-    background-color: var(--blue-hover);
+  background-color: var(--blue-hover);
 }
 
 .toggle-points {
@@ -970,7 +1145,8 @@ canvas {
   border-collapse: collapse;
 }
 
-.polygon-list-sidebar th, .polygon-list-sidebar td {
+.polygon-list-sidebar th,
+.polygon-list-sidebar td {
   border-bottom: 1px solid #ddd;
   padding: 8px;
   text-align: left;
