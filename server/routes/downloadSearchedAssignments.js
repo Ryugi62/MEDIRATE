@@ -204,10 +204,31 @@ router.post(
         { header: `JSON`, key: `json`, width: 30 },
       ];
 
+      // Polygon 전용 열 (JSON 열 제외)
+      const polygonColumns = [
+        {
+          header: `+${sliderValue}인`,
+          key: `overlap${sliderValue}`,
+          width: 10,
+        },
+        { header: `AI개수`, key: `aiCount`, width: 10 },
+        {
+          header: `${sliderValue}일치`,
+          key: `matched${sliderValue}`,
+          width: 10,
+        },
+        { header: `FN`, key: `fn${sliderValue}`, width: 10 },
+        { header: `FP`, key: `fp${sliderValue}`, width: 10 },
+      ];
+
       resultSheet.columns = [
         ...commonColumns,
         ...evaluatorColumns,
-        ...(assignments[0].assignmentMode === "BBox" ? bboxColumns : []),
+        ...(assignments[0].assignmentMode === "BBox"
+          ? bboxColumns
+          : assignments[0].assignmentMode === "Polygon"
+          ? polygonColumns
+          : []),
         { header: "AI-Json", key: "aiJson", width: 30 },
       ];
 
@@ -338,6 +359,29 @@ router.post(
                 ];
               }),
             });
+          } else if (assignmentData.assignmentMode === "Polygon") {
+            // Polygon: IoU 기반 그룹핑 및 매칭
+            const evaluatorPolys = await getAdjustedPolygons(users, question);
+            const relevantAiData = aiData.filter(
+              (ai) => ai.questionIndex === question.questionId && ai.score >= score_value
+            );
+            const { overlapGroups } = getOverlapsPolygons(
+              evaluatorPolys,
+              sliderValue,
+              0.1
+            );
+            const matchedCount = getMatchedCountPolygons(
+              overlapGroups,
+              relevantAiData,
+              0.5
+            );
+            const overlapCount = overlapGroups.length;
+
+            row[`overlap${sliderValue}`] = overlapCount;
+            row["aiCount"] = relevantAiData.length;
+            row[`matched${sliderValue}`] = matchedCount;
+            row[`fn${sliderValue}`] = overlapCount - matchedCount;
+            row[`fp${sliderValue}`] = relevantAiData.length - matchedCount;
           }
 
           // AI-Json 내용 읽기
@@ -551,6 +595,70 @@ router.post("/metrics", authenticateToken, async (req, res) => {
   }
 });
 
+// 과제별 매칭 요약: 슬라이더 조건에서 유의미한 매칭이 있는지 빠르게 판단
+router.post("/match-summary", authenticateToken, async (req, res) => {
+  try {
+  const { assignmentIds, sliderValue, score_value, iou_threshold } = req.body;
+  const iouThreshold = typeof iou_threshold === "number" ? iou_threshold : 0.5;
+  const kInput = Number(sliderValue) || 1;
+  const scoreThreshold = Number(score_value) || 0;
+
+    if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+      return res.status(400).json({ error: "assignmentIds가 필요합니다." });
+    }
+
+    const summary = [];
+
+    for (const assignmentId of assignmentIds) {
+      try {
+        const assignmentData = await fetchAssignmentData(assignmentId);
+        const users = assignmentData.assignment || [];
+        const maxSliderValue = users.length || 1;
+        const k = kInput > maxSliderValue ? maxSliderValue : kInput;
+        const aiData = await getAIData(assignmentId);
+
+        let overlaps = 0;
+        let matched = 0;
+        let aiCount = 0;
+
+        // 질문 단위로 합산 (질문 없으면 0)
+        const questions = users[0]?.questions || [];
+        for (const question of questions) {
+          const relevantAI = aiData.filter(
+            (ai) => ai.questionIndex === question.questionId && Number(ai.score) >= scoreThreshold
+          );
+          aiCount += relevantAI.length;
+
+          if (assignmentData.assignmentMode === "Polygon") {
+            const evaluatorPolys = await getAdjustedPolygons(users, question);
+            const { overlapGroups } = getOverlapsPolygons(evaluatorPolys, k, 0.1);
+            overlaps += overlapGroups.length;
+            matched += getMatchedCountPolygons(overlapGroups, relevantAI, iouThreshold);
+          } else if (assignmentData.assignmentMode === "BBox") {
+            const adjustedSquares = await getAdjustedSquares(users, question);
+            const { overlapGroups } = getOverlapsBBoxes(adjustedSquares, k);
+            overlaps += overlapGroups.length;
+            matched += getMatchedCount(overlapGroups, relevantAI);
+          } else {
+            // TextBox 등은 매칭 개념 없음
+          }
+        }
+
+        summary.push({ assignmentId, overlaps, matched, aiCount, hasMatch: matched > 0 });
+      } catch (innerErr) {
+        console.error("match-summary per-assignment error:", assignmentId, innerErr?.message);
+        summary.push({ assignmentId, overlaps: 0, matched: 0, aiCount: 0, hasMatch: false, error: true });
+        continue;
+      }
+    }
+
+    res.json({ summary });
+  } catch (error) {
+    console.error("match-summary 계산 중 오류 발생:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
 // 추가: Metrics용으로 평가자의 squares를 변환하는 함수
 async function getAdjustedSquaresForMetrics(
   users,
@@ -684,17 +792,62 @@ function getValidSquaresCount(squares, questionId) {
 }
 
 function getImageLocalPath(imageUrl) {
-  const parsedUrl = new URL(imageUrl);
-  const pathParts = parsedUrl.pathname.split("/");
-  const folderName = pathParts[pathParts.length - 2];
-  const fileName = pathParts[pathParts.length - 1];
-  return path.join(__dirname, "..", "..", "assets", folderName, fileName);
+  try {
+    let parsedUrl;
+    if (typeof imageUrl !== "string") throw new Error("Invalid imageUrl");
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      parsedUrl = new URL(imageUrl);
+    } else if (imageUrl.startsWith("/")) {
+      // 상대 경로인 경우 임시 베이스로 파싱
+      parsedUrl = new URL(imageUrl, "http://localhost");
+    } else {
+      // 단순 파일명 혹은 상대 경로 문자열
+      const parts = imageUrl.split("/").filter(Boolean);
+      const fileName = parts.pop();
+      const folderName = parts.pop();
+      return path.join(__dirname, "..", "..", "assets", folderName || "", fileName || "");
+    }
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+    const fileName = pathParts[pathParts.length - 1];
+    const folderName = pathParts[pathParts.length - 2];
+    return path.join(__dirname, "..", "..", "assets", folderName || "", fileName || "");
+  } catch (e) {
+    console.error("getImageLocalPath parse error:", imageUrl, e.message);
+    // 안전 폴백: 파일명만 추출
+    try {
+      const parts = String(imageUrl).split("/").filter(Boolean);
+      const fileName = parts.pop();
+      const folderName = parts.pop();
+      return path.join(__dirname, "..", "..", "assets", folderName || "", fileName || "");
+    } catch (ee) {
+      return path.join(__dirname, "..", "..", "assets", "", "");
+    }
+  }
 }
 
 function getFolderNameFromImageUrl(imageUrl) {
-  const parsedUrl = new URL(imageUrl);
-  const pathParts = parsedUrl.pathname.split("/");
-  return pathParts[pathParts.length - 2];
+  try {
+    let parsedUrl;
+    if (typeof imageUrl !== "string") throw new Error("Invalid imageUrl");
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      parsedUrl = new URL(imageUrl);
+    } else if (imageUrl.startsWith("/")) {
+      parsedUrl = new URL(imageUrl, "http://localhost");
+    } else {
+      const parts = imageUrl.split("/").filter(Boolean);
+      return parts[parts.length - 2];
+    }
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+    return pathParts[pathParts.length - 2];
+  } catch (e) {
+    console.error("getFolderNameFromImageUrl parse error:", imageUrl, e.message);
+    try {
+      const parts = String(imageUrl).split("/").filter(Boolean);
+      return parts[parts.length - 2];
+    } catch (ee) {
+      return "";
+    }
+  }
 }
 
 async function getImageDimensions(imageUrl) {

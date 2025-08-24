@@ -28,10 +28,10 @@
       <!-- 검색 입력 -->
       <div class="dashboard-search-input" :class="{ 'search-input-focused': isFocused }">
         <span class="slider-value"> {{ score_value }}% </span>
-        <input type="range" name="score_value" id="score_value" v-model="score_value" min="0" max="100" />
+  <input type="range" name="score_value" id="score_value" v-model="score_value" min="0" max="100" @input="changeScoreValue" />
 
         <span class="slider-value">{{ sliderValue }}인 일치</span>
-        <input type="range" min="1" max="5" class="slider" :value="sliderValue" @input="changeSliderValue" />
+  <input type="range" min="1" max="5" class="slider" :value="sliderValue" @input="changeSliderValue" />
 
         <div class="search-input-container">
           <i class="fa-solid fa-rotate-left reset-button" @click="resetSearch"></i>
@@ -168,7 +168,7 @@ export default {
 
   mounted() {
     this.loadFilterOptions();
-    this.loadDashboardData();
+  this.loadDashboardData();
   },
 
   methods: {
@@ -199,7 +199,7 @@ export default {
         console.error("필터 옵션 로드 실패:", error);
       }
     },
-    async loadDashboardData() {
+  async loadDashboardData() {
       try {
         const params = {
           assignment_mode: 'Polygon',
@@ -215,7 +215,8 @@ export default {
         });
 
         this.originalData = response.data;
-        this.data = response.data;
+        // 최초 로드 시에도 슬라이더 조건 반영
+        await this.applyMatchSummaryFilter();
         this.total = this.data.length;
         this.lastPage = Math.ceil(this.total / this.itemsPerPage);
         this.sortBy(this.sortColumn);
@@ -235,7 +236,7 @@ export default {
       }
     },
     applyFilters() {
-      this.loadDashboardData();
+  this.loadDashboardData();
       this.current = 1;
     },
     goToDetail(id) {
@@ -284,18 +285,19 @@ export default {
       this.current = 1;
     },
     changeSliderValue(event) {
-      this.sliderValue = event.target.value;
+      this.sliderValue = Number(event.target.value);
+      this.applyMatchSummaryFilter();
+    },
+    changeScoreValue() {
+      this.score_value = Number(this.score_value);
+      this.applyMatchSummaryFilter();
     },
     searchDashboard() {
       if (this.searchQuery === "") {
         this.resetSearch();
         return;
       }
-      this.data = this.originalData.filter((item) =>
-        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
-      );
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.applyMatchSummaryFilter();
       this.current = 1;
       this.$store.commit("setTSRDashboardSearchHistory", this.searchQuery);
     },
@@ -306,6 +308,60 @@ export default {
       this.loadDashboardData();
       this.current = 1;
       this.$store.commit("setTSRDashboardSearchHistory", "");
+    },
+    // 공통: 현재 검색어 기반 리스트 취득
+    getBaseList() {
+      if (!this.searchQuery) return [...this.originalData];
+      return this.originalData.filter((item) =>
+        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+      );
+    },
+    sortCurrentData() {
+      const columnKey = this.sortColumn;
+      const direction = this.sortDirection;
+      this.data.sort((a, b) => {
+        let aValue = a[columnKey];
+        let bValue = b[columnKey];
+        if (typeof aValue === "string" && aValue.includes("%")) aValue = parseFloat(aValue.replace("%", ""));
+        if (typeof bValue === "string" && bValue.includes("%")) bValue = parseFloat(bValue.replace("%", ""));
+        let comparison = 0;
+        if (aValue > bValue) comparison = 1; else if (aValue < bValue) comparison = -1;
+        return direction === "up" ? comparison : -comparison;
+      });
+    },
+    async applyMatchSummaryFilter() {
+      const baseList = this.getBaseList();
+      if (baseList.length === 0) {
+        this.data = [];
+        this.total = 0;
+        this.lastPage = 0;
+        this.current = 1;
+        return;
+      }
+      try {
+        const assignmentIds = baseList.map((a) => a.id);
+        const { data } = await this.$axios.post(
+          "/api/download/match-summary",
+          {
+            assignmentIds,
+            sliderValue: Number(this.sliderValue),
+            score_value: this.score_value / 100,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        const allowed = new Set((data.summary || []).filter((s) => s.hasMatch).map((s) => s.assignmentId));
+        this.data = baseList.filter((a) => allowed.has(a.id));
+        this.total = this.data.length;
+        this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+        this.current = Math.min(1, this.lastPage) || 1;
+        this.sortCurrentData();
+      } catch (e) {
+        console.error("match-summary 호출 실패:", e);
+      }
     },
     downloadSearchedItems() {
       this.isExporting = true;

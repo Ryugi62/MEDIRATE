@@ -21,6 +21,7 @@
         v-model="score_value"
         min="0"
         max="100"
+        @input="changeScoreValue"
       />
 
       <span class="slider-value">{{ sliderValue }}인 일치</span>
@@ -265,6 +266,8 @@ export default {
         // 만약 store에 검색 기록이 있다면 해당 검색을 수행
         if (this.searchQuery) {
           this.assignDashboardSearchFromStore();
+          // 저장된 검색어 적용 후 슬라이더 조건도 반영
+          this.applyMatchSummaryFilter();
         }
 
         // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
@@ -282,6 +285,76 @@ export default {
   },
 
   methods: {
+    // 현재 검색어를 반영한 기준 리스트 생성
+    getBaseList() {
+      if (!this.searchQuery) return [...this.originalData];
+      // 검색 로직은 searchDashboard와 동일하게 startsWith 사용
+      return this.originalData.filter((item) =>
+        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+      );
+    },
+
+    // 현재 정렬 상태를 유지하며 정렬 적용
+    sortCurrentData() {
+      const columnKey = this.sortColumn;
+      const direction = this.sortDirection;
+      this.data.sort((a, b) => {
+        let aValue = a[columnKey];
+        let bValue = b[columnKey];
+
+        if (typeof aValue === "string" && aValue.includes("%")) {
+          aValue = parseFloat(aValue.replace("%", ""));
+        }
+        if (typeof bValue === "string" && bValue.includes("%")) {
+          bValue = parseFloat(bValue.replace("%", ""));
+        }
+
+        let comparison = 0;
+        if (aValue > bValue) comparison = 1;
+        else if (aValue < bValue) comparison = -1;
+        return direction === "up" ? comparison : -comparison;
+      });
+    },
+
+    async applyMatchSummaryFilter() {
+      const baseList = this.getBaseList();
+      if (baseList.length === 0) {
+        this.data = [];
+        this.total = 0;
+        this.lastPage = 0;
+        this.current = 1;
+        return;
+      }
+
+      try {
+        const assignmentIds = baseList.map((a) => a.id);
+        const { data } = await this.$axios.post(
+          "/api/download/match-summary",
+          {
+            assignmentIds,
+            sliderValue: Number(this.sliderValue),
+            score_value: this.score_value / 100,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        const allowed = new Set(
+          (data.summary || [])
+            .filter((s) => s.hasMatch)
+            .map((s) => s.assignmentId)
+        );
+        this.data = baseList.filter((a) => allowed.has(a.id));
+        this.total = this.data.length;
+        this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+        this.current = Math.min(1, this.lastPage) || 1;
+        this.sortCurrentData();
+      } catch (e) {
+        console.error("match-summary 호출 실패:", e);
+      }
+    },
     // 다른 페이지로 리다이렉트
     goToDetail(id) {
       this.$router.push({ name: "dashboardDetail", params: { id } });
@@ -335,7 +408,13 @@ export default {
     },
 
     changeSliderValue(event) {
-      this.sliderValue = event.target.value;
+      this.sliderValue = Number(event.target.value);
+      this.applyMatchSummaryFilter();
+    },
+
+    changeScoreValue() {
+      this.score_value = Number(this.score_value);
+      this.applyMatchSummaryFilter();
     },
 
     searchDashboard() {
@@ -343,21 +422,16 @@ export default {
         this.resetSearch();
         return;
       }
-      this.data = this.originalData.filter((item) =>
-        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
-      );
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.current = 1; // 검색 후 첫 페이지로 이동
+  // 검색 기준 리스트만 갱신하고, 슬라이더 조건을 서버에서 재계산하여 반영
+  this.applyMatchSummaryFilter();
       this.$store.commit("setDashboardSearchHistory", this.searchQuery);
     },
 
     resetSearch() {
-      this.searchQuery = "";
-      this.data = this.originalData;
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.current = 1; // 리셋 후 첫 페이지로 이동
+  this.searchQuery = "";
+  // 전체 데이터 대상으로 슬라이더 조건 재적용
+  this.applyMatchSummaryFilter();
+  this.current = 1; // 리셋 후 첫 페이지로 이동
       this.$store.commit("setDashboardSearchHistory", "");
     },
 
