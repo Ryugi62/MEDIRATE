@@ -8,11 +8,44 @@
   <div class="dashboard-header">
     <h1 class="header-title">대시 보드</h1>
 
-    <!-- 검색 입력 -->
-    <div
-      class="dashboard-search-input"
-      :class="{ 'search-input-focused': isFocused }"
-    >
+    <div class="filter-group">
+      <!-- 필터링 드롭다운들 -->
+      <div class="filter-controls">
+        <select
+          v-model="selectedCancerType"
+          @change="applyFilters"
+          class="filter-select"
+        >
+          <option value="">모든 암종</option>
+          <option
+            v-for="cancer in availableCancerTypes"
+            :key="cancer"
+            :value="cancer"
+          >
+            {{ cancer }}
+          </option>
+        </select>
+        <select
+          v-model="selectedFolderName"
+          @change="applyFilters"
+          class="filter-select"
+        >
+          <option value="">모든 폴더</option>
+          <option
+            v-for="folder in availableFolderNames"
+            :key="folder"
+            :value="folder"
+          >
+            {{ folder }}
+          </option>
+        </select>
+      </div>
+
+      <!-- 검색 입력 -->
+      <div
+        class="dashboard-search-input"
+        :class="{ 'search-input-focused': isFocused }"
+      >
       <span class="slider-value"> {{ score_value }}% </span>
       <input
         type="range"
@@ -68,6 +101,7 @@
       </button>
     </div>
   </div>
+</div>
 
   <!-- 테이블 박스 -->
   <div class="table-box">
@@ -184,6 +218,10 @@ export default {
       exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
       sliderValue: 1,
       score_value: 50,
+      availableCancerTypes: [],
+      availableFolderNames: [],
+      selectedCancerType: "",
+      selectedFolderName: "",
     };
   },
 
@@ -249,42 +287,63 @@ export default {
   },
 
   mounted() {
-    // 헤더에 jwt 토큰을 담아서 요청
-    this.$axios
-      .get("/api/dashboard", {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-        },
-      })
-      .then((response) => {
+    this.loadFilterOptions();
+    this.loadDashboardData();
+  },
+
+  methods: {
+    async loadFilterOptions() {
+      try {
+        const response = await this.$axios.get("/api/assignments/filters", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+          },
+        });
+        this.availableCancerTypes = response.data.cancerTypes;
+        this.availableFolderNames = response.data.folderNames;
+      } catch (error) {
+        console.error("필터 옵션 로드 실패:", error);
+      }
+    },
+    async loadDashboardData() {
+      try {
+        const params = {};
+        if (this.selectedCancerType)
+          params.cancer_type = this.selectedCancerType;
+        if (this.selectedFolderName)
+          params.folder_name = this.selectedFolderName;
+
+        const response = await this.$axios.get("/api/dashboard", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+          params,
+        });
+
         this.originalData = response.data;
-        this.data = response.data;
+        await this.applyMatchSummaryFilter();
         this.total = this.data.length;
         this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-        this.sortBy(this.sortColumn); // 초기 정렬 적용
+        this.sortBy(this.sortColumn);
 
-        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
         if (this.searchQuery) {
           this.assignDashboardSearchFromStore();
-          // 저장된 검색어 적용 후 슬라이더 조건도 반영
-          this.applyMatchSummaryFilter();
         }
 
-        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
         if (this.$store.getters.getDashboardCurrentPage) {
-          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
           this.current = Math.min(
             this.$store.getters.getDashboardCurrentPage,
             this.lastPage
           );
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(error);
-      });
-  },
-
-  methods: {
+      }
+    },
+    applyFilters() {
+      this.loadDashboardData();
+      this.current = 1;
+    },
     // 현재 검색어를 반영한 기준 리스트 생성
     getBaseList() {
       if (!this.searchQuery) return [...this.originalData];
@@ -428,10 +487,11 @@ export default {
     },
 
     resetSearch() {
-  this.searchQuery = "";
-  // 전체 데이터 대상으로 슬라이더 조건 재적용
-  this.applyMatchSummaryFilter();
-  this.current = 1; // 리셋 후 첫 페이지로 이동
+      this.searchQuery = "";
+      this.selectedCancerType = "";
+      this.selectedFolderName = "";
+      this.loadDashboardData();
+      this.current = 1;
       this.$store.commit("setDashboardSearchHistory", "");
     },
 
@@ -613,6 +673,30 @@ export default {
   font-size: 24px;
   font-weight: 500;
   margin-right: 100px;
+  color: var(--blue);
+}
+
+.filter-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: var(--white);
+  font-size: 14px;
+  min-width: 120px;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
 }
 
 .dashboard-search-input {
@@ -621,6 +705,7 @@ export default {
   overflow: hidden;
   margin-right: 22px;
   gap: 8px;
+  align-items: center;
 }
 
 .slider-value {

@@ -40,17 +40,17 @@ export default {
           isAdmin: true,
         },
         {
-          name: "전체 대시보드",
+          name: "대시보드",
           paths: ["/dashboard", "/dashboard/:id"],
           isAdmin: true,
         },
         {
-          name: "MiTOF 대시보드",
+          name: "대시보드(MiTOF)",
           paths: ["/mitof-dashboard"],
           isAdmin: true,
         },
         {
-          name: "TSR 대시보드",
+          name: "대시보드(TSR)",
           paths: ["/tsr-dashboard"],
           isAdmin: true,
         },
