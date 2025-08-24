@@ -97,8 +97,16 @@ router.get("/ai", authenticateToken, async (req, res) => {
   try {
     const { src, assignmentType, questionIndex } = req.query;
     const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
-    const jsonPath = path.join(__dirname, "..", "..", "assets", assignmentType, jsonSrc);
+    const folderPath = path.join(__dirname, "..", "..", "assets", assignmentType);
+    const jsonPath = path.join(folderPath, jsonSrc);
 
+    // 폴더 존재 여부 확인
+    if (!fs.existsSync(folderPath)) {
+      console.warn(`Folder does not exist: ${folderPath}`);
+      return res.json([]);
+    }
+
+    // 파일 존재 여부 확인
     if (!fs.existsSync(jsonPath)) {
       // 파일이 없으면 빈 배열 반환 (프론트는 AI 미표시로 처리)
       return res.json([]);
