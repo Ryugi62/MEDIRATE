@@ -607,7 +607,34 @@ router.post("/metrics", authenticateToken, async (req, res) => {
   }
 });
 
-// 과제별 매칭 요약: 슬라이더 조건에서 유의미한 매칭이 있는지 빠르게 판단
+// 메모리 기반 캐시 (5분 TTL)
+const matchSummaryCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+function getCacheKey(assignmentIds, sliderValue, score_value, iou_threshold) {
+  return `${assignmentIds.sort().join(',')}-${sliderValue}-${score_value}-${iou_threshold || 0.5}`;
+}
+
+function getCachedResult(key) {
+  const cached = matchSummaryCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  matchSummaryCache.delete(key);
+  return null;
+}
+
+function setCachedResult(key, data) {
+  matchSummaryCache.set(key, { data, timestamp: Date.now() });
+  
+  // 메모리 사용량 제한 (최대 1000개 엔트리)
+  if (matchSummaryCache.size > 1000) {
+    const oldestKey = matchSummaryCache.keys().next().value;
+    matchSummaryCache.delete(oldestKey);
+  }
+}
+
+// 과제별 매칭 요약: 슬라이더 조건에서 유의미한 매칭이 있는지 빠르게 판단 (캐싱 적용)
 router.post("/match-summary", authenticateToken, async (req, res) => {
   try {
   const { assignmentIds, sliderValue, score_value, iou_threshold } = req.body;
@@ -619,9 +646,17 @@ router.post("/match-summary", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "assignmentIds가 필요합니다." });
     }
 
+    // 캐시 확인
+    const cacheKey = getCacheKey(assignmentIds, kInput, scoreThreshold, iouThreshold);
+    const cachedResult = getCachedResult(cacheKey);
+    if (cachedResult) {
+      return res.json(cachedResult);
+    }
+
     const summary = [];
 
-    for (const assignmentId of assignmentIds) {
+    // 병렬 처리로 성능 향상
+    const promises = assignmentIds.map(async (assignmentId) => {
       try {
         const assignmentData = await fetchAssignmentData(assignmentId);
         const users = assignmentData.assignment || [];
@@ -635,36 +670,59 @@ router.post("/match-summary", authenticateToken, async (req, res) => {
 
         // 질문 단위로 합산 (질문 없으면 0)
         const questions = users[0]?.questions || [];
-        for (const question of questions) {
+        
+        // 질문별 처리도 병렬화
+        const questionPromises = questions.map(async (question) => {
           const relevantAI = aiData.filter(
             (ai) => ai.questionIndex === question.questionId && Number(ai.score) >= scoreThreshold
           );
-          aiCount += relevantAI.length;
+          
+          let questionOverlaps = 0;
+          let questionMatched = 0;
 
           if (assignmentData.assignmentMode === "Polygon") {
             const evaluatorPolys = await getAdjustedPolygons(users, question);
             const { overlapGroups } = getOverlapsPolygons(evaluatorPolys, k, 0.1);
-            overlaps += overlapGroups.length;
-            matched += getMatchedCountPolygons(overlapGroups, relevantAI, iouThreshold);
+            questionOverlaps = overlapGroups.length;
+            questionMatched = getMatchedCountPolygons(overlapGroups, relevantAI, iouThreshold);
           } else if (assignmentData.assignmentMode === "BBox") {
             const adjustedSquares = await getAdjustedSquares(users, question);
             const { overlapGroups } = getOverlapsBBoxes(adjustedSquares, k);
-            overlaps += overlapGroups.length;
-            matched += getMatchedCount(overlapGroups, relevantAI);
-          } else {
-            // TextBox 등은 매칭 개념 없음
+            questionOverlaps = overlapGroups.length;
+            questionMatched = getMatchedCount(overlapGroups, relevantAI);
           }
-        }
 
-        summary.push({ assignmentId, overlaps, matched, aiCount, hasMatch: matched > 0 });
+          return {
+            aiCount: relevantAI.length,
+            overlaps: questionOverlaps,
+            matched: questionMatched
+          };
+        });
+
+        const questionResults = await Promise.all(questionPromises);
+        
+        // 결과 합산
+        questionResults.forEach(result => {
+          aiCount += result.aiCount;
+          overlaps += result.overlaps;
+          matched += result.matched;
+        });
+
+        return { assignmentId, overlaps, matched, aiCount, hasMatch: matched > 0 };
       } catch (innerErr) {
         console.error("match-summary per-assignment error:", assignmentId, innerErr?.message);
-        summary.push({ assignmentId, overlaps: 0, matched: 0, aiCount: 0, hasMatch: false, error: true });
-        continue;
+        return { assignmentId, overlaps: 0, matched: 0, aiCount: 0, hasMatch: false, error: true };
       }
-    }
+    });
 
-    res.json({ summary });
+    const results = await Promise.all(promises);
+    
+    const response = { summary: results };
+    
+    // 결과 캐싱
+    setCachedResult(cacheKey, response);
+    
+    res.json(response);
   } catch (error) {
     console.error("match-summary 계산 중 오류 발생:", error);
     res.status(500).send("Internal Server Error");
@@ -862,25 +920,65 @@ function getFolderNameFromImageUrl(imageUrl) {
   }
 }
 
+// 이미지 크기 캐시 (1시간 TTL)
+const imageDimensionsCache = new Map();
+const IMAGE_CACHE_TTL = 60 * 60 * 1000; // 1시간
+
 async function getImageDimensions(imageUrl) {
   try {
+    // 캐시 확인
+    const cached = imageDimensionsCache.get(imageUrl);
+    if (cached && Date.now() - cached.timestamp < IMAGE_CACHE_TTL) {
+      return cached.dimensions;
+    }
+
     const realPath = getImageLocalPath(imageUrl);
     
     // 폴더 존재 여부 확인
     const folderPath = path.dirname(realPath);
     if (!fsSync.existsSync(folderPath)) {
       console.warn(`Folder does not exist for image: ${imageUrl}, path: ${folderPath}`);
-      return { width: 1000, height: 1000 }; // 기본값 설정
+      const defaultDimensions = { width: 1000, height: 1000 };
+      
+      // 기본값도 캐싱하여 반복 확인 방지
+      imageDimensionsCache.set(imageUrl, { 
+        dimensions: defaultDimensions, 
+        timestamp: Date.now() 
+      });
+      
+      return defaultDimensions;
     }
     
     // 파일 존재 여부 확인
     if (!fsSync.existsSync(realPath)) {
       console.warn(`Image file does not exist: ${imageUrl}, path: ${realPath}`);
-      return { width: 1000, height: 1000 }; // 기본값 설정
+      const defaultDimensions = { width: 1000, height: 1000 };
+      
+      // 기본값도 캐싱
+      imageDimensionsCache.set(imageUrl, { 
+        dimensions: defaultDimensions, 
+        timestamp: Date.now() 
+      });
+      
+      return defaultDimensions;
     }
     
     const dimensions = await sizeOfPromise(realPath);
-    return { width: dimensions.width, height: dimensions.height };
+    const result = { width: dimensions.width, height: dimensions.height };
+    
+    // 성공적으로 읽은 크기 정보 캐싱
+    imageDimensionsCache.set(imageUrl, { 
+      dimensions: result, 
+      timestamp: Date.now() 
+    });
+    
+    // 캐시 크기 제한 (최대 500개 엔트리)
+    if (imageDimensionsCache.size > 500) {
+      const oldestKey = imageDimensionsCache.keys().next().value;
+      imageDimensionsCache.delete(oldestKey);
+    }
+    
+    return result;
   } catch (error) {
     console.error(`Error getting image dimensions for ${imageUrl}:`, error);
     return { width: 1000, height: 1000 }; // 기본값 설정

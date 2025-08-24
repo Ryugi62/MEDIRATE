@@ -222,6 +222,7 @@ export default {
       availableFolderNames: [],
       selectedCancerType: "",
       selectedFolderName: "",
+      filterTimeout: null, // 디바운싱용 타이머
     };
   },
 
@@ -468,12 +469,22 @@ export default {
 
     changeSliderValue(event) {
       this.sliderValue = Number(event.target.value);
-      this.applyMatchSummaryFilter();
+      this.debouncedApplyFilter();
     },
 
     changeScoreValue() {
       this.score_value = Number(this.score_value);
-      this.applyMatchSummaryFilter();
+      this.debouncedApplyFilter();
+    },
+
+    // 디바운싱된 필터 적용 함수
+    debouncedApplyFilter() {
+      if (this.filterTimeout) {
+        clearTimeout(this.filterTimeout);
+      }
+      this.filterTimeout = setTimeout(() => {
+        this.applyMatchSummaryFilter();
+      }, 300); // 300ms 디바운싱
     },
 
     searchDashboard() {

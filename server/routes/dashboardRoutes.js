@@ -54,7 +54,8 @@ router.get("/", async (req, res) => {
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
 
-    const assignmentsQuery = `
+    // 단일 쿼리로 모든 데이터 가져오기 (N+1 문제 해결)
+    const optimizedQuery = `
       SELECT 
         a.id, 
         a.title, 
@@ -62,74 +63,83 @@ router.get("/", async (req, res) => {
         a.cancer_type,
         a.folder_name,
         a.assignment_mode AS assignmentMode,
-        (SELECT MAX(ci.end_time) FROM canvas_info ci WHERE ci.assignment_id = a.id) as endAt,
-        (SELECT SUM(ci.evaluation_time) FROM canvas_info ci WHERE ci.assignment_id = a.id) as duration,
-        COUNT(DISTINCT au.user_id) AS evaluatorCount,
-        (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
+        ci_stats.endAt,
+        ci_stats.duration,
+        COALESCE(au_count.evaluatorCount, 0) AS evaluatorCount,
+        COALESCE(q_count.totalQuestions, 0) AS totalQuestions,
+        COALESCE(
+          CASE 
+            WHEN a.assignment_mode = 'BBox' THEN bbox_answers.answeredQuestions
+            WHEN a.assignment_mode = 'Polygon' THEN polygon_answers.answeredQuestions
+            ELSE text_answers.answeredQuestions
+          END, 0
+        ) AS answeredQuestions
       FROM assignments a
-      LEFT JOIN assignment_user au ON a.id = au.assignment_id
+      
+      LEFT JOIN (
+        SELECT 
+          assignment_id,
+          MAX(end_time) as endAt,
+          SUM(evaluation_time) as duration
+        FROM canvas_info 
+        GROUP BY assignment_id
+      ) ci_stats ON a.id = ci_stats.assignment_id
+      
+      LEFT JOIN (
+        SELECT assignment_id, COUNT(DISTINCT user_id) AS evaluatorCount
+        FROM assignment_user 
+        GROUP BY assignment_id
+      ) au_count ON a.id = au_count.assignment_id
+      
+      LEFT JOIN (
+        SELECT assignment_id, COUNT(*) AS totalQuestions
+        FROM questions 
+        GROUP BY assignment_id
+      ) q_count ON a.id = q_count.assignment_id
+      
+      LEFT JOIN (
+        SELECT 
+          q.assignment_id,
+          COUNT(DISTINCT CONCAT(si.user_id, '-', q.id)) AS answeredQuestions
+        FROM questions q
+        JOIN squares_info si ON q.id = si.question_id
+        GROUP BY q.assignment_id
+      ) bbox_answers ON a.id = bbox_answers.assignment_id AND a.assignment_mode = 'BBox'
+      
+      LEFT JOIN (
+        SELECT 
+          q.assignment_id,
+          COUNT(DISTINCT CONCAT(pi.user_id, '-', q.id)) AS answeredQuestions
+        FROM questions q
+        JOIN polygon_info pi ON q.id = pi.question_id
+        GROUP BY q.assignment_id
+      ) polygon_answers ON a.id = polygon_answers.assignment_id AND a.assignment_mode = 'Polygon'
+      
+      LEFT JOIN (
+        SELECT 
+          q.assignment_id,
+          COUNT(*) AS answeredQuestions
+        FROM question_responses qr
+        JOIN questions q ON qr.question_id = q.id
+        WHERE qr.selected_option >= 0
+        GROUP BY q.assignment_id
+      ) text_answers ON a.id = text_answers.assignment_id AND a.assignment_mode NOT IN ('BBox', 'Polygon')
+      
       ${whereClause}
-      GROUP BY a.id
+      ORDER BY a.id DESC
     `;
 
-    const [assignments] = await db.query(assignmentsQuery, queryParams);
+    const [assignments] = await db.query(optimizedQuery, queryParams);
 
-    for (const assignment of assignments) {
-      const totalPossibleAnswers =
-        assignment.totalQuestions * assignment.evaluatorCount;
-
-      if (assignment.assignmentMode === "BBox") {
-        const [bboxAnswers] = await db.query(
-          `
-          SELECT COUNT(*) AS answeredQuestions
-          FROM (
-            SELECT DISTINCT si.user_id, q.id
-            FROM questions q
-            JOIN squares_info si ON q.id = si.question_id
-            WHERE q.assignment_id = ?
-          ) AS user_question_combinations
-          `,
-          [assignment.id]
-        );
-        assignment.answeredQuestions = bboxAnswers[0].answeredQuestions;
-      } else if (assignment.assignmentMode === "Polygon") {
-        const [polygonAnswers] = await db.query(
-          `
-          SELECT COUNT(*) AS answeredQuestions
-          FROM (
-            SELECT DISTINCT pi.user_id, q.id
-            FROM questions q
-            JOIN polygon_info pi ON q.id = pi.question_id
-            WHERE q.assignment_id = ?
-          ) AS user_question_combinations
-          `,
-          [assignment.id]
-        );
-        assignment.answeredQuestions = polygonAnswers[0].answeredQuestions;
-      } else {
-        const [answeredQuestions] = await db.query(
-          `
-          SELECT COUNT(*) AS count
-          FROM question_responses qr
-          JOIN questions q ON qr.question_id = q.id
-          WHERE q.assignment_id = ? AND qr.selected_option >= 0
-          `,
-          [assignment.id]
-        );
-        assignment.answeredQuestions = answeredQuestions[0].count;
-      }
-
-      assignment.answerRate = calculateRates(
-        assignment.answeredQuestions,
-        totalPossibleAnswers
-      );
-      assignment.unansweredRate = calculateRates(
-        totalPossibleAnswers - assignment.answeredQuestions,
-        totalPossibleAnswers
-      );
+    // 단일 루프에서 계산 및 포맷팅 처리
+    assignments.forEach(assignment => {
+      const totalPossibleAnswers = assignment.totalQuestions * assignment.evaluatorCount;
+      
+      assignment.answerRate = calculateRates(assignment.answeredQuestions, totalPossibleAnswers);
+      assignment.unansweredRate = calculateRates(totalPossibleAnswers - assignment.answeredQuestions, totalPossibleAnswers);
       assignment.createdAt = formatDateTime(assignment.createdAt);
       assignment.endAt = formatDateTime(assignment.endAt);
-    }
+    });
 
     res.json(assignments);
   } catch (error) {
