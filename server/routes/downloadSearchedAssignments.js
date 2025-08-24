@@ -394,14 +394,12 @@ router.post(
           let aiJsonContent = "";
 
           try {
-            // 폴더 존재 여부 확인
+            // 폴더 존재 여부 확인 (로깅 제거)
             const folderPath = path.dirname(jsonPath);
             if (!fsSync.existsSync(folderPath)) {
-              console.warn(`Folder does not exist for AI JSON: ${jsonPath}, folder: ${folderPath}`);
               aiJsonContent = "";
             } else if (!fsSync.existsSync(jsonPath)) {
-              // 파일 존재 여부 확인
-              console.warn(`AI JSON file does not exist: ${jsonPath}`);
+              // 파일 존재 여부 확인 (로깅 제거)
               aiJsonContent = "";
             } else {
               const jsonContent = await fs.readFile(jsonPath, "utf8");
@@ -940,10 +938,9 @@ async function getImageDimensions(imageUrl) {
 
     const realPath = getImageLocalPath(imageUrl);
     
-    // 폴더 존재 여부 확인
+    // 폴더 존재 여부 확인 (로깅 제거)
     const folderPath = path.dirname(realPath);
     if (!fsSync.existsSync(folderPath)) {
-      console.warn(`Folder does not exist for image: ${imageUrl}, path: ${folderPath}`);
       const defaultDimensions = { width: 1000, height: 1000 };
       
       // 기본값도 캐싱하여 반복 확인 방지
@@ -955,9 +952,8 @@ async function getImageDimensions(imageUrl) {
       return defaultDimensions;
     }
     
-    // 파일 존재 여부 확인
+    // 파일 존재 여부 확인 (로깅 제거)
     if (!fsSync.existsSync(realPath)) {
-      console.warn(`Image file does not exist: ${imageUrl}, path: ${realPath}`);
       const defaultDimensions = { width: 1000, height: 1000 };
       
       // 기본값도 캐싱
@@ -1337,16 +1333,14 @@ async function getAIData(assignmentId) {
     );
 
     try {
-      // 폴더 존재 여부 확인
+      // 폴더 존재 여부 확인 (로깅 제거)
       const folderPath = path.dirname(jsonPath);
       if (!fsSync.existsSync(folderPath)) {
-        console.warn(`Folder does not exist for AI JSON: ${jsonPath}, folder: ${folderPath}`);
         continue;
       }
 
-      // 파일 존재 여부 확인
+      // 파일 존재 여부 확인 (로깅 제거)
       if (!fsSync.existsSync(jsonPath)) {
-        console.warn(`AI JSON file does not exist: ${jsonPath}`);
         continue;
       }
 
