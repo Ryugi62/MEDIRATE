@@ -6,6 +6,7 @@ const authenticateToken = require("../jwt");
 const ExcelJS = require("exceljs");
 const db = require("../db");
 const fs = require("fs").promises;
+const fsSync = require("fs");
 const path = require("path");
 const sizeOf = require("image-size");
 const util = require("util");
@@ -393,8 +394,19 @@ router.post(
           let aiJsonContent = "";
 
           try {
-            const jsonContent = await fs.readFile(jsonPath, "utf8");
-            aiJsonContent = jsonContent;
+            // 폴더 존재 여부 확인
+            const folderPath = path.dirname(jsonPath);
+            if (!fsSync.existsSync(folderPath)) {
+              console.warn(`Folder does not exist for AI JSON: ${jsonPath}, folder: ${folderPath}`);
+              aiJsonContent = "";
+            } else if (!fsSync.existsSync(jsonPath)) {
+              // 파일 존재 여부 확인
+              console.warn(`AI JSON file does not exist: ${jsonPath}`);
+              aiJsonContent = "";
+            } else {
+              const jsonContent = await fs.readFile(jsonPath, "utf8");
+              aiJsonContent = jsonContent;
+            }
           } catch (error) {
             console.error("Error reading AI json file:", error);
             aiJsonContent = "";
@@ -853,6 +865,20 @@ function getFolderNameFromImageUrl(imageUrl) {
 async function getImageDimensions(imageUrl) {
   try {
     const realPath = getImageLocalPath(imageUrl);
+    
+    // 폴더 존재 여부 확인
+    const folderPath = path.dirname(realPath);
+    if (!fsSync.existsSync(folderPath)) {
+      console.warn(`Folder does not exist for image: ${imageUrl}, path: ${folderPath}`);
+      return { width: 1000, height: 1000 }; // 기본값 설정
+    }
+    
+    // 파일 존재 여부 확인
+    if (!fsSync.existsSync(realPath)) {
+      console.warn(`Image file does not exist: ${imageUrl}, path: ${realPath}`);
+      return { width: 1000, height: 1000 }; // 기본값 설정
+    }
+    
     const dimensions = await sizeOfPromise(realPath);
     return { width: dimensions.width, height: dimensions.height };
   } catch (error) {
@@ -1207,6 +1233,19 @@ async function getAIData(assignmentId) {
     );
 
     try {
+      // 폴더 존재 여부 확인
+      const folderPath = path.dirname(jsonPath);
+      if (!fsSync.existsSync(folderPath)) {
+        console.warn(`Folder does not exist for AI JSON: ${jsonPath}, folder: ${folderPath}`);
+        continue;
+      }
+
+      // 파일 존재 여부 확인
+      if (!fsSync.existsSync(jsonPath)) {
+        console.warn(`AI JSON file does not exist: ${jsonPath}`);
+        continue;
+      }
+
       const jsonContent = await fs.readFile(jsonPath, "utf8");
       const parsed = JSON.parse(jsonContent);
       const annotations = Array.isArray(parsed.annotation)
