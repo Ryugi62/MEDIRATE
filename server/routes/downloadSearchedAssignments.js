@@ -661,7 +661,13 @@ router.post("/match-summary", authenticateToken, async (req, res) => {
         const assignmentData = await fetchAssignmentData(assignmentId);
         const users = assignmentData.assignment || [];
         const maxSliderValue = users.length || 1;
-        const k = kInput > maxSliderValue ? maxSliderValue : kInput;
+        
+        // 🚨 핵심 수정: 슬라이더 값이 평가자 수보다 크면 매칭 불가능
+        if (kInput > maxSliderValue) {
+          return { assignmentId, overlaps: 0, matched: 0, aiCount: 0, hasMatch: false };
+        }
+        
+        const k = kInput;  // 이제 조정 없이 원래 값 사용
         const aiData = await getAIData(assignmentId);
 
         let overlaps = 0;
