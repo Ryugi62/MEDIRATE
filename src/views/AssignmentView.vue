@@ -63,7 +63,10 @@
           :class="{ 'search-input-focused': isFocused }"
         >
           <!-- 초기화 버튼 -->
-          <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
+          <i
+            class="fa-solid fa-rotate-left reset-icon"
+            @click="resetSearch"
+          ></i>
           <input
             class="assignment-search"
             type="text"
@@ -300,7 +303,7 @@ export default {
   mounted() {
     // 필터 옵션 가져오기
     this.loadFilterOptions();
-    
+
     // 헤더에 jwt 토큰을 담아서 요청
     this.loadAssignments();
   },
@@ -374,7 +377,9 @@ export default {
         return;
       }
       this.assignments = this.originalAssignments.filter((assignment) =>
-        assignment.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+        assignment.title
+          .toLowerCase()
+          .startsWith(this.searchQuery.toLowerCase())
       );
       this.current = 1; // 검색 후 첫 페이지로 이동
     },
@@ -413,7 +418,7 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getUser.token}`,
           },
         });
-        
+
         this.availableCancerTypes = response.data.cancerTypes;
         this.availableFolderNames = response.data.folderNames;
         this.availableAssignmentModes = response.data.assignmentModes;
@@ -426,18 +431,21 @@ export default {
     async loadAssignments() {
       try {
         const params = {};
-        
-        if (this.selectedCancerType) params.cancer_type = this.selectedCancerType;
-        if (this.selectedFolderName) params.folder_name = this.selectedFolderName;
-        if (this.selectedAssignmentMode) params.assignment_mode = this.selectedAssignmentMode;
-        
+
+        if (this.selectedCancerType)
+          params.cancer_type = this.selectedCancerType;
+        if (this.selectedFolderName)
+          params.folder_name = this.selectedFolderName;
+        if (this.selectedAssignmentMode)
+          params.assignment_mode = this.selectedAssignmentMode;
+
         const response = await this.$axios.get("/api/assignments", {
           headers: {
             Authorization: `Bearer ${this.$store.getters.getUser.token}`,
           },
           params,
         });
-        
+
         this.originalAssignments = response.data;
         this.assignments = response.data;
 
@@ -690,8 +698,6 @@ tbody > tr:hover {
 .filter-group {
   display: flex;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
+  align-items: center;
 }
 </style>

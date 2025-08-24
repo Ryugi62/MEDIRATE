@@ -11,37 +11,90 @@
     <div class="filter-group">
       <!-- 필터링 드롭다운들 -->
       <div class="filter-controls">
-        <select v-model="selectedCancerType" @change="applyFilters" class="filter-select">
+        <select
+          v-model="selectedCancerType"
+          @change="applyFilters"
+          class="filter-select"
+        >
           <option value="">모든 암종</option>
-          <option v-for="cancer in availableCancerTypes" :key="cancer" :value="cancer">
+          <option
+            v-for="cancer in availableCancerTypes"
+            :key="cancer"
+            :value="cancer"
+          >
             {{ cancer }}
           </option>
         </select>
-        <select v-model="selectedFolderName" @change="applyFilters" class="filter-select">
+        <select
+          v-model="selectedFolderName"
+          @change="applyFilters"
+          class="filter-select"
+        >
           <option value="">모든 폴더</option>
-          <option v-for="folder in availableFolderNames" :key="folder" :value="folder">
+          <option
+            v-for="folder in availableFolderNames"
+            :key="folder"
+            :value="folder"
+          >
             {{ folder }}
           </option>
         </select>
       </div>
 
       <!-- 검색 입력 -->
-      <div class="dashboard-search-input" :class="{ 'search-input-focused': isFocused }">
+      <div
+        class="dashboard-search-input"
+        :class="{ 'search-input-focused': isFocused }"
+      >
         <span class="slider-value"> {{ score_value }}% </span>
-  <input type="range" name="score_value" id="score_value" v-model="score_value" min="0" max="100" @input="changeScoreValue" />
+        <input
+          type="range"
+          name="score_value"
+          id="score_value"
+          v-model="score_value"
+          min="0"
+          max="100"
+          @input="changeScoreValue"
+        />
 
         <span class="slider-value">{{ sliderValue }}인 일치</span>
-  <input type="range" min="1" max="5" class="slider" :value="sliderValue" @input="changeSliderValue" />
+        <input
+          type="range"
+          min="1"
+          max="5"
+          class="slider"
+          :value="sliderValue"
+          @input="changeSliderValue"
+        />
 
         <div class="search-input-container">
-          <i class="fa-solid fa-rotate-left reset-button" @click="resetSearch"></i>
-          <input class="search-input" type="text" v-model="searchQuery" placeholder="검색어를 입력하세요" @focus="isFocused = true" @blur="isFocused = false" @keypress.enter="searchDashboard" />
-          <i class="fa-solid fa-magnifying-glass search-button" @click="searchDashboard"></i>
+          <i
+            class="fa-solid fa-rotate-left reset-button"
+            @click="resetSearch"
+          ></i>
+          <input
+            class="search-input"
+            type="text"
+            v-model="searchQuery"
+            placeholder="검색어를 입력하세요"
+            @focus="isFocused = true"
+            @blur="isFocused = false"
+            @keypress.enter="searchDashboard"
+          />
+          <i
+            class="fa-solid fa-magnifying-glass search-button"
+            @click="searchDashboard"
+          ></i>
         </div>
 
-        <button class="metrics-button" @click="showMetrics">Metrics 보기</button>
+        <button class="metrics-button" @click="showMetrics">
+          Metrics 보기
+        </button>
 
-        <button class="download-image-button" @click="downloadSearchedItemsAssets">
+        <button
+          class="download-image-button"
+          @click="downloadSearchedItemsAssets"
+        >
           검색된 과제 이미지 다운로드
         </button>
 
@@ -59,15 +112,32 @@
       <!-- 테이블 헤더 -->
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column.key" @click="column.sortable && sortBy(column.key)" :class="{ sortable: column.sortable }">
-            <i v-if="column.sortable" :class="['fa-solid', 'fa-arrow-' + (sortColumn === column.key ? sortDirection : 'down')]" ></i>
+          <th
+            v-for="column in columns"
+            :key="column.key"
+            @click="column.sortable && sortBy(column.key)"
+            :class="{ sortable: column.sortable }"
+          >
+            <i
+              v-if="column.sortable"
+              :class="[
+                'fa-solid',
+                'fa-arrow-' +
+                  (sortColumn === column.key ? sortDirection : 'down'),
+              ]"
+            ></i>
             {{ column.name }}
           </th>
         </tr>
       </thead>
       <!-- 테이블 바디 -->
       <tbody>
-        <tr v-for="item in paginatedData" :key="item.id" :class="{ completed: item.answerRate === '100.00%' }" @click="goToDetail(item.id)">
+        <tr
+          v-for="item in paginatedData"
+          :key="item.id"
+          :class="{ completed: item.answerRate === '100.00%' }"
+          @click="goToDetail(item.id)"
+        >
           <td v-for="column in columns" :key="column.key" :class="column.class">
             {{ getValue(item, column.key) }}
           </td>
@@ -80,19 +150,42 @@
   <nav class="pagination-nav" aria-label="Pagination">
     <ul class="pagination">
       <li>
-        <i class="fa-solid fa-angles-left pagination__button" @click="changePage(1)" :class="{ 'pagination__button--disabled': current === 1 }" ></i>
+        <i
+          class="fa-solid fa-angles-left pagination__button"
+          @click="changePage(1)"
+          :class="{ 'pagination__button--disabled': current === 1 }"
+        ></i>
       </li>
       <li>
-        <i class="fa-solid fa-angle-left pagination__button" @click="changePage(current - 1)" :class="{ 'pagination__button--disabled': current === 1 }" ></i>
+        <i
+          class="fa-solid fa-angle-left pagination__button"
+          @click="changePage(current - 1)"
+          :class="{ 'pagination__button--disabled': current === 1 }"
+        ></i>
       </li>
-      <li v-for="page in visiblePages" :key="page" :class="{ 'pagination__item--active': current === page }" class="pagination__item">
-        <a @click.prevent="changePage(page)" class="pagination__link">{{ page }}</a>
+      <li
+        v-for="page in visiblePages"
+        :key="page"
+        :class="{ 'pagination__item--active': current === page }"
+        class="pagination__item"
+      >
+        <a @click.prevent="changePage(page)" class="pagination__link">{{
+          page
+        }}</a>
       </li>
       <li>
-        <i class="fa-solid fa-angle-right pagination__button" @click="changePage(current + 1)" :class="{ 'pagination__button--disabled': current === lastPage }" ></i>
+        <i
+          class="fa-solid fa-angle-right pagination__button"
+          @click="changePage(current + 1)"
+          :class="{ 'pagination__button--disabled': current === lastPage }"
+        ></i>
       </li>
       <li>
-        <i class="fa-solid fa-angles-right pagination__button" @click="changePage(lastPage)" :class="{ 'pagination__button--disabled': current === lastPage }" ></i>
+        <i
+          class="fa-solid fa-angles-right pagination__button"
+          @click="changePage(lastPage)"
+          :class="{ 'pagination__button--disabled': current === lastPage }"
+        ></i>
       </li>
     </ul>
   </nav>
@@ -144,15 +237,55 @@ export default {
     columns() {
       return [
         { name: "ID", key: "id", sortable: true, class: "id" },
-        { name: "암종명", key: "cancer_type", sortable: true, class: "cancer-type" },
-        { name: "폴더명", key: "folder_name", sortable: true, class: "folder-name" },
-        { name: "제목", key: "title", sortable: false, class: "assignment-title" },
-        { name: "생성시간", key: "createdAt", sortable: true, class: "created-at" },
+        {
+          name: "암종명",
+          key: "cancer_type",
+          sortable: true,
+          class: "cancer-type",
+        },
+        {
+          name: "폴더명",
+          key: "folder_name",
+          sortable: true,
+          class: "folder-name",
+        },
+        {
+          name: "제목",
+          key: "title",
+          sortable: false,
+          class: "assignment-title",
+        },
+        {
+          name: "생성시간",
+          key: "createdAt",
+          sortable: true,
+          class: "created-at",
+        },
         { name: "종료시간", key: "endAt", sortable: true, class: "end-at" },
-        { name: "소요시간", key: "duration", sortable: true, class: "duration" },
-        { name: "평가자 수", key: "evaluatorCount", sortable: true, class: "evaluator" },
-        { name: "답변완료율", key: "answerRate", sortable: true, class: "answer-rate" },
-        { name: "미답변율", key: "unansweredRate", sortable: true, class: "unanswered-rate" },
+        {
+          name: "소요시간",
+          key: "duration",
+          sortable: true,
+          class: "duration",
+        },
+        {
+          name: "평가자 수",
+          key: "evaluatorCount",
+          sortable: true,
+          class: "evaluator",
+        },
+        {
+          name: "답변완료율",
+          key: "answerRate",
+          sortable: true,
+          class: "answer-rate",
+        },
+        {
+          name: "미답변율",
+          key: "unansweredRate",
+          sortable: true,
+          class: "unanswered-rate",
+        },
       ];
     },
   },
@@ -168,23 +301,27 @@ export default {
 
   mounted() {
     this.loadFilterOptions();
-  this.loadDashboardData();
+    this.loadDashboardData();
   },
 
   methods: {
     getValue(obj, key) {
-      if (key === 'duration') {
+      if (key === "duration") {
         if (obj[key] === null || obj[key] === undefined) return "N/A";
         const seconds = parseInt(obj[key], 10);
-        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
+        const h = Math.floor(seconds / 3600)
+          .toString()
+          .padStart(2, "0");
+        const m = Math.floor((seconds % 3600) / 60)
+          .toString()
+          .padStart(2, "0");
+        const s = (seconds % 60).toString().padStart(2, "0");
         return `${h}:${m}:${s}`;
       }
-      if (key === 'endAt' || key === 'createdAt') {
-        return obj[key] ? obj[key] : '-';
+      if (key === "endAt" || key === "createdAt") {
+        return obj[key] ? obj[key] : "-";
       }
-      return obj[key] ?? '-';
+      return obj[key] ?? "-";
     },
     async loadFilterOptions() {
       try {
@@ -199,13 +336,15 @@ export default {
         console.error("필터 옵션 로드 실패:", error);
       }
     },
-  async loadDashboardData() {
+    async loadDashboardData() {
       try {
         const params = {
-          assignment_mode: 'Polygon',
+          assignment_mode: "Polygon",
         };
-        if (this.selectedCancerType) params.cancer_type = this.selectedCancerType;
-        if (this.selectedFolderName) params.folder_name = this.selectedFolderName;
+        if (this.selectedCancerType)
+          params.cancer_type = this.selectedCancerType;
+        if (this.selectedFolderName)
+          params.folder_name = this.selectedFolderName;
 
         const response = await this.$axios.get("/api/dashboard", {
           headers: {
@@ -236,7 +375,7 @@ export default {
       }
     },
     applyFilters() {
-  this.loadDashboardData();
+      this.loadDashboardData();
       this.current = 1;
     },
     goToDetail(id) {
@@ -322,10 +461,13 @@ export default {
       this.data.sort((a, b) => {
         let aValue = a[columnKey];
         let bValue = b[columnKey];
-        if (typeof aValue === "string" && aValue.includes("%")) aValue = parseFloat(aValue.replace("%", ""));
-        if (typeof bValue === "string" && bValue.includes("%")) bValue = parseFloat(bValue.replace("%", ""));
+        if (typeof aValue === "string" && aValue.includes("%"))
+          aValue = parseFloat(aValue.replace("%", ""));
+        if (typeof bValue === "string" && bValue.includes("%"))
+          bValue = parseFloat(bValue.replace("%", ""));
         let comparison = 0;
-        if (aValue > bValue) comparison = 1; else if (aValue < bValue) comparison = -1;
+        if (aValue > bValue) comparison = 1;
+        else if (aValue < bValue) comparison = -1;
         return direction === "up" ? comparison : -comparison;
       });
     },
@@ -353,7 +495,11 @@ export default {
             },
           }
         );
-        const allowed = new Set((data.summary || []).filter((s) => s.hasMatch).map((s) => s.assignmentId));
+        const allowed = new Set(
+          (data.summary || [])
+            .filter((s) => s.hasMatch)
+            .map((s) => s.assignmentId)
+        );
         this.data = baseList.filter((a) => allowed.has(a.id));
         this.total = this.data.length;
         this.lastPage = Math.ceil(this.total / this.itemsPerPage);
@@ -531,9 +677,6 @@ export default {
 .filter-group {
   display: flex;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
   align-items: center;
 }
 
