@@ -362,6 +362,10 @@ export default {
         const s = (seconds % 60).toString().padStart(2, "0");
         return `${h}:${m}:${s}`;
       }
+      // 암종명/폴더명은 빈값이어도 'N/A' 대신 '-' 표기
+      if (key === "cancer_type" || key === "folder_name") {
+        return obj[key] ? obj[key] : "-";
+      }
       return obj[key] || "N/A";
     },
     searchAssignment() {

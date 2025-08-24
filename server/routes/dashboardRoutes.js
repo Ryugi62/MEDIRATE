@@ -5,7 +5,8 @@ const authenticateToken = require("../jwt");
 
 // 날짜 및 시간 형식 변환 함수 (YYYY-MM-DD HH:MM:SS)
 const formatDateTime = (date) => {
-  if (!date || isNaN(new Date(date))) return "N/A";
+  // 화면 표준: 유효하지 않은 날짜는 'N/A' 대신 '-'로 표기
+  if (!date || isNaN(new Date(date))) return "-";
   const d = new Date(date);
   return (
     d.getFullYear() +
