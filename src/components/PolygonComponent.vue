@@ -4,7 +4,7 @@
     <div class="polygon-component__header">
       <div class="icon-list">
         <i
-          v-for="icon in iconList"
+          v-for="icon in displayedIcons"
           :key="icon.name"
           :class="['fas', icon.name, { active: icon.active }]"
           @click="handleIconClick(icon)"
@@ -124,6 +124,10 @@ export default {
   },
 
   computed: {
+    // Polygon 모드 아이콘 중 동작하는 '전체 삭제'만 표시
+    displayedIcons() {
+      return this.iconList.filter(icon => icon.name === 'fa-circle-minus');
+    },
     addToolActive() {
       return this.iconList.find(icon => icon.name === 'fa-draw-polygon')?.active;
     },

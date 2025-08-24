@@ -348,7 +348,7 @@ export default {
             ("0" + date.getSeconds()).slice(-2)
           );
         }
-        return "N/A";
+        return "-";
       }
       if (key === "evaluation_time") {
         if (obj[key] === null || obj[key] === undefined) return "N/A";

@@ -389,6 +389,12 @@ export default {
       );
       this.currentAssignmentDetails.questions = this.currentAssignmentDetails.questions.map(
         (question) => {
+          if (this.isTextBoxMode) {
+            const answered =
+              question.selectedValue !== null &&
+              question.selectedValue !== undefined;
+            return { ...question, isInspected: answered };
+          }
           const hasPolygon = polygons.some(
             (p) => p.questionIndex === question.id
           );
@@ -532,10 +538,19 @@ export default {
       const selectedValue = parseInt(value);
       this.currentAssignmentDetails.questions[questionIdx].selectedValue =
         selectedValue;
-      this.recalculateScore();
+  // 선택 즉시 진행상태/점수 갱신
+  this.updateQuestionStatus();
+  this.recalculateScore();
     },
 
     recalculateScore() {
+      if (this.isTextBoxMode) {
+        const answered = this.currentAssignmentDetails.questions.filter(
+          (q) => q.selectedValue !== null && q.selectedValue !== undefined
+        ).length;
+        this.currentAssignmentDetails.score = answered;
+        return;
+      }
       if (this.isPolygonMode) {
         const set = new Set(
           (this.currentAssignmentDetails.polygons || []).map(

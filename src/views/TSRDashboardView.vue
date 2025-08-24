@@ -181,7 +181,10 @@ export default {
         const s = (seconds % 60).toString().padStart(2, '0');
         return `${h}:${m}:${s}`;
       }
-      return obj[key] || "N/A";
+      if (key === 'endAt' || key === 'createdAt') {
+        return obj[key] ? obj[key] : '-';
+      }
+      return obj[key] ?? '-';
     },
     async loadFilterOptions() {
       try {
