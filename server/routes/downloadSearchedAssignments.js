@@ -11,6 +11,65 @@ const sizeOf = require("image-size");
 const util = require("util");
 const sizeOfPromise = util.promisify(sizeOf);
 const archiver = require("archiver");
+// --- Polygon helpers (centroid, bbox, IoU, segmentation normalization) ---
+function computeCentroid(points) {
+  if (!points || points.length === 0) return { x: 0, y: 0 };
+  let sx = 0,
+    sy = 0;
+  for (const [x, y] of points) {
+    sx += Number(x);
+    sy += Number(y);
+  }
+  return { x: sx / points.length, y: sy / points.length };
+}
+
+function getPolygonBoundingBox(points) {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const [x, y] of points) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x1: minX, y1: minY, x2: maxX, y2: maxY };
+}
+
+function iouRect(a, b) {
+  const xLeft = Math.max(a.x1, b.x1);
+  const yTop = Math.max(a.y1, b.y1);
+  const xRight = Math.min(a.x2, b.x2);
+  const yBottom = Math.min(a.y2, b.y2);
+  const interW = Math.max(0, xRight - xLeft);
+  const interH = Math.max(0, yBottom - yTop);
+  const interArea = interW * interH;
+  const areaA = Math.max(0, a.x2 - a.x1) * Math.max(0, a.y2 - a.y1);
+  const areaB = Math.max(0, b.x2 - b.x1) * Math.max(0, b.y2 - b.y1);
+  const denom = areaA + areaB - interArea;
+  return denom > 0 ? interArea / denom : 0;
+}
+
+function normalizeSegmentation(seg) {
+  if (!seg) return [];
+  if (Array.isArray(seg) && seg.length > 0) {
+    if (typeof seg[0] === "number") {
+      const pts = [];
+      for (let i = 0; i + 1 < seg.length; i += 2) pts.push([seg[i], seg[i + 1]]);
+      return pts;
+    } else if (Array.isArray(seg[0])) {
+      const first = seg[0];
+      if (typeof first[0] === "number") {
+        const pts = [];
+        for (let i = 0; i + 1 < first.length; i += 2) pts.push([first[i], first[i + 1]]);
+        return pts;
+      }
+      return first;
+    }
+  }
+  return [];
+}
 
 // 날짜와 시간을 포맷팅하는 함수
 function formatDateTime(date) {
@@ -389,7 +448,8 @@ router.post(
 
 router.post("/metrics", authenticateToken, async (req, res) => {
   try {
-    const { assignmentIds, sliderValue, score_value } = req.body;
+  const { assignmentIds, sliderValue, score_value, iou_threshold } = req.body;
+  const iouThreshold = typeof iou_threshold === "number" ? iou_threshold : 0.5;
 
     // assignmentIds가 유효한지 확인
     if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
@@ -401,7 +461,7 @@ router.post("/metrics", authenticateToken, async (req, res) => {
     let totalFN = 0;
 
     // 각 과제에 대해 TP, FP, FN 계산
-    for (const assignmentId of assignmentIds) {
+  for (const assignmentId of assignmentIds) {
       const assignmentData = await fetchAssignmentData(assignmentId);
       const aiData = await getAIData(assignmentId);
       const users = assignmentData.assignment;
@@ -412,28 +472,58 @@ router.post("/metrics", authenticateToken, async (req, res) => {
       const adjustedSliderValue =
         sliderValue > maxSliderValue ? maxSliderValue : sliderValue;
 
-      // 평가자의 squares를 원본 이미지 좌표로 변환
-      const evaluatorSquares = await getAdjustedSquaresForMetrics(
-        users,
-        assignmentData.assignmentMode,
-        assignmentId
-      );
+      if (assignmentData.assignmentMode === "Polygon") {
+        // 평가자 폴리곤 보정
+        const evaluatorPolys = await getAdjustedPolygonsForMetrics(
+          users,
+          assignmentId
+        );
 
-      // AI 데이터에서 score_value 이상인 값만 필터링
-      const aiSquares = aiData.filter(
-        (ai) => ai.isAI && ai.score >= score_value
-      );
+        // AI: score 기준 필터
+        const aiFiltered = aiData.filter((ai) => ai.isAI && ai.score >= score_value);
 
-      // TP, FP, FN 계산
-      const { TP, FP, FN } = calculateTP_FP_FN(
-        evaluatorSquares,
-        aiSquares,
-        adjustedSliderValue
-      );
+        // 그룹핑 및 매칭(IoU 기반)
+        const { overlapGroups } = getOverlapsPolygons(
+          evaluatorPolys,
+          adjustedSliderValue,
+          0.1
+        );
+        const matched = getMatchedCountPolygons(
+          overlapGroups,
+          aiFiltered,
+          iouThreshold
+        );
+        const TP = matched;
+        const FN = overlapGroups.length - matched;
+        const FP = aiFiltered.length - matched;
 
-      totalTP += TP;
-      totalFP += FP;
-      totalFN += FN;
+        totalTP += TP;
+        totalFP += FP;
+        totalFN += FN;
+      } else {
+        // BBox (기존 로직)
+        const evaluatorSquares = await getAdjustedSquaresForMetrics(
+          users,
+          assignmentData.assignmentMode,
+          assignmentId
+        );
+        const aiSquares = aiData
+          .filter((ai) => ai.isAI && ai.score >= score_value)
+          .map((ai) =>
+            ai.type === "bbox"
+              ? ai
+              : // polygon인 경우 중심점 사용 근사
+                { x: ai.centroid?.x ?? 0, y: ai.centroid?.y ?? 0 }
+          );
+        const { TP, FP, FN } = calculateTP_FP_FN(
+          evaluatorSquares,
+          aiSquares,
+          adjustedSliderValue
+        );
+        totalTP += TP;
+        totalFP += FP;
+        totalFN += FN;
+      }
     }
 
     // 전체 과제에 대한 평균값 계산
@@ -478,6 +568,19 @@ async function getAdjustedSquaresForMetrics(
   }
 
   return adjustedSquares;
+}
+
+// --- Polygon evaluation helpers for metrics ---
+async function getAdjustedPolygonsForMetrics(users, assignmentId) {
+  const questions = await getQuestionsForAssignment(assignmentId);
+  const adjusted = [];
+  for (const user of users) {
+    for (const question of user.questions) {
+      const polys = await getAdjustedPolygons([user], question);
+      adjusted.push(...polys);
+    }
+  }
+  return adjusted;
 }
 
 async function getQuestionsForAssignment(assignmentId) {
@@ -733,6 +836,94 @@ function getMatchedCount(overlapGroups, aiData) {
   return matchedCount;
 }
 
+// --- Polygon-specific helpers ---
+function getOverlapsPolygons(polygons, overlapCount, iouThresholdForGrouping = 0.1) {
+  const groups = [];
+  const visited = new Set();
+
+  function overlaps(p1, p2) {
+    const iou = iouRect(p1.bbox, p2.bbox);
+    return iou > iouThresholdForGrouping;
+  }
+
+  for (let i = 0; i < polygons.length; i++) {
+    if (visited.has(i)) continue;
+    const group = [];
+    const stack = [i];
+    visited.add(i);
+    while (stack.length) {
+      const idx = stack.pop();
+      group.push(polygons[idx]);
+      for (let j = 0; j < polygons.length; j++) {
+        if (!visited.has(j) && overlaps(polygons[idx], polygons[j])) {
+          visited.add(j);
+          stack.push(j);
+        }
+      }
+    }
+    if (group.length >= overlapCount) groups.push(group);
+  }
+
+  const overlappedSet = new Set(groups.flat());
+  const nonOverlappingGroups = polygons
+    .filter((p) => !overlappedSet.has(p))
+    .map((p) => [p]);
+
+  return { overlapGroups: groups, nonOverlappingGroups };
+}
+
+function getMatchedCountPolygons(overlapGroups, aiPolys, iouThreshold = 0.5) {
+  let matchedCount = 0;
+  overlapGroups.forEach((group) => {
+    const matchFound = group.some((poly) =>
+      aiPolys.some((ai) => {
+        const bBox =
+          ai.bbox ||
+          (ai.type === "bbox"
+            ? { x1: ai.x - ai.w / 2, y1: ai.y - ai.h / 2, x2: ai.x + ai.w / 2, y2: ai.y + ai.h / 2 }
+            : null);
+        if (!bBox) return false;
+        const iou = iouRect(poly.bbox, bBox);
+        return iou >= iouThreshold;
+      })
+    );
+    if (matchFound) matchedCount++;
+  });
+  return matchedCount;
+}
+
+async function getAdjustedPolygons(users, question) {
+  const { width: originalWidth, height: originalHeight } = await getImageDimensions(
+    question.questionImage
+  );
+
+  const adjusted = [];
+  for (const user of users) {
+    const canvasW = user.beforeCanvas.width;
+    const canvasH = user.beforeCanvas.height;
+    const polys = (user.polygons || []).filter(
+      (p) => p.questionIndex === question.questionId && !p.isTemporary
+    );
+    for (const poly of polys) {
+      const pts = (poly.points || []).map(([x, y]) =>
+        convertToOriginalImageCoordinates(
+          x,
+          y,
+          canvasW,
+          canvasH,
+          originalWidth,
+          originalHeight
+        )
+      );
+      const ptsArr = pts.map((o) => [o.x, o.y]);
+      const bbox = getPolygonBoundingBox(ptsArr);
+      const centroid = computeCentroid(ptsArr);
+      adjusted.push({ points: ptsArr, bbox, centroid });
+    }
+  }
+  return adjusted;
+}
+
 async function fetchAssignmentData(assignmentId) {
   const [assignmentInfo] = await db.query(
     `SELECT title as FileName, assignment_mode as assignmentMode, is_ai_use FROM assignments WHERE id = ?`,
@@ -775,6 +966,14 @@ async function fetchAssignmentData(assignmentId) {
     [assignmentId]
   );
 
+  const [polygons] = await db.query(
+    `SELECT pi.question_id as questionIndex, pi.coordinates, pi.class_type as classType, pi.user_id, pi.isAI, pi.isTemporary
+     FROM polygon_info pi
+     JOIN questions q ON pi.question_id = q.id
+     WHERE q.assignment_id = ? AND pi.isTemporary = 0`,
+    [assignmentId]
+  );
+
   const [canvasInfo] = await db.query(
     `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ?`,
     [assignmentId]
@@ -793,6 +992,24 @@ async function fetchAssignmentData(assignmentId) {
         )?.questionSelection || -1,
     })),
     squares: squares.filter((s) => s.user_id === user.userId),
+    polygons: polygons
+      .filter((p) => p.user_id === user.userId)
+      .map((p) => {
+        let pts = [];
+        try {
+          const arr = JSON.parse(p.coordinates || "[]");
+          pts = Array.isArray(arr) ? arr : [];
+        } catch (e) {
+          pts = [];
+        }
+        return {
+          points: pts,
+          class: p.classType,
+          isComplete: true,
+          questionIndex: p.questionIndex,
+          isAI: !!p.isAI,
+        };
+      }),
     beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
       width: 1000,
       height: 1000,
@@ -828,7 +1045,7 @@ async function getAIData(assignmentId) {
     [assignmentId]
   );
 
-  const AI_BBOX = [];
+  const AI_OUTPUT = [];
 
   for (const question of questions) {
     const jsonPath = getImageLocalPath(question.image).replace(
@@ -838,18 +1055,49 @@ async function getAIData(assignmentId) {
 
     try {
       const jsonContent = await fs.readFile(jsonPath, "utf8");
-      const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
-        const [x, y] = annotation.bbox;
-        const score = annotation.score ? annotation.score : 0.6;
-        return {
-          x: x + 12.5,
-          y: y + 12.5,
-          questionIndex: question.id,
-          score: score,
-          isAI: true, // AI 사각형임을 명시
-        };
-      });
-      AI_BBOX.push(...bbox);
+      const parsed = JSON.parse(jsonContent);
+      const annotations = Array.isArray(parsed.annotation)
+        ? parsed.annotation
+        : Array.isArray(parsed.annotations)
+        ? parsed.annotations
+        : [];
+
+      for (const ann of annotations) {
+        const score = ann.score != null ? ann.score : parsed.score != null ? parsed.score : 0.6;
+        if (ann && Array.isArray(ann.bbox)) {
+          const bx = Number(ann.bbox[0]);
+          const by = Number(ann.bbox[1]);
+          const w = ann.bbox.length >= 4 ? Number(ann.bbox[2]) : 25;
+          const h = ann.bbox.length >= 4 ? Number(ann.bbox[3]) : 25;
+          const cx = bx + w / 2;
+          const cy = by + h / 2;
+          AI_OUTPUT.push({
+            type: "bbox",
+            x: cx,
+            y: cy,
+            w,
+            h,
+            questionIndex: question.id,
+            score,
+            isAI: true,
+          });
+        } else if (ann && (ann.polygon || ann.segmentation || ann.points || ann.vertices)) {
+          const ptsRaw = ann.polygon || ann.points || ann.vertices || ann.segmentation;
+          const points = Array.isArray(ptsRaw) ? normalizeSegmentation(ptsRaw) : [];
+          if (points.length > 0) {
+            const centroid = computeCentroid(points);
+            AI_OUTPUT.push({
+              type: "polygon",
+              points,
+              centroid,
+              bbox: getPolygonBoundingBox(points),
+              questionIndex: question.id,
+              score,
+              isAI: true,
+            });
+          }
+        }
+      }
     } catch (error) {
       // 파일을 읽을 수 없거나 오류가 발생하면 콘솔에 로그를 남기고 빈 배열을 반환
       console.error(
@@ -861,7 +1109,7 @@ async function getAIData(assignmentId) {
     }
   }
 
-  return AI_BBOX;
+  return AI_OUTPUT;
 }
 
 module.exports = router;
