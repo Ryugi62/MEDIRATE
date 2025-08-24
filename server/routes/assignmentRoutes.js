@@ -105,15 +105,36 @@ router.get("/ai", authenticateToken, async (req, res) => {
     }
 
     const jsonContent = await fsPromises.readFile(jsonPath, "utf8");
-    const AI_BBOX = JSON.parse(jsonContent).annotation.map((annotation) => {
+    const jsonData = JSON.parse(jsonContent);
+    
+    // JSON 구조 검증 및 안전한 처리
+    if (!jsonData || !jsonData.annotation || !Array.isArray(jsonData.annotation)) {
+      console.warn(`Invalid JSON structure in ${jsonPath}:`, jsonData);
+      return res.json([]);
+    }
+
+    const AI_BBOX = jsonData.annotation.map((annotation) => {
+      // annotation 객체와 bbox 배열 검증
+      if (!annotation || !annotation.bbox || !Array.isArray(annotation.bbox) || annotation.bbox.length < 2) {
+        console.warn(`Invalid annotation structure:`, annotation);
+        return null;
+      }
+      
       const [x, y] = annotation.bbox;
       const score = annotation.score ? annotation.score : 0.6;
       return { x, y, questionIndex: Number(questionIndex), score: score };
-    });
+    }).filter(Boolean); // null 값 제거
 
     res.json(AI_BBOX);
   } catch (error) {
-    // 예상치 못한 오류만 500, 파일 없음은 위에서 처리
+    console.error(`Error fetching AI assignment for ${req.query.src}:`, error);
+    
+    // JSON 파싱 오류나 파일 읽기 오류의 경우 빈 배열 반환
+    if (error instanceof SyntaxError || error.code === 'ENOENT') {
+      return res.json([]);
+    }
+    
+    // 기타 예상치 못한 오류는 500 반환
     handleError(res, "Error fetching AI assignment", error);
   }
 });
