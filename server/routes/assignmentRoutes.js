@@ -117,6 +117,10 @@ router.get("/ai", authenticateToken, async (req, res) => {
     
     // JSON 구조 검증 및 안전한 처리
     if (!jsonData || !jsonData.annotation || !Array.isArray(jsonData.annotation)) {
+      // filename만 있는 불완전한 JSON 파일의 경우 빈 배열 반환 (에러 로그 제거)
+      if (jsonData && jsonData.filename && Object.keys(jsonData).length === 1) {
+        return res.json([]);
+      }
       console.warn(`Invalid JSON structure in ${jsonPath}:`, jsonData);
       return res.json([]);
     }
