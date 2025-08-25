@@ -15,6 +15,7 @@ const assignmentRoutes = require("./routes/assignmentRoutes");
 const downloadSearchedAssignments = require("./routes/downloadSearchedAssignments.js");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
+const { extractCancerAndFolder } = require("./utils/folderClassifier");
 
 // Constants and configurations
 const app = express();
@@ -580,10 +581,18 @@ async function handleTaskDataUpload(req, res) {
 
     // metadata.json 생성
     console.log(`[${requestId}] Creating metadata...`);
+    
+    // 폴더명을 기반으로 cancer_type과 folder_name 자동 분류
+    console.log(`[${requestId}] Analyzing folder for classification: ${cleanTaskId}`);
+    const { cancer, folder } = extractCancerAndFolder(cleanTaskId);
+    console.log(`[${requestId}] Classification result - Cancer: ${cancer}, Folder: ${folder}`);
+    
     const metadata = {
       userid,
       taskid: cleanTaskId, // 정리된 taskid 사용
       originalTaskid: taskid, // 원본 taskid도 기록
+      cancer_type: cancer, // 자동 분류된 cancer type
+      folder_name: folder, // 자동 분류된 folder name
       uploadTimestamp: new Date().toISOString(),
       requestId,
       extractedFiles: extractedFiles.map(f => ({ fileName: f.fileName, size: f.size })),
