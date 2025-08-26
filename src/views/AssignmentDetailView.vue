@@ -276,13 +276,14 @@ export default {
             !square.isTemporary
         );
 
-      // currentQuestionSquares에서 isTemporaryAI가 true이면 제거
-      currentQuestionSquares.forEach((square) => {
-        if (square.isTemporaryAI) {
-          this.currentAssignmentDetails.squares.splice(
-            this.currentAssignmentDetails.squares.indexOf(square),
-            1
-          );
+      // Apply 버튼을 누르지 않은 임시 AI 박스만 제거 (isTemporaryAI && isTemporary)
+      const squaresToRemove = this.currentAssignmentDetails.squares.filter(
+        (square) => square.questionIndex === this.activeQuestionId && square.isTemporaryAI && square.isTemporary
+      );
+      squaresToRemove.forEach((square) => {
+        const index = this.currentAssignmentDetails.squares.indexOf(square);
+        if (index > -1) {
+          this.currentAssignmentDetails.squares.splice(index, 1);
         }
       });
 

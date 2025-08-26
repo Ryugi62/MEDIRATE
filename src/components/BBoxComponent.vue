@@ -96,6 +96,7 @@ export default {
       localSquares: [],
       aiSquares: [],
       aiFirst: true,
+      showAiBoxes: false,
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -227,7 +228,10 @@ export default {
 
         return;
       } else if (selectedIcon.name === "fa-robot") {
-        await this.showTempAIBox(); // 분리된 함수 호출
+        this.showAiBoxes = !this.showAiBoxes; // AI 박스 표시/숨김 토글
+        if (this.showAiBoxes) {
+          await this.showTempAIBox(); // AI 박스 로드
+        }
       }
 
       this.resizeCanvas();
@@ -500,6 +504,9 @@ export default {
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary && !square.isAI) return; // 임시 박스는 그리지 않음
+
+        // AI 박스는 showAiBoxes가 true일 때만 표시
+        if (square.isAI && !this.showAiBoxes) return;
 
         if (
           square.isAI &&
