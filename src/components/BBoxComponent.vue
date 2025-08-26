@@ -200,10 +200,8 @@ export default {
         this.timer = this.evaluation_time || 0;
       }
 
-      // AI 박스를 자동으로 표시 (is_ai_use가 true인 경우)
-      if (this.is_ai_use) {
-        await this.showTempAIBox();
-      }
+      // AI 버튼을 눌러야만 AI 박스를 표시하도록 변경
+      // 자동으로 AI 박스를 표시하지 않음
     },
 
     async activateIcon(selectedIcon) {
@@ -733,10 +731,8 @@ export default {
         if (newVal !== oldVal) {
           await this.loadBackgroundImage();
           await this.fetchLocalInfo();
-          // is_ai_use가 true인 경우에만 AI 박스를 표시
-          if (this.is_ai_use) {
-            await this.showTempAIBox();
-          }
+          // AI 버튼을 눌러야만 AI 박스를 표시하도록 변경
+          // 이미지 변경 시 자동으로 AI 박스를 표시하지 않음
           this.resizeCanvas();
         }
       },
