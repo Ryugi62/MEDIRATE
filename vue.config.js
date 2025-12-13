@@ -4,9 +4,8 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       "/api": {
-        target: "https://aialpa-eval.duckdns.org",
+        target: "http://localhost:3000",
         changeOrigin: true,
-        pathRewrite: { "^/api": "" },
       },
     },
   },

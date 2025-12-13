@@ -3,11 +3,20 @@
   <div class="assignment-header">
     <h1 class="header-title">검수 작업</h1>
 
-    <!-- 과제 리스트에서 제목으로 검색 -->
-    <div
-      class="assignment-search-input"
-      :class="{ 'search-input-focused': isFocused }"
-    >
+    <div class="header-controls">
+      <!-- 모드 필터 -->
+      <select v-model="selectedMode" class="mode-filter" @change="current = 1">
+        <option value="all">전체 모드</option>
+        <option value="TextBox">TextBox</option>
+        <option value="BBox">BBox</option>
+        <option value="Consensus">Consensus (합의)</option>
+      </select>
+
+      <!-- 과제 리스트에서 제목으로 검색 -->
+      <div
+        class="assignment-search-input"
+        :class="{ 'search-input-focused': isFocused }"
+      >
       <!-- 초기화 버튼 -->
       <i class="fa-solid fa-rotate-left reset-icon" @click="resetSearch"></i>
       <input
@@ -23,6 +32,7 @@
         class="fa-solid fa-magnifying-glass search-icon"
         @click="searchAssignment"
       ></i>
+      </div>
     </div>
   </div>
 
@@ -56,7 +66,8 @@
         <tr
           v-for="assignment in visibleAssignments"
           :key="assignment.id"
-          @click="redirect(assignment.id)"
+          @click="redirect(assignment)"
+          :class="{ 'consensus-row': assignment.isConsensus }"
         >
           <td v-for="column in columns" :key="column.key" :class="column.class">
             {{ getValue(assignment, column.key) }}
@@ -124,12 +135,19 @@ export default {
       sortDirection: "down",
       searchQuery: this.$store.getters.getAssignmentSearchHistory || "",
       isFocused: false,
+      selectedMode: "all", // all, TextBox, BBox, Consensus
     };
   },
   computed: {
     columns() {
       return [
         { name: "ID", key: "id", sortable: true, class: "assignment-id" },
+        {
+          name: "모드",
+          key: "mode",
+          sortable: true,
+          class: "assignment-mode",
+        },
         {
           name: "제목",
           key: "title",
@@ -162,9 +180,16 @@ export default {
         },
       ];
     },
+    // 모드 필터가 적용된 과제 목록
+    filteredAssignments() {
+      if (this.selectedMode === "all") {
+        return this.assignments;
+      }
+      return this.assignments.filter((a) => a.mode === this.selectedMode);
+    },
     // 정렬된 과제 목록 반환
     sortedAssignments() {
-      return [...this.assignments].sort((a, b) => {
+      return [...this.filteredAssignments].sort((a, b) => {
         let aValue = this.getValue(a, this.sortColumn);
         let bValue = this.getValue(b, this.sortColumn);
 
@@ -188,7 +213,7 @@ export default {
     },
     // 총 페이지 수 계산
     total() {
-      return Math.ceil(this.assignments.length / this.perPage);
+      return Math.ceil(this.filteredAssignments.length / this.perPage);
     },
     // 표시되는 페이지 수 계산
     visiblePages() {
@@ -210,41 +235,78 @@ export default {
     },
   },
 
-  mounted() {
-    // 헤더에 jwt 토큰을 담아서 요청
-    this.$axios
-      .get("/api/assignments", {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
-        },
-      })
-      .then((response) => {
-        this.originalAssignments = response.data;
-        this.assignments = response.data;
+  async mounted() {
+    const headers = {
+      Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+    };
 
-        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-        if (this.searchQuery) {
-          this.assignAssignmentSearchFromStore();
-        }
+    try {
+      // 일반 과제와 합의 과제를 병렬로 가져오기
+      const [assignmentsRes, consensusRes] = await Promise.all([
+        this.$axios.get("/api/assignments", { headers }),
+        this.$axios.get("/api/consensus", { headers }),
+      ]);
 
-        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-        if (this.$store.getters.getAssignmentCurrentPage) {
-          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
-          this.current = Math.min(
-            this.$store.getters.getAssignmentCurrentPage,
-            this.total
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+      // 일반 과제에 mode 필드 추가
+      const regularAssignments = assignmentsRes.data.map((a) => ({
+        ...a,
+        mode: a.assignmentMode || "BBox",
+        isConsensus: false,
+      }));
+
+      // 합의 과제 형식 변환
+      const consensusAssignments = consensusRes.data.map((c) => ({
+        id: `C${c.id}`, // 합의 과제는 ID 앞에 C 붙이기
+        consensusId: c.id,
+        title: c.title,
+        mode: "Consensus",
+        CreationDate: c.creation_date,
+        dueDate: c.deadline,
+        status: this.getConsensusStatus(c),
+        completed: c.responded_fp || 0,
+        total: c.total_fp || 0,
+        isConsensus: true,
+      }));
+
+      // 두 목록 합치기
+      this.originalAssignments = [...regularAssignments, ...consensusAssignments];
+      this.assignments = [...this.originalAssignments];
+
+      // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+      if (this.searchQuery) {
+        this.assignAssignmentSearchFromStore();
+      }
+
+      // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+      if (this.$store.getters.getAssignmentCurrentPage) {
+        this.current = Math.min(
+          this.$store.getters.getAssignmentCurrentPage,
+          this.total
+        );
+      }
+    } catch (error) {
+      console.error("과제 목록 로딩 오류:", error);
+    }
   },
 
   methods: {
+    // 합의 과제 상태 계산
+    getConsensusStatus(consensus) {
+      const responded = consensus.responded_fp || 0;
+      const total = consensus.total_fp || 0;
+      if (total === 0) return "대기";
+      if (responded === 0) return "대기";
+      if (responded >= total) return "완료";
+      return "진행중";
+    },
+
     // 다른 페이지로 리다이렉트
-    redirect(id) {
-      this.$router.push({ name: "assignmentDetail", params: { id } });
+    redirect(assignment) {
+      if (assignment.isConsensus) {
+        this.$router.push({ name: "consensusDetail", params: { id: assignment.consensusId } });
+      } else {
+        this.$router.push({ name: "assignmentDetail", params: { id: assignment.id } });
+      }
     },
 
     // 페이지 변경
@@ -493,5 +555,40 @@ tbody > tr:hover {
 .pagination__item--active .pagination__link {
   color: var(--blue);
   border: 1px solid var(--blue);
+}
+
+/* 모드 필터 및 헤더 컨트롤 스타일 */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mode-filter {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: white;
+}
+
+.mode-filter:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.assignment-mode {
+  width: 90px;
+  font-weight: 500;
+}
+
+/* 합의 과제 행 스타일 */
+.consensus-row {
+  background-color: #fff8e1;
+}
+
+.consensus-row:hover {
+  background-color: #ffecb3 !important;
 }
 </style>

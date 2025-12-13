@@ -277,6 +277,130 @@ const expectedColumns = {
       constraintName: "fk_squares_info_user",
     },
   ],
+  // Consensus (합의) 모드 관련 테이블
+  consensus_assignments: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "title", definition: "VARCHAR(255) NOT NULL" },
+    { name: "deadline", definition: "DATE NOT NULL" },
+    { name: "source_excel", definition: "VARCHAR(255)" },
+    { name: "evaluator_threshold", definition: "INT DEFAULT 3" },
+    { name: "score_threshold", definition: "DECIMAL(3,2) DEFAULT 0.50" },
+    { name: "assignment_type", definition: "VARCHAR(255)" },
+    {
+      name: "creation_date",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+  ],
+  consensus_user_assignments: [
+    { name: "consensus_assignment_id", definition: "INT" },
+    { name: "user_id", definition: "INT" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (consensus_assignment_id, user_id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (consensus_assignment_id) REFERENCES consensus_assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_user_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_consensus_user_user",
+    },
+  ],
+  consensus_fp_squares: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "consensus_assignment_id", definition: "INT NOT NULL" },
+    { name: "question_image", definition: "VARCHAR(255) NOT NULL" },
+    { name: "x", definition: "INT NOT NULL" },
+    { name: "y", definition: "INT NOT NULL" },
+    { name: "ai_score", definition: "DECIMAL(4,3) NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (consensus_assignment_id) REFERENCES consensus_assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_fp_assignment",
+    },
+  ],
+  consensus_responses: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "fp_square_id", definition: "INT NOT NULL" },
+    { name: "user_id", definition: "INT NOT NULL" },
+    { name: "response", definition: "ENUM('agree', 'disagree') NOT NULL" },
+    {
+      name: "responded_at",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY fp_user_unique (fp_square_id, user_id)",
+      constraintName: "fp_user_unique",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (fp_square_id) REFERENCES consensus_fp_squares(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_response_fp",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_consensus_response_user",
+    },
+  ],
+  consensus_canvas_info: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "consensus_assignment_id", definition: "INT" },
+    { name: "user_id", definition: "INT" },
+    { name: "width", definition: "INT DEFAULT 0" },
+    { name: "height", definition: "INT DEFAULT 0" },
+    { name: "last_question_image", definition: "VARCHAR(255)" },
+    { name: "evaluation_time", definition: "INT DEFAULT 0" },
+    { name: "start_time", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    { name: "end_time", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (consensus_assignment_id) REFERENCES consensus_assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_canvas_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_consensus_canvas_user",
+    },
+  ],
 };
 
 // 초기 테이블 생성 SQL
@@ -396,6 +520,66 @@ const createTablesSQL = {
     PRIMARY KEY (\`id\`),
     FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE RESTRICT,
     FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
+  )`,
+  // Consensus (합의) 모드 관련 테이블
+  consensus_assignments: `CREATE TABLE IF NOT EXISTS \`consensus_assignments\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`title\` VARCHAR(255) NOT NULL,
+    \`deadline\` DATE NOT NULL,
+    \`source_excel\` VARCHAR(255),
+    \`evaluator_threshold\` INT DEFAULT 3,
+    \`score_threshold\` DECIMAL(3,2) DEFAULT 0.50,
+    \`assignment_type\` VARCHAR(255),
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`)
+  )`,
+  consensus_user_assignments: `CREATE TABLE IF NOT EXISTS \`consensus_user_assignments\` (
+    \`consensus_assignment_id\` INT,
+    \`user_id\` INT,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`consensus_assignment_id\`, \`user_id\`),
+    FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
+  )`,
+  consensus_fp_squares: `CREATE TABLE IF NOT EXISTS \`consensus_fp_squares\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`consensus_assignment_id\` INT NOT NULL,
+    \`question_image\` VARCHAR(255) NOT NULL,
+    \`x\` INT NOT NULL,
+    \`y\` INT NOT NULL,
+    \`ai_score\` DECIMAL(4,3) NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
+    INDEX \`idx_consensus_fp\` (\`consensus_assignment_id\`, \`question_image\`)
+  )`,
+  consensus_responses: `CREATE TABLE IF NOT EXISTS \`consensus_responses\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`fp_square_id\` INT NOT NULL,
+    \`user_id\` INT NOT NULL,
+    \`response\` ENUM('agree', 'disagree') NOT NULL,
+    \`responded_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`fp_user_unique\` (\`fp_square_id\`, \`user_id\`),
+    FOREIGN KEY (\`fp_square_id\`) REFERENCES \`consensus_fp_squares\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
+  )`,
+  consensus_canvas_info: `CREATE TABLE IF NOT EXISTS \`consensus_canvas_info\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`consensus_assignment_id\` INT,
+    \`user_id\` INT,
+    \`width\` INT DEFAULT 0,
+    \`height\` INT DEFAULT 0,
+    \`last_question_image\` VARCHAR(255),
+    \`evaluation_time\` INT DEFAULT 0,
+    \`start_time\` TIMESTAMP NULL DEFAULT NULL,
+    \`end_time\` TIMESTAMP NULL DEFAULT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
 };

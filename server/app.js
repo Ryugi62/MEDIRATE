@@ -15,6 +15,7 @@ const assignmentRoutes = require("./routes/assignmentRoutes");
 const downloadSearchedAssignments = require("./routes/downloadSearchedAssignments.js");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
+const consensusRoutes = require("./routes/consensusRoutes");
 
 // Constants and configurations
 const app = express();
@@ -57,6 +58,7 @@ app.use("/api/assignments", assignmentRoutes);
 app.use("/api/download", downloadSearchedAssignments);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/consensus", consensusRoutes);
 app.use((req, res, next) => {
   req.setTimeout(0); // 타임아웃을 무제한으로 설정
   next();
@@ -302,7 +304,7 @@ function serveFileFromFolder(req, res) {
   const absolutePath = path.join(actualFolderPath, filename);
 
   if (fs.existsSync(absolutePath)) {
-    res.download(absolutePath, errorHandler(res));
+    res.sendFile(absolutePath, errorHandler(res));
   } else {
     res.status(404).send("File not found");
   }

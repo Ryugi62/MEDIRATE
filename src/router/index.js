@@ -12,6 +12,7 @@ import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
 import UserManagementView from "../views/UserManagementView.vue";
+import ConsensusDetailView from "../views/ConsensusDetailView.vue";
 
 const routes = [
   {
@@ -89,6 +90,12 @@ const routes = [
     path: "/user-management",
     name: "user-management",
     component: UserManagementView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/consensus/:id",
+    name: "consensusDetail",
+    component: ConsensusDetailView,
     meta: { requiresAuth: true },
   },
   {

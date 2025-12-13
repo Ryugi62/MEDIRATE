@@ -1,0 +1,798 @@
+<!-- ConsensusComponent.vue -->
+<!-- FP 사각형에 대한 동의/비동의 평가를 위한 컴포넌트 -->
+
+<template>
+  <div class="consensus-component">
+    <div class="consensus-component__header">
+      <span class="consensus-component__header__left">
+        <label>
+          <input type="checkbox" v-model="showAlert" />
+          알림 표시
+        </label>
+        |
+        <label>
+          <input type="checkbox" v-model="goNext" />
+          Save 시 Next
+        </label>
+        |
+        <div class="timer-section">
+          <div class="timer-display">
+            {{ formattedTime }}
+          </div>
+          <div class="timer-controls">
+            <button @click="toggleTimer" class="timer-button">
+              {{ isRunning ? "평가중지" : "평가시작" }}
+            </button>
+            <button
+              @click="refreshTimer"
+              class="timer-button refresh-button"
+              :disabled="isRunning"
+              title="새로고침"
+            >
+              가장 마지막 평가 시간으로 복귀
+            </button>
+          </div>
+        </div>
+      </span>
+
+      <div class="legend">
+        <span class="legend-item pending">미응답</span>
+        <span class="legend-item agree">동의 (FP)</span>
+        <span class="legend-item disagree">비동의 (TP)</span>
+      </div>
+
+      <div class="consensus-component__actions">
+        <button @click="agreeAll" :disabled="!isRunning" class="action-btn agree-btn">
+          전체 동의 (Space)
+        </button>
+        <button @click="disagreeAll" :disabled="!isRunning" class="action-btn disagree-btn">
+          전체 비동의 (Shift+Space)
+        </button>
+        <button @click="commitChanges" class="save-btn">Save</button>
+      </div>
+    </div>
+
+    <div class="consensus-component__body">
+      <canvas
+        ref="canvas"
+        @click="handleCanvasClick"
+        @contextmenu.prevent="handleRightClick"
+        @mousemove="handleCanvasMouseMove"
+        @mouseleave="handleCanvasMouseLeave"
+      ></canvas>
+    </div>
+
+    <div class="consensus-component__footer">
+      <strong>{{ fileName }}</strong>
+      <span class="response-count">
+        응답: {{ respondedCount }} / {{ totalFpCount }}
+      </span>
+    </div>
+
+    <div class="consensus-component__instructions">
+      <strong>조작법:</strong>
+      왼클릭 = 동의 (FP 확정) |
+      우클릭 = 비동의 (TP로 변경) |
+      Space = 전체 동의 |
+      Shift+Space = 전체 비동의
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "ConsensusComponent",
+
+  props: {
+    fpSquares: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
+    responses: {
+      type: Object,
+      required: true,
+      default: () => ({}),
+    },
+    src: {
+      type: String,
+      required: true,
+      default: "",
+    },
+    questionImage: {
+      type: String,
+      required: true,
+      default: "",
+    },
+    canvasInfo: {
+      type: Object,
+      required: true,
+      default: () => ({}),
+    },
+    evaluation_time: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
+  },
+
+  emits: ["commitConsensusChanges"],
+
+  data() {
+    return {
+      localResponses: {},
+      backgroundImage: null,
+      originalWidth: null,
+      originalHeight: null,
+      showAlert: false,
+      goNext: true,
+      timer: 0,
+      isRunning: false,
+      timerInterval: null,
+      localCanvasInfo: {},
+    };
+  },
+
+  computed: {
+    fileName() {
+      return this.questionImage || this.src.split("/").pop();
+    },
+
+    formattedTime() {
+      const totalSeconds = Math.floor(this.timer / 1000);
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      return `${hours}:${minutes}:${seconds}`;
+    },
+
+    currentImageFpSquares() {
+      return this.fpSquares.filter(
+        (fp) => fp.question_image === this.questionImage
+      );
+    },
+
+    totalFpCount() {
+      return this.currentImageFpSquares.length;
+    },
+
+    respondedCount() {
+      return this.currentImageFpSquares.filter(
+        (fp) => this.localResponses[fp.id]
+      ).length;
+    },
+
+    isSliderActive() {
+      return this.$store.getters.isSlideBarOpen;
+    },
+  },
+
+  methods: {
+    async fetchLocalInfo() {
+      this.localResponses = { ...this.responses };
+      this.localCanvasInfo = { ...this.canvasInfo };
+
+      if (this.timer === 0) {
+        this.timer = this.evaluation_time || 0;
+      }
+    },
+
+    async loadBackgroundImage() {
+      if (!this.src) {
+        return;
+      }
+      try {
+        const img = await this.createImage(this.src);
+        this.setBackgroundImage(img);
+        this.resizeCanvas();
+      } catch (error) {
+        console.error("이미지 로드 오류:", error);
+        console.error("요청 URL:", this.src);
+      }
+    },
+
+    createImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (error) => reject(error);
+        img.src = src;
+      });
+    },
+
+    setBackgroundImage(img) {
+      this.backgroundImage = img;
+      this.originalWidth = img.width;
+      this.originalHeight = img.height;
+    },
+
+    drawBackgroundImage() {
+      const canvas = this.$refs.canvas;
+      if (!this.backgroundImage || !canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const { x, y, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+      ctx.drawImage(
+        this.backgroundImage,
+        x,
+        y,
+        this.backgroundImage.width * scale,
+        this.backgroundImage.height * scale
+      );
+    },
+
+    calculateImagePosition(canvasWidth, canvasHeight) {
+      const scale = Math.min(
+        canvasWidth / this.originalWidth,
+        canvasHeight / this.originalHeight
+      );
+      const x = (canvasWidth - this.originalWidth * scale) / 2;
+      const y = (canvasHeight - this.originalHeight * scale) / 2;
+      return { x, y, scale };
+    },
+
+    async resizeCanvas() {
+      const canvas = this.$refs.canvas;
+      if (!canvas) return;
+
+      canvas.width = 0;
+      canvas.height = 0;
+
+      const bboxBody = this.$el
+        .querySelector(".consensus-component__body")
+        .getBoundingClientRect();
+      canvas.width = bboxBody.width;
+      canvas.height = bboxBody.height;
+
+      this.localCanvasInfo.width = canvas.width;
+      this.localCanvasInfo.height = canvas.height;
+
+      this.drawBackgroundImage();
+      this.redrawSquares();
+    },
+
+    getCanvasCoordinates({ clientX, clientY }) {
+      const canvas = this.$refs.canvas;
+      if (!canvas) return {};
+
+      const { left, top, width, height } = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - left) * (canvas.width / width),
+        y: (clientY - top) * (canvas.height / height),
+      };
+    },
+
+    originalToCanvasCoordinates(originalX, originalY) {
+      const canvas = this.$refs.canvas;
+      const { x, y, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+      return {
+        canvasX: originalX * scale + x,
+        canvasY: originalY * scale + y,
+      };
+    },
+
+    findClosestFpSquare(canvasX, canvasY) {
+      let closest = null;
+      let minDistance = Infinity;
+
+      this.currentImageFpSquares.forEach((fp) => {
+        const { canvasX: fpCanvasX, canvasY: fpCanvasY } =
+          this.originalToCanvasCoordinates(fp.x + 12.5, fp.y + 12.5);
+        const distance = Math.hypot(fpCanvasX - canvasX, fpCanvasY - canvasY);
+
+        if (distance <= 50 && distance < minDistance) {
+          closest = fp;
+          minDistance = distance;
+        }
+      });
+
+      return closest;
+    },
+
+    handleCanvasClick(event) {
+      if (!this.isRunning) {
+        if (this.showAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
+
+      const { x, y } = this.getCanvasCoordinates(event);
+      const closestFp = this.findClosestFpSquare(x, y);
+
+      if (closestFp) {
+        this.localResponses[closestFp.id] = "agree";
+        this.redrawSquares();
+      }
+    },
+
+    handleRightClick(event) {
+      if (!this.isRunning) {
+        if (this.showAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
+
+      const { x, y } = this.getCanvasCoordinates(event);
+      const closestFp = this.findClosestFpSquare(x, y);
+
+      if (closestFp) {
+        this.localResponses[closestFp.id] = "disagree";
+        this.redrawSquares();
+      }
+    },
+
+    agreeAll() {
+      if (!this.isRunning) {
+        if (this.showAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
+
+      this.currentImageFpSquares.forEach((fp) => {
+        this.localResponses[fp.id] = "agree";
+      });
+      this.redrawSquares();
+    },
+
+    disagreeAll() {
+      if (!this.isRunning) {
+        if (this.showAlert) {
+          alert("평가를 시작해주세요.");
+        }
+        return;
+      }
+
+      this.currentImageFpSquares.forEach((fp) => {
+        this.localResponses[fp.id] = "disagree";
+      });
+      this.redrawSquares();
+    },
+
+    redrawSquares(event = null) {
+      this.drawBackgroundImage();
+      const canvas = this.$refs.canvas;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+
+      this.currentImageFpSquares.forEach((fp) => {
+        const response = this.localResponses[fp.id];
+        const { canvasX, canvasY } = this.originalToCanvasCoordinates(
+          fp.x + 12.5,
+          fp.y + 12.5
+        );
+
+        // 색상 결정
+        let color;
+        let fillAlpha = 0;
+        if (response === "agree") {
+          color = "#00FF00"; // 녹색 - 동의 (FP 확정)
+          fillAlpha = 0.2;
+        } else if (response === "disagree") {
+          color = "#FF0000"; // 빨강 - 비동의 (TP로 변경)
+          fillAlpha = 0.2;
+        } else {
+          color = "#FFA500"; // 주황 - 미응답
+          fillAlpha = 0;
+        }
+
+        // 배경 채우기 (응답된 경우)
+        if (fillAlpha > 0) {
+          ctx.fillStyle = color;
+          ctx.globalAlpha = fillAlpha;
+          ctx.fillRect(canvasX - 12.5, canvasY - 12.5, 25, 25);
+          ctx.globalAlpha = 1;
+        }
+
+        // 테두리 그리기
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(canvasX - 12.5, canvasY - 12.5, 25, 25);
+
+        // AI 점수 표시
+        ctx.font = "bold 10px Arial";
+        ctx.fillStyle = color;
+        ctx.fillText(
+          parseFloat(fp.ai_score || 0).toFixed(2),
+          canvasX - 10,
+          canvasY + 22
+        );
+      });
+
+      // 마우스 호버 시 확대 영역
+      if (event) {
+        this.activeEnlarge(event);
+        this.activeSquareCursor(event);
+      }
+    },
+
+    activeEnlarge(event) {
+      const canvas = this.$refs.canvas;
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+      const zoomWidth = 200;
+      const zoomHeight = 200;
+      const zoomLevel = 2.5;
+
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+      const mouseXOnImage = (x - imgX) / scale;
+      const mouseYOnImage = (y - imgY) / scale;
+
+      const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
+      const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
+      const sourceWidth = zoomWidth / zoomLevel;
+      const sourceHeight = zoomHeight / zoomLevel;
+
+      if (!this.backgroundImage) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.drawImage(
+        this.backgroundImage,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        canvas.width - zoomWidth,
+        0,
+        zoomWidth,
+        zoomHeight
+      );
+
+      ctx.restore();
+    },
+
+    activeSquareCursor(event) {
+      const canvas = this.$refs.canvas;
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+
+      // 가장 가까운 FP 찾기
+      const closestFp = this.findClosestFpSquare(x, y);
+
+      if (closestFp) {
+        const { canvasX, canvasY } = this.originalToCanvasCoordinates(
+          closestFp.x + 12.5,
+          closestFp.y + 12.5
+        );
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#00FFFF"; // cyan 하이라이트
+        ctx.strokeRect(canvasX - 14.5, canvasY - 14.5, 29, 29);
+      }
+    },
+
+    handleCanvasMouseMove(event) {
+      if (!this.isRunning) return;
+      this.redrawSquares(event);
+    },
+
+    handleCanvasMouseLeave() {
+      this.redrawSquares();
+    },
+
+    handleKeydown(event) {
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.disagreeAll();
+        } else {
+          this.agreeAll();
+        }
+      } else if (event.ctrlKey && event.key === "s") {
+        event.preventDefault();
+        this.commitChanges();
+      }
+    },
+
+    toggleTimer() {
+      if (!this.isRunning) {
+        this.startTimer();
+      } else {
+        this.pauseTimer();
+      }
+    },
+
+    startTimer() {
+      if (this.isRunning) return;
+      this.isRunning = true;
+      this.timerInterval = setInterval(() => {
+        this.timer += 1000;
+      }, 1000);
+    },
+
+    pauseTimer() {
+      if (!this.isRunning) return;
+      this.isRunning = false;
+      this.clearTimerInterval();
+    },
+
+    clearTimerInterval() {
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
+    },
+
+    refreshTimer() {
+      this.timer = this.evaluation_time || 0;
+    },
+
+    commitChanges() {
+      this.$emit("commitConsensusChanges", {
+        responses: this.localResponses,
+        evaluation_time: this.timer,
+        canvas_info: {
+          width: this.localCanvasInfo.width || 0,
+          height: this.localCanvasInfo.height || 0,
+        },
+        goNext: this.goNext,
+      });
+    },
+  },
+
+  mounted() {
+    this.fetchLocalInfo();
+    this.loadBackgroundImage();
+    window.addEventListener("resize", this.resizeCanvas);
+    window.addEventListener("keydown", this.handleKeydown);
+
+    if (this.evaluation_time) {
+      this.timer = this.evaluation_time;
+    }
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("resize", this.resizeCanvas);
+    window.removeEventListener("keydown", this.handleKeydown);
+    this.clearTimerInterval();
+  },
+
+  watch: {
+    src: {
+      immediate: true,
+      handler: async function (newVal, oldVal) {
+        if (newVal !== oldVal) {
+          await this.loadBackgroundImage();
+          await this.fetchLocalInfo();
+          this.resizeCanvas();
+        }
+      },
+    },
+
+    responses: {
+      deep: true,
+      handler(newVal) {
+        this.localResponses = { ...newVal };
+        this.redrawSquares();
+      },
+    },
+
+    isSliderActive() {
+      this.resizeCanvas();
+    },
+  },
+};
+</script>
+
+<style scoped>
+.consensus-component {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.consensus-component__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.consensus-component__header__left {
+  gap: 8px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.consensus-component__header label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  border: 2px solid;
+}
+
+.legend-item.pending::before {
+  border-color: #ffa500;
+}
+
+.legend-item.agree::before {
+  border-color: #00ff00;
+  background-color: rgba(0, 255, 0, 0.2);
+}
+
+.legend-item.disagree::before {
+  border-color: #ff0000;
+  background-color: rgba(255, 0, 0, 0.2);
+}
+
+.consensus-component__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.3s;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.agree-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.agree-btn:not(:disabled):hover {
+  background-color: #218838;
+}
+
+.disagree-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.disagree-btn:not(:disabled):hover {
+  background-color: #c82333;
+}
+
+.save-btn {
+  background-color: var(--primary-color, #007bff);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background-color: #0056b3;
+}
+
+.consensus-component__body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+canvas {
+  border: 1px solid #ccc;
+  min-height: 550px;
+  transition: border 0.3s;
+  background-color: #000;
+}
+
+canvas:hover {
+  border: 1px solid var(--primary-color, #007bff);
+}
+
+.consensus-component__footer {
+  padding: 10px;
+  color: #fff;
+  background-color: #000;
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.response-count {
+  font-size: 14px;
+}
+
+.consensus-component__instructions {
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 타이머 섹션 스타일 */
+.timer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.timer-display {
+  font-weight: bold;
+  font-size: 18px;
+  color: #333;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.timer-button {
+  background-color: var(--primary-color, #007bff);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-button {
+  padding: 8px 10px;
+}
+
+.timer-button:disabled {
+  background-color: var(--gray, #6c757d);
+  cursor: not-allowed;
+}
+
+.timer-button:not(:disabled):hover {
+  background-color: #0056b3;
+}
+</style>

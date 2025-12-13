@@ -13,6 +13,14 @@
       class="dashboard-search-input"
       :class="{ 'search-input-focused': isFocused }"
     >
+      <!-- 모드 필터 -->
+      <select v-model="selectedMode" class="mode-filter" @change="current = 1">
+        <option value="all">전체 모드</option>
+        <option value="TextBox">TextBox</option>
+        <option value="BBox">BBox</option>
+        <option value="Consensus">Consensus (합의)</option>
+      </select>
+
       <span class="slider-value"> {{ score_value }}% </span>
       <input
         type="range"
@@ -102,8 +110,9 @@
           :key="item.id"
           :class="{
             completed: item.answerRate === '100%',
+            'consensus-row': item.isConsensus,
           }"
-          @click="goToDetail(item.id)"
+          @click="goToDetail(item)"
         >
           <!-- 각 열의 데이터 -->
           <td v-for="column in columns" :key="column.key" :class="column.class">
@@ -149,14 +158,14 @@
         <i
           class="fa-solid fa-angle-right pagination__button"
           @click="changePage(current + 1)"
-          :class="{ 'pagination__button--disabled': current === total }"
+          :class="{ 'pagination__button--disabled': current === filteredLastPage }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
-          @click="changePage(lastPage)"
-          :class="{ 'pagination__button--disabled': current === total }"
+          @click="changePage(filteredLastPage)"
+          :class="{ 'pagination__button--disabled': current === filteredLastPage }"
         ></i>
       </li>
     </ul>
@@ -183,17 +192,31 @@ export default {
       exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
       sliderValue: 1,
       score_value: 50,
+      selectedMode: "all", // all, TextBox, BBox, Consensus
     };
   },
 
   computed: {
+    // 모드 필터가 적용된 데이터
+    filteredData() {
+      if (this.selectedMode === "all") {
+        return this.data;
+      }
+      return this.data.filter((item) => item.mode === this.selectedMode);
+    },
     paginatedData() {
       const start = (this.current - 1) * this.itemsPerPage;
       const end = start + this.itemsPerPage;
-      return this.data.slice(start, end);
+      return this.filteredData.slice(start, end);
+    },
+    filteredTotal() {
+      return this.filteredData.length;
+    },
+    filteredLastPage() {
+      return Math.ceil(this.filteredTotal / this.itemsPerPage) || 1;
     },
     visiblePages() {
-      const totalPages = Math.ceil(this.total / this.itemsPerPage);
+      const totalPages = Math.ceil(this.filteredTotal / this.itemsPerPage);
       const startPage = Math.max(1, Math.min(this.current - 2, totalPages - 4));
       const endPage = Math.min(totalPages, startPage + 4);
       const pages = [];
@@ -205,6 +228,12 @@ export default {
     columns() {
       return [
         { name: "ID", key: "id", sortable: true, class: "id" },
+        {
+          name: "모드",
+          key: "mode",
+          sortable: true,
+          class: "assignment-mode",
+        },
         {
           name: "제목",
           key: "title",
@@ -247,49 +276,77 @@ export default {
     },
   },
 
-  mounted() {
-    // 헤더에 jwt 토큰을 담아서 요청
-    this.$axios
-      .get("/api/dashboard", {
-        headers: {
-          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-        },
-      })
-      .then((response) => {
-        this.originalData = response.data;
-        this.data = response.data;
-        this.total = this.data.length;
-        this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-        this.sortBy(this.sortColumn); // 초기 정렬 적용
+  async mounted() {
+    const headers = {
+      Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+    };
 
-        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-        if (this.searchQuery) {
-          this.assignDashboardSearchFromStore();
-        }
+    try {
+      // 일반 대시보드와 합의 과제를 병렬로 가져오기
+      const [dashboardRes, consensusRes] = await Promise.all([
+        this.$axios.get("/api/dashboard", { headers }),
+        this.$axios.get("/api/consensus", { headers }),
+      ]);
 
-        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-        if (this.$store.getters.getDashboardCurrentPage) {
-          // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
-          this.current = Math.min(
-            this.$store.getters.getDashboardCurrentPage,
-            this.lastPage
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+      // 일반 대시보드 데이터에 mode 필드 추가
+      const regularData = dashboardRes.data.map((item) => ({
+        ...item,
+        mode: item.assignmentMode || "BBox",
+        isConsensus: false,
+      }));
+
+      // 합의 과제 대시보드 형식으로 변환
+      const consensusData = consensusRes.data.map((c) => ({
+        id: `C${c.id}`,
+        consensusId: c.id,
+        title: c.title,
+        mode: "Consensus",
+        createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
+        endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
+        evaluatorCount: c.evaluator_count || 0,
+        answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
+        unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
+        isConsensus: true,
+      }));
+
+      // 두 목록 합치기
+      this.originalData = [...regularData, ...consensusData];
+      this.data = [...this.originalData];
+      this.total = this.data.length;
+      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
+      this.sortBy(this.sortColumn); // 초기 정렬 적용
+
+      // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+      if (this.searchQuery) {
+        this.assignDashboardSearchFromStore();
+      }
+
+      // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+      if (this.$store.getters.getDashboardCurrentPage) {
+        // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
+        this.current = Math.min(
+          this.$store.getters.getDashboardCurrentPage,
+          this.lastPage
+        );
+      }
+    } catch (error) {
+      console.error("대시보드 데이터 로딩 오류:", error);
+    }
   },
 
   methods: {
     // 다른 페이지로 리다이렉트
-    goToDetail(id) {
-      this.$router.push({ name: "dashboardDetail", params: { id } });
+    goToDetail(item) {
+      if (item.isConsensus) {
+        this.$router.push({ name: "consensusDetail", params: { id: item.consensusId } });
+      } else {
+        this.$router.push({ name: "dashboardDetail", params: { id: item.id } });
+      }
     },
 
     // 페이지 변경
     changePage(pageNumber) {
-      const totalPages = Math.ceil(this.total / this.itemsPerPage);
+      const totalPages = this.filteredLastPage;
       if (pageNumber >= 1 && pageNumber <= totalPages) {
         this.current = pageNumber;
       }
@@ -750,5 +807,34 @@ td.unanswered-rate {
   font-weight: bold;
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* 모드 필터 스타일 */
+.mode-filter {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: white;
+}
+
+.mode-filter:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+td.assignment-mode {
+  width: 90px;
+  font-weight: 500;
+}
+
+/* 합의 과제 행 스타일 */
+.consensus-row {
+  background-color: #fff8e1;
+}
+
+.consensus-row:hover {
+  background-color: #ffecb3 !important;
 }
 </style>
