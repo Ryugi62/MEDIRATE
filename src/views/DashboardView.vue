@@ -6,59 +6,64 @@
   </div>
   <!-- 대시보드 헤더 -->
   <div class="dashboard-header">
-    <h1 class="header-title">대시 보드</h1>
+    <div class="header-row">
+      <h1 class="header-title">대시 보드</h1>
 
-    <!-- 검색 입력 -->
-    <div
-      class="dashboard-search-input"
-      :class="{ 'search-input-focused': isFocused }"
-    >
-      <!-- 모드 필터 -->
-      <select v-model="selectedMode" class="mode-filter" @change="current = 1">
-        <option value="all">전체 모드</option>
-        <option value="TextBox">TextBox</option>
-        <option value="BBox">BBox</option>
-        <option value="Consensus">Consensus (합의)</option>
-      </select>
+      <!-- 필터 그룹 -->
+      <div class="filter-group">
+        <select v-model="selectedMode" class="mode-filter" @change="current = 1">
+          <option value="all">전체 모드</option>
+          <option value="TextBox">TextBox</option>
+          <option value="BBox">BBox</option>
+          <option value="Consensus">Consensus (합의)</option>
+        </select>
 
-      <!-- 암종 필터 -->
-      <select v-model="selectedCancerType" class="cancer-filter" @change="current = 1">
-        <option value="all">전체 암종</option>
-        <option v-for="cancer in cancerTypes" :key="cancer.key" :value="cancer.key">
-          {{ cancer.label }}
-        </option>
-      </select>
+        <select v-model="selectedCancerType" class="cancer-filter" @change="current = 1">
+          <option value="all">전체 암종</option>
+          <option v-for="cancer in cancerTypes" :key="cancer.key" :value="cancer.key">
+            {{ cancer.label }}
+          </option>
+        </select>
+      </div>
 
-      <span class="slider-value"> {{ score_value }}% </span>
-      <input
-        type="range"
-        name="score_value"
-        id="score_value"
-        v-model="score_value"
-        min="0"
-        max="100"
-      />
+      <!-- 슬라이더 그룹 -->
+      <div class="slider-group">
+        <div class="slider-item">
+          <span class="slider-label">{{ score_value }}%</span>
+          <input
+            type="range"
+            v-model="score_value"
+            min="0"
+            max="100"
+          />
+        </div>
+        <div class="slider-item">
+          <span class="slider-label">{{ sliderValue }}인 일치</span>
+          <input
+            type="range"
+            min="1"
+            max="5"
+            :value="sliderValue"
+            @input="changeSliderValue"
+          />
+        </div>
+      </div>
 
-      <span class="slider-value">{{ sliderValue }}인 일치</span>
-      <input
-        type="range"
-        min="1"
-        max="5"
-        class="slider"
-        :value="sliderValue"
-        @input="changeSliderValue"
-      />
-
-      <div class="search-input-container">
+      <!-- 검색 그룹 -->
+      <div
+        class="search-group"
+        :class="{ 'search-input-focused': isFocused }"
+      >
         <i
           class="fa-solid fa-rotate-left reset-button"
           @click="resetSearch"
+          title="검색 초기화"
         ></i>
         <input
           class="search-input"
           type="text"
           v-model="searchQuery"
-          placeholder="검색어를 입력하세요"
+          placeholder="검색"
           @focus="isFocused = true"
           @blur="isFocused = false"
           @keypress.enter="searchDashboard"
@@ -69,18 +74,18 @@
         ></i>
       </div>
 
-      <button class="metrics-button" @click="showMetrics">Metrics 보기</button>
-
-      <button
-        class="download-image-button"
-        @click="downloadSearchedItemsAssets"
-      >
-        검색된 과제 이미지 다운로드
-      </button>
-
-      <button class="download-button" @click="downloadSearchedItems">
-        검색된 과제 다운로드
-      </button>
+      <!-- 버튼 그룹 -->
+      <div class="button-group">
+        <button class="icon-button metrics-button" @click="showMetrics" title="Metrics 보기">
+          <i class="fa-solid fa-chart-bar"></i>
+        </button>
+        <button class="icon-button download-image-button" @click="downloadSearchedItemsAssets" title="이미지 다운로드">
+          <i class="fa-solid fa-images"></i>
+        </button>
+        <button class="icon-button download-button" @click="downloadSearchedItems" title="엑셀 다운로드">
+          <i class="fa-solid fa-file-excel"></i>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -639,50 +644,96 @@ export default {
 </script>
 
 <style scoped>
+/* 전체 페이지 좌우 스크롤 방지 */
+:deep(.dashboard-view) {
+  overflow-x: hidden;
+}
+
 .dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   border-bottom: 1px solid var(--light-gray);
-  padding: 9px 24px;
-  white-space: nowrap;
+  padding: 12px 16px;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-  margin-right: 100px;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.dashboard-search-input {
+/* 필터 그룹 */
+.filter-group {
   display: flex;
-  height: 100%;
-  overflow: hidden;
-  margin-right: 22px;
   gap: 8px;
 }
 
-.slider-value {
-  margin: auto;
-  display: flex;
-}
-
-.search-input-container {
-  border-radius: 4px;
+.mode-filter,
+.cancer-filter {
+  padding: 6px 10px;
   border: 1px solid var(--light-gray);
-  transition: all 0.3s ease;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  background-color: white;
+  min-width: 100px;
 }
 
-.search-input-focused .search-input-container {
+.mode-filter:focus,
+.cancer-filter:focus {
+  outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 5px var(--blue);
 }
 
-.dashboard-search-input input {
+/* 슬라이더 그룹 */
+.slider-group {
+  display: flex;
+  gap: 12px;
+}
+
+.slider-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slider-label {
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 55px;
+  text-align: right;
+}
+
+.slider-item input[type="range"] {
+  width: 80px;
+}
+
+/* 검색 그룹 */
+.search-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.search-group.search-input-focused {
+  border-color: var(--blue);
+  box-shadow: 0 0 4px var(--blue);
+}
+
+.search-group .search-input {
   border: none;
-  padding: 8px;
-  box-sizing: border-box;
+  padding: 6px 8px;
+  width: 120px;
+  font-size: 13px;
 }
 
 .search-input:focus {
@@ -691,7 +742,7 @@ export default {
 
 .search-button,
 .reset-button {
-  padding: 12px;
+  padding: 8px 10px;
   cursor: pointer;
 }
 
@@ -720,8 +771,41 @@ export default {
   color: var(--gray-active);
 }
 
+/* 버튼 그룹 */
+.button-group {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.icon-button i {
+  font-size: 14px;
+}
+
+.metrics-button {
+  background-color: var(--blue);
+  color: white;
+}
+
+.metrics-button:hover {
+  background-color: var(--blue-hover);
+}
+
 .download-button {
   background-color: var(--green);
+  color: white;
 }
 
 .download-button:hover {
@@ -734,36 +818,39 @@ export default {
 
 .download-image-button {
   color: white;
-  border: 1px solid black;
-  background-color: black;
+  background-color: #333;
+  border-color: #333;
 }
 
 .download-image-button:hover {
-  background-color: #333333; /* 어두운 회색 */
+  background-color: #555;
 }
 
 .download-image-button:active {
-  background-color: #1a1a1a; /* 더 어두운 회색 */
+  background-color: #1a1a1a;
 }
 
+/* 테이블 박스 */
 .table-box {
   min-height: 676px;
+  overflow-x: auto;
 }
 
 table {
-  min-width: 1200px;
   width: 100%;
   text-align: center;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 th {
-  padding: 12px 24px;
+  padding: 10px 8px;
   text-align: center;
   font-weight: bold;
   border-bottom: 1px solid var(--light-gray);
   cursor: pointer;
-  text-wrap: nowrap;
+  white-space: nowrap;
+  font-size: 13px;
 }
 
 .sortable:hover {
@@ -784,28 +871,46 @@ tbody > tr:hover {
 }
 
 td {
-  padding: 12px 24px;
+  padding: 10px 8px;
   text-align: center;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-td.id {
-  width: 54px;
+td.id,
+th:nth-child(1) {
+  width: 50px;
 }
 
-td.assignment-id,
-td.evaluator {
+td.assignment-mode,
+th:nth-child(2) {
   width: 80px;
 }
 
 td.assignment-title {
   text-align: left;
+  max-width: 300px;
 }
 
 td.created-at,
 td.end-at,
+th:nth-child(4),
+th:nth-child(5) {
+  width: 90px;
+}
+
+td.evaluator,
+th:nth-child(6) {
+  width: 70px;
+}
+
 td.answer-rate,
-td.unanswered-rate {
-  width: 130px;
+td.unanswered-rate,
+th:nth-child(7),
+th:nth-child(8) {
+  width: 80px;
 }
 
 .pagination-nav {
