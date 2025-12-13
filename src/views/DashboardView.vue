@@ -21,6 +21,14 @@
         <option value="Consensus">Consensus (합의)</option>
       </select>
 
+      <!-- 암종 필터 -->
+      <select v-model="selectedCancerType" class="cancer-filter" @change="current = 1">
+        <option value="all">전체 암종</option>
+        <option v-for="cancer in cancerTypes" :key="cancer.key" :value="cancer.key">
+          {{ cancer.label }}
+        </option>
+      </select>
+
       <span class="slider-value"> {{ score_value }}% </span>
       <input
         type="range"
@@ -193,16 +201,57 @@ export default {
       sliderValue: 1,
       score_value: 50,
       selectedMode: "all", // all, TextBox, BBox, Consensus
+      selectedCancerType: "all", // 암종 필터
+      // 암종 매핑 (약자 → 한글명)
+      cancerTypeMap: {
+        'blad': '방광암',
+        'brst': '유방암',
+        'breast': '유방암',
+        'gist': 'GIST',
+        'lms': '평활근육종',
+        'u-lms': '자궁평활근육종',
+        'net': '신경내분비종양',
+        'sarc': '육종',
+        'stump': '미분화육종',
+        'u_stmp': '자궁미분화육종',
+        'usmt': '연조직악성종양',
+      },
     };
   },
 
   computed: {
-    // 모드 필터가 적용된 데이터
+    // 데이터에서 사용 가능한 암종 목록 추출
+    cancerTypes() {
+      const types = new Set();
+      this.originalData.forEach((item) => {
+        const cancerType = this.extractCancerType(item.title);
+        if (cancerType) types.add(cancerType);
+      });
+      return Array.from(types)
+        .sort()
+        .map((key) => ({
+          key,
+          label: this.cancerTypeMap[key] || key.toUpperCase(),
+        }));
+    },
+    // 모드 및 암종 필터가 적용된 데이터
     filteredData() {
-      if (this.selectedMode === "all") {
-        return this.data;
+      let result = this.data;
+
+      // 모드 필터
+      if (this.selectedMode !== "all") {
+        result = result.filter((item) => item.mode === this.selectedMode);
       }
-      return this.data.filter((item) => item.mode === this.selectedMode);
+
+      // 암종 필터
+      if (this.selectedCancerType !== "all") {
+        result = result.filter((item) => {
+          const cancerType = this.extractCancerType(item.title);
+          return cancerType === this.selectedCancerType;
+        });
+      }
+
+      return result;
     },
     paginatedData() {
       const start = (this.current - 1) * this.itemsPerPage;
@@ -521,6 +570,14 @@ export default {
       this.$store.commit("setDashboardCurrentPage", page);
     },
 
+    // 과제 제목에서 암종 타입 추출
+    extractCancerType(title) {
+      if (!title) return null;
+      // 형식: 0-blad-mitof-01E-101 → blad 추출
+      const match = title.match(/^[0-9a-z]*-([a-z_-]+)-(?:mitof|model)/i);
+      return match ? match[1].toLowerCase() : null;
+    },
+
     async showMetrics() {
       if (this.data.length === 0) {
         alert("검색된 과제가 없습니다.");
@@ -820,6 +877,21 @@ td.unanswered-rate {
 }
 
 .mode-filter:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+/* 암종 필터 스타일 */
+.cancer-filter {
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: white;
+}
+
+.cancer-filter:focus {
   outline: none;
   border-color: var(--blue);
 }
