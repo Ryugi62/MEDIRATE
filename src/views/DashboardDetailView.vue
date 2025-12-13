@@ -10,7 +10,7 @@
       <div class="table-box">
         <div class="table-header">
           <span class="table-title">{{ assignmentTitle }}</span>
-          <div v-if="assignmentMode === 'BBox'" class="slider-container">
+          <div v-if="isBBoxOrSegment" class="slider-container">
             <i
               class="fa-solid fa-robot"
               :class="{ active: isAiMode }"
@@ -60,7 +60,7 @@
                   >
                     {{ person.name }}
                   </th>
-                  <template v-if="assignmentMode === 'BBox'">
+                  <template v-if="isBBoxOrSegment">
                     <th
                       v-for="index in [null, ...Array(data.length - 1).keys()]"
                       :key="index === null ? 'none' : index"
@@ -91,7 +91,7 @@
                   </td>
                   <template
                     v-if="
-                      assignmentMode === 'BBox' && overlaps[item.questionId]
+                      isBBoxOrSegment && overlaps[item.questionId]
                     "
                   >
                     <td>{{ getOverlapValue(item.questionId, 1) }}</td>
@@ -110,7 +110,7 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.answeredCount }}
                   </th>
-                  <template v-if="assignmentMode === 'BBox'">
+                  <template v-if="isBBoxOrSegment">
                     <th v-for="i in data.length" :key="i">
                       <i class="fa-solid fa-xmark"></i>
                     </th>
@@ -121,7 +121,7 @@
                   <th v-for="person in data" :key="person.name">
                     {{ person.unansweredCount }}
                   </th>
-                  <template v-if="assignmentMode === 'BBox'">
+                  <template v-if="isBBoxOrSegment">
                     <th v-for="i in data.length" :key="i">
                       <i class="fa-solid fa-xmark"></i>
                     </th>
@@ -393,7 +393,7 @@ export default {
     },
 
     async getOverlaps(questionId, overlapCount) {
-      if (this.assignmentMode !== "BBox") return "";
+      if (!this.isBBoxOrSegment) return "";
 
       const question = this.data[0].questions.find(
         (q) => q.questionId === questionId
@@ -611,7 +611,7 @@ export default {
     },
 
     getTotalBboxes(questionId) {
-      if (this.assignmentMode !== "BBox") return "";
+      if (!this.isBBoxOrSegment) return "";
       return this.data.reduce((acc, person) => {
         const count = person.squares.filter(
           (square) => square.questionIndex === questionId && !square.isTemporary
@@ -773,7 +773,7 @@ export default {
           })),
         ];
 
-        if (this.assignmentMode === "BBox") {
+        if (this.isBBoxOrSegment) {
           columns.push(
             {
               header: `+${this.sliderValue}인`,
@@ -828,7 +828,7 @@ export default {
             );
           });
 
-          if (this.assignmentMode === "BBox") {
+          if (this.isBBoxOrSegment) {
             const adjustedSquares = await this.getAdjustedSquares(
               this.originalData,
               question
@@ -964,7 +964,7 @@ export default {
     },
 
     getStyleForPerson(index) {
-      return this.assignmentMode === "BBox" ? this.colorList[index] : {};
+      return this.isBBoxOrSegment ? this.colorList[index] : {};
     },
 
     startExportingAnimation() {
@@ -1034,6 +1034,9 @@ export default {
     isAdmin() {
       const user = this.$store.getters.getUser;
       return user?.isAdministrator || user?.role === 'admin';
+    },
+    isBBoxOrSegment() {
+      return this.assignmentMode === "BBox" || this.assignmentMode === "Segment";
     },
     completionPercentage() {
       if (this.assignmentMode === "TextBox") {

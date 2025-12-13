@@ -27,8 +27,8 @@ router.get("/", async (_req, res) => {
       const totalPossibleAnswers =
         assignment.totalQuestions * assignment.evaluatorCount;
 
-      if (assignment.assignmentMode === "BBox") {
-        // BBox 모드: 각 사용자가 각 문제에 대해 사각형을 하나라도 그렸는지 확인
+      if (assignment.assignmentMode === "BBox" || assignment.assignmentMode === "Segment") {
+        // BBox/Segment 모드: 각 사용자가 각 문제에 대해 사각형을 하나라도 그렸는지 확인
         const [bboxAnswers] = await db.query(
           `
           SELECT COUNT(*) AS answeredQuestions
@@ -86,6 +86,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       `SELECT assignment_mode FROM assignments WHERE id = ? AND deleted_at IS NULL`,
       [assignmentId]
     );
+    console.log("[DEBUG] dashboard/:id - assignment_mode from DB:", assignment_mode);
 
     // 삭제되지 않은 데이터만 조회
     const [usersData] = await db.query(
@@ -108,7 +109,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     };
 
     const squaresData =
-      assignment_mode === "BBox"
+      assignment_mode === "BBox" || assignment_mode === "Segment"
         ? await fetchData(
             `SELECT DISTINCT si.question_id as questionIndex, si.x, si.y, si.user_id, si.isAI, si.isTemporary
              FROM (
@@ -124,7 +125,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         : [];
 
     const canvasData =
-      assignment_mode === "BBox"
+      assignment_mode === "BBox" || assignment_mode === "Segment"
         ? await fetchData(
             `SELECT ci.id, ci.width, ci.height, ci.user_id
              FROM canvas_info ci

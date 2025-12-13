@@ -654,13 +654,16 @@ const updateAssignment = async (params) => {
     is_ai_use,
   } = params;
 
+  console.log("[DEBUG] updateAssignment - mode received:", mode);
+  console.log("[DEBUG] updateAssignment - all params:", JSON.stringify(params, null, 2));
+
   const updateQuery = `
     UPDATE assignments
     SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
     WHERE id = ?;
   `;
 
-  await db.query(updateQuery, [
+  const result = await db.query(updateQuery, [
     title,
     deadline,
     assignment_type,
@@ -670,6 +673,8 @@ const updateAssignment = async (params) => {
     is_ai_use,
     assignmentId,
   ]);
+
+  console.log("[DEBUG] updateAssignment - query result:", JSON.stringify(result, null, 2));
 };
 
 // 과제 삭제 (Soft Delete + RESTRICT 검증)

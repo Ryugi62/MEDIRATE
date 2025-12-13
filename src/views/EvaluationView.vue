@@ -436,6 +436,9 @@ export default {
             : [],
       };
 
+      console.log("[DEBUG] saveAssignment - mode:", this.assignmentDetails.mode);
+      console.log("[DEBUG] saveAssignment - assignmentData:", JSON.stringify(assignmentData, null, 2));
+
       if (this.isEditMode) {
         // 수정 모드: PUT 요청
         assignmentData.id = this.assignmentDetails.id;
@@ -584,6 +587,8 @@ export default {
           response.data.selectedAssignmentId;
         this.assignmentDetails.questions = response.data.questions;
         this.assignmentDetails.gradingScale = response.data.gradingScale;
+        console.log("[DEBUG] fetchAssignmentData - assigment_mode from server:", response.data.assigment_mode);
+        console.log("[DEBUG] fetchAssignmentData - full response:", JSON.stringify(response.data, null, 2));
         this.assignmentDetails.mode = response.data.assigment_mode;
         this.assignmentDetails.is_score =
           response.data.is_score === 1 ? true : false;
