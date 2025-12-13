@@ -148,13 +148,13 @@ export default {
     },
 
     handleHotkeys(event) {
-      if (event.ctrlKey && event.key === "a") {
+      if (event.ctrlKey && event.key === "w") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         this.commitChanges("bbox", this.goNext);
-      } else if (event.ctrlKey && event.key === "i") {
+      } else if (event.ctrlKey && event.key === "a") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         // ai icon 활성화
         if (!this.is_ai_use) {
@@ -448,15 +448,34 @@ export default {
         return;
       }
       const { x, y } = this.getCanvasCoordinates(event);
+
+      // 이미지 영역 밖 클릭 방지 (검정색 배경 영역)
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imgWidth = this.originalWidth * scale;
+      const imgHeight = this.originalHeight * scale;
+
+      if (x < imgX || x > imgX + imgWidth || y < imgY || y > imgY + imgHeight) {
+        return; // 이미지 영역 밖이면 무시
+      }
+
       this.eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
     },
 
     drawSquare(x, y) {
-      // this.temporarySquares에 같은 x, y 좌표가 있는지 확인 후 있으면 return
-      const checkSameCoordinate = this.temporarySquares.some(
-        (square) => square.x === x && square.y === y
-      );
-      if (checkSameCoordinate) return;
+      const MIN_DISTANCE = 20; // 최소 거리 (20px) - 중복 방지
+
+      // 기존 박스와 너무 가까운지 체크
+      const isTooClose = this.temporarySquares.some((square) => {
+        if (square.questionIndex !== this.questionIndex) return false;
+        if (square.isTemporary && !square.isAI) return false; // 임시 박스는 무시
+        const distance = Math.hypot(square.x - x, square.y - y);
+        return distance < MIN_DISTANCE;
+      });
+
+      if (isTooClose) {
+        return; // 너무 가까우면 추가 금지
+      }
 
       this.temporarySquares.push({
         x,
@@ -504,10 +523,26 @@ export default {
         // AI 박스는 showAiBoxes가 true일 때만 표시
         if (square.isAI && !this.showAiBoxes) return;
 
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
-        ctx.globalAlpha = square.isTemporaryAI ? 0.7 : 1;
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        // 박스 타입별 스타일 차별화
+        if (square.isTemporaryAI) {
+          // AI 탐지 박스 (아직 Apply 안됨) - 노란색, 더 크게
+          ctx.strokeStyle = "#FFD700";
+          ctx.lineWidth = 4;
+          ctx.globalAlpha = 0.8;
+          ctx.strokeRect(square.x - 14.5, square.y - 14.5, 29, 29);
+        } else if (square.isAI) {
+          // AI Apply 후 확정된 박스 - 형광 파란색
+          ctx.strokeStyle = "#00BFFF";
+          ctx.lineWidth = 4;
+          ctx.globalAlpha = 1;
+          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        } else {
+          // 전문의 지정 박스 - 빨간색
+          ctx.strokeStyle = "#FF0000";
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 1;
+          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        }
         ctx.globalAlpha = 1;
       });
 
@@ -557,9 +592,9 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200;
-      const zoomHeight = 200;
-      const zoomLevel = 2.5;
+      const zoomWidth = 300;
+      const zoomHeight = 300;
+      const zoomLevel = 3.0;
 
       const {
         x: imgX,

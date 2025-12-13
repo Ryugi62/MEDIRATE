@@ -2,8 +2,6 @@
 
 <template>
   <div v-if="currentAssignmentDetails" class="assignment-detail-view">
-    <h1 class="header-title">검수 작업</h1>
-
     <div class="assignment-overview">
       <div class="assignment-metadata">
         <h2 class="metadata-assignment-title">
@@ -57,6 +55,7 @@
         <table>
           <thead>
             <tr>
+              <th>순번</th>
               <th>문제</th>
               <th v-if="!isTextBoxMode">개수</th>
               <th
@@ -77,6 +76,7 @@
                 isInspected: question.isInspected,
               }"
             >
+              <td class="row-number">{{ idx + 1 }}</td>
               <td>
                 <img :src="question.image" alt="Question" />
               </td>
@@ -144,11 +144,15 @@
       />
     </div>
 
-    <img
-      src="../assets/assignment_guide.png"
-      alt=""
-      class="assignment_detail_guide"
-    />
+    <div class="shortcut-help" v-if="isBBoxMode || isSegmentMode">
+      <span><kbd>Ctrl</kbd>+<kbd>A</kbd> AI 탐지 표시</span>
+      <span><kbd>Ctrl</kbd>+<kbd>W</kbd> AI 적용</span>
+      <span><kbd>Ctrl</kbd>+<kbd>Q</kbd> 박스 추가</span>
+      <span><kbd>Ctrl</kbd>+<kbd>E</kbd> 선택 삭제</span>
+      <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 전체 삭제</span>
+      <span><kbd>Ctrl</kbd>+<kbd>S</kbd> 저장</span>
+      <span><kbd>↑</kbd>/<kbd>↓</kbd> 이전/다음 문제</span>
+    </div>
   </div>
   <div v-else class="loading-message">과제를 불러오는 중입니다...</div>
 </template>
@@ -268,11 +272,11 @@ export default {
           this.activeQuestionId = this.currentAssignmentDetails.questions[0].id;
         }
 
-        // 현재 활성화된 행을 찾아 스크롤하여 보이게 함
+        // 현재 활성화된 행을 찾아 스크롤하여 보이게 함 (테이블 내 스크롤만)
         this.$nextTick(() => {
           const activeRow = this.$el.querySelector("tbody tr.active");
           if (activeRow) {
-            activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+            activeRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
           } else {
             console.warn("Active row not found!");
           }
@@ -346,6 +350,12 @@ export default {
           }
         );
         this.isSaving = true;
+
+        // 다른 탭에 업데이트 신호 전송 (실시간 상태 업데이트)
+        localStorage.setItem('assignmentUpdated', JSON.stringify({
+          id: this.currentAssignmentDetails.id,
+          timestamp: Date.now()
+        }));
 
         // 저장 후 최신 과제 정보를 다시 로드하여 start_time과 end_time 업데이트
         await this.loadAssignmentDetails(this.currentAssignmentDetails.id);
@@ -500,7 +510,7 @@ export default {
 
         if (activeRow) {
           activeRow.classList.add("active");
-          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+          activeRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
         } else {
           console.warn("Active row not found!");
         }
@@ -538,7 +548,7 @@ export default {
       this.$nextTick(() => {
         const activeRow = this.$el.querySelector("tbody tr.active");
         if (activeRow) {
-          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+          activeRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
         } else {
           console.warn("Active row not found!");
         }
@@ -549,17 +559,6 @@ export default {
 </script>
 
 <style scoped>
-.header-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-  padding-left: 24px;
-  height: 60px;
-  border-bottom: 1px solid var(--light-gray);
-  display: flex;
-  align-items: center;
-}
-
 .assignment-overview {
   display: flex;
   justify-content: space-between;
@@ -628,7 +627,7 @@ td > img {
 thead {
   position: sticky;
   top: 0;
-  background-color: var(--ultra-light-gray);
+  background-color: white;
 }
 
 tbody tr:hover {
@@ -720,7 +719,38 @@ tr.active > * {
   color: white;
 }
 
-.assignment_detail_guide {
-  width: 500px;
+.row-number {
+  font-weight: bold;
+  color: #666;
+  width: 40px;
+  min-width: 40px;
+}
+
+.grades-table {
+  min-width: 180px;
+}
+
+.shortcut-help {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 24px;
+  background-color: #f5f5f5;
+  border-top: 1px solid var(--light-gray);
+  font-size: 12px;
+  color: #666;
+}
+
+.shortcut-help span {
+  white-space: nowrap;
+}
+
+.shortcut-help kbd {
+  background-color: #e0e0e0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
 }
 </style>

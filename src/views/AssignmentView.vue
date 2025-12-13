@@ -132,8 +132,8 @@ export default {
       assignments: [],
       current: this.$store.getters.getAssignmentCurrentPage || 1, // Vuex에서 현재 페이지 가져오기
       perPage: 50,
-      sortColumn: "id",
-      sortDirection: "down",
+      sortColumn: this.$store.getters.getAssignmentSortColumn || "id", // Vuex에서 정렬 상태 가져오기
+      sortDirection: this.$store.getters.getAssignmentSortDirection || "down", // Vuex에서 정렬 방향 가져오기
       searchQuery: this.$store.getters.getAssignmentSearchHistory || "",
       isFocused: false,
       selectedMode: "all", // all, TextBox, BBox, Consensus
@@ -237,60 +237,78 @@ export default {
   },
 
   async mounted() {
-    const headers = {
-      Authorization: `Bearer ${this.$store.getters.getUser.token}`,
-    };
+    await this.loadAssignments();
 
-    try {
-      // 일반 과제와 합의 과제를 병렬로 가져오기
-      const [assignmentsRes, consensusRes] = await Promise.all([
-        this.$axios.get("/api/assignments", { headers }),
-        this.$axios.get("/api/consensus", { headers }),
-      ]);
+    // 실시간 업데이트를 위한 storage 이벤트 리스너
+    window.addEventListener('storage', this.handleStorageChange);
+  },
 
-      // 일반 과제에 mode 필드 추가
-      const regularAssignments = assignmentsRes.data.map((a) => ({
-        ...a,
-        mode: a.assignmentMode || "BBox",
-        isConsensus: false,
-      }));
-
-      // 합의 과제 형식 변환
-      const consensusAssignments = consensusRes.data.map((c) => ({
-        id: `C${c.id}`, // 합의 과제는 ID 앞에 C 붙이기
-        consensusId: c.id,
-        title: c.title,
-        mode: "Consensus",
-        CreationDate: c.creation_date,
-        dueDate: c.deadline,
-        status: this.getConsensusStatus(c),
-        completed: c.responded_fp || 0,
-        total: c.total_fp || 0,
-        isConsensus: true,
-      }));
-
-      // 두 목록 합치기
-      this.originalAssignments = [...regularAssignments, ...consensusAssignments];
-      this.assignments = [...this.originalAssignments];
-
-      // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-      if (this.searchQuery) {
-        this.assignAssignmentSearchFromStore();
-      }
-
-      // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-      if (this.$store.getters.getAssignmentCurrentPage) {
-        this.current = Math.min(
-          this.$store.getters.getAssignmentCurrentPage,
-          this.total
-        );
-      }
-    } catch (error) {
-      console.error("과제 목록 로딩 오류:", error);
-    }
+  beforeUnmount() {
+    window.removeEventListener('storage', this.handleStorageChange);
   },
 
   methods: {
+    // 실시간 업데이트를 위한 storage 이벤트 핸들러
+    handleStorageChange(event) {
+      if (event.key === 'assignmentUpdated') {
+        this.loadAssignments();
+      }
+    },
+
+    // 과제 목록 로드
+    async loadAssignments() {
+      const headers = {
+        Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+      };
+
+      try {
+        // 일반 과제와 합의 과제를 병렬로 가져오기
+        const [assignmentsRes, consensusRes] = await Promise.all([
+          this.$axios.get("/api/assignments", { headers }),
+          this.$axios.get("/api/consensus", { headers }),
+        ]);
+
+        // 일반 과제에 mode 필드 추가
+        const regularAssignments = assignmentsRes.data.map((a) => ({
+          ...a,
+          mode: a.assignmentMode || "BBox",
+          isConsensus: false,
+        }));
+
+        // 합의 과제 형식 변환
+        const consensusAssignments = consensusRes.data.map((c) => ({
+          id: `C${c.id}`, // 합의 과제는 ID 앞에 C 붙이기
+          consensusId: c.id,
+          title: c.title,
+          mode: "Consensus",
+          CreationDate: c.creation_date,
+          dueDate: c.deadline,
+          status: this.getConsensusStatus(c),
+          completed: c.responded_fp || 0,
+          total: c.total_fp || 0,
+          isConsensus: true,
+        }));
+
+        // 두 목록 합치기
+        this.originalAssignments = [...regularAssignments, ...consensusAssignments];
+        this.assignments = [...this.originalAssignments];
+
+        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
+        if (this.searchQuery) {
+          this.assignAssignmentSearchFromStore();
+        }
+
+        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
+        if (this.$store.getters.getAssignmentCurrentPage) {
+          this.current = Math.min(
+            this.$store.getters.getAssignmentCurrentPage,
+            this.total
+          );
+        }
+      } catch (error) {
+        console.error("과제 목록 로딩 오류:", error);
+      }
+    },
     // 합의 과제 상태 계산
     getConsensusStatus(consensus) {
       const responded = consensus.responded_fp || 0;
@@ -301,13 +319,14 @@ export default {
       return "진행중";
     },
 
-    // 다른 페이지로 리다이렉트
+    // 새 탭으로 검수 작업 열기
     redirect(assignment) {
-      if (assignment.isConsensus) {
-        this.$router.push({ name: "consensusDetail", params: { id: assignment.consensusId } });
-      } else {
-        this.$router.push({ name: "assignmentDetail", params: { id: assignment.id } });
-      }
+      const route = assignment.isConsensus
+        ? { name: "consensusDetail", params: { id: assignment.consensusId } }
+        : { name: "assignmentDetail", params: { id: assignment.id } };
+
+      const url = this.$router.resolve(route).href;
+      window.open(url, '_blank');
     },
 
     // 페이지 변경
@@ -324,6 +343,9 @@ export default {
         this.sortColumn = columnKey;
         this.sortDirection = columnKey === "id" ? "down" : "up"; // ID 열은 항상 내림차순으로 시작
       }
+      // Vuex에 정렬 상태 저장
+      this.$store.commit("setAssignmentSortColumn", this.sortColumn);
+      this.$store.commit("setAssignmentSortDirection", this.sortDirection);
     },
     getValue(obj, key) {
       if (key === "progress") {

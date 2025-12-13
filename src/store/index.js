@@ -16,6 +16,9 @@ export default createStore({
       parseInt(localStorage.getItem("assignmentCurrentPage")) || 1,
     dashboardCurrentPage:
       parseInt(localStorage.getItem("dashboardCurrentPage")) || 1, // 추가
+    // 정렬 상태 유지
+    assignmentSortColumn: localStorage.getItem("assignmentSortColumn") || "id",
+    assignmentSortDirection: localStorage.getItem("assignmentSortDirection") || "down",
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -27,6 +30,8 @@ export default createStore({
     getDashboardSearchHistory: (state) => state.dashboardSearchHistory,
     getAssignmentCurrentPage: (state) => state.assignmentCurrentPage,
     getDashboardCurrentPage: (state) => state.dashboardCurrentPage, // 추가
+    getAssignmentSortColumn: (state) => state.assignmentSortColumn,
+    getAssignmentSortDirection: (state) => state.assignmentSortDirection,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -67,6 +72,14 @@ export default createStore({
       state.dashboardCurrentPage = page;
       localStorage.setItem("dashboardCurrentPage", page);
     },
+    setAssignmentSortColumn(state, column) {
+      state.assignmentSortColumn = column;
+      localStorage.setItem("assignmentSortColumn", column);
+    },
+    setAssignmentSortDirection(state, direction) {
+      state.assignmentSortDirection = direction;
+      localStorage.setItem("assignmentSortDirection", direction);
+    },
   },
   actions: {
     loginUser({ commit }, user) {
@@ -92,6 +105,8 @@ export default createStore({
       localStorage.removeItem("dashboardSearchHistory");
       localStorage.removeItem("assignmentCurrentPage");
       localStorage.removeItem("dashboardCurrentPage"); // 추가
+      localStorage.removeItem("assignmentSortColumn");
+      localStorage.removeItem("assignmentSortDirection");
     },
   },
   modules: {},

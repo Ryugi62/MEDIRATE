@@ -306,7 +306,7 @@ export default {
       }
     },
 
-    handleRightClick(event) {
+    handleRightClick() {
       if (!this.isRunning) return;
 
       // 우클릭으로 폴리곤 완성
@@ -461,9 +461,9 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200;
-      const zoomHeight = 200;
-      const zoomLevel = 2.5;
+      const zoomWidth = 300;
+      const zoomHeight = 300;
+      const zoomLevel = 3.0;
 
       const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
       const mouseXOnImage = (x - imgX) / scale;
