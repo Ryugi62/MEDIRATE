@@ -171,6 +171,7 @@ router.get("/", authenticateToken, async (req, res) => {
         a.title,
         a.creation_date AS CreationDate,
         a.deadline AS dueDate,
+        a.assignment_mode AS assignmentMode,
         CASE
           WHEN a.deadline >= CURRENT_DATE THEN '진행 중'
           ELSE '완료'
