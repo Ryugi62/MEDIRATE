@@ -107,7 +107,7 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     if (questions.length === 0) {
@@ -159,26 +159,27 @@ router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const assignmentsQuery = `
-      SELECT 
-        a.id, 
-        a.title, 
+      SELECT
+        a.id,
+        a.title,
         a.creation_date AS CreationDate,
         a.deadline AS dueDate,
         CASE
           WHEN a.deadline >= CURRENT_DATE THEN '진행 중'
           ELSE '완료'
         END AS status,
-        (SELECT COUNT(*) FROM questions WHERE assignment_id = a.id) AS total,
+        (SELECT COUNT(*) FROM questions WHERE assignment_id = a.id AND deleted_at IS NULL) AS total,
         (SELECT COUNT(*) FROM questions q
           JOIN question_responses qr ON q.id = qr.question_id
-          WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1) AS completed,
+          WHERE q.assignment_id = a.id AND qr.user_id = ? AND qr.selected_option <> -1
+          AND q.deleted_at IS NULL AND qr.deleted_at IS NULL) AS completed,
         ci.evaluation_time AS evaluation_time,
         ci.start_time AS start_time,
         ci.end_time AS end_time
       FROM assignments a
-      JOIN assignment_user au ON a.id = au.assignment_id
-      LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id
-      WHERE au.user_id = ?;
+      JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+      LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id AND ci.deleted_at IS NULL
+      WHERE au.user_id = ? AND a.deleted_at IS NULL;
     `;
 
     const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
@@ -191,14 +192,15 @@ router.get("/", authenticateToken, async (req, res) => {
       uniqueAssignments.map(async (assignment) => {
         const { id } = assignment;
 
-        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`;
+        const canvasQuery = `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL;`;
         const [canvas] = await db.query(canvasQuery, [id, userId]);
 
         if (canvas.length > 0) {
           const squaresQuery = `
             SELECT DISTINCT question_id
-            FROM squares_info 
-            WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?);
+            FROM squares_info
+            WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL)
+            AND deleted_at IS NULL;
           `;
           const [squares] = await db.query(squaresQuery, [id, userId]);
           assignment.completed += squares.length;
@@ -223,9 +225,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     const assignmentQuery = `
-      SELECT 
-        a.id, 
-        a.title AS FileName, 
+      SELECT
+        a.id,
+        a.title AS FileName,
         u.realname AS studentName,
         a.deadline AS Deadline,
         a.selection_type AS selectionType,
@@ -234,9 +236,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.is_score,
         a.is_ai_use
       FROM assignments a
-      JOIN assignment_user au ON a.id = au.assignment_id
-      JOIN users u ON au.user_id = u.id
-      WHERE a.id = ? AND u.id = ?;
+      JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+      JOIN users u ON au.user_id = u.id AND u.deleted_at IS NULL
+      WHERE a.id = ? AND u.id = ? AND a.deleted_at IS NULL;
     `;
     const [assignment] = await db.query(assignmentQuery, [
       assignmentId,
@@ -247,21 +249,21 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Assignment not found." });
     }
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const questionResponsesQuery = `
       SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
       FROM question_responses qr
       JOIN questions q ON qr.question_id = q.id
-      WHERE q.assignment_id = ? AND qr.user_id = ?;
+      WHERE q.assignment_id = ? AND qr.user_id = ? AND qr.deleted_at IS NULL AND q.deleted_at IS NULL;
     `;
     const [responses] = await db.query(questionResponsesQuery, [
       assignmentId,
       userId,
     ]);
 
-    const isInspectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ?;`;
+    const isInspectedQuery = `SELECT question_id FROM squares_info WHERE user_id = ? AND question_id = ? AND deleted_at IS NULL;`;
     await Promise.all(
       questions.map(async (question) => {
         const [isInspected] = await db.query(isInspectedQuery, [
@@ -298,12 +300,12 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       .split(",")
       .map((s) => s.trim());
 
-    const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time, start_time, end_time FROM canvas_info WHERE assignment_id = ? AND user_id = ?;`; // 수정된 부분
+    const canvasQuery = `SELECT id, width, height, lastQuestionIndex, evaluation_time, start_time, end_time FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL;`;
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = [];
     if (canvas.length > 0) {
-      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ?;`;
+      const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ? AND deleted_at IS NULL;`;
       const [squaresResult] = await db.query(squaresQuery, [
         canvas[0].id,
         userId,
@@ -337,9 +339,9 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
     const { assignmentId } = req.params;
 
     const assignmentQuery = `
-      SELECT 
-        a.id, 
-        a.title, 
+      SELECT
+        a.id,
+        a.title,
         a.deadline,
         a.assignment_type AS selectedAssignmentType,
         a.selection_type AS selectedAssignmentId,
@@ -347,7 +349,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.is_score,
         a.is_ai_use
       FROM assignments a
-      WHERE a.id = ?;
+      WHERE a.id = ? AND a.deleted_at IS NULL;
     `;
     const [assignmentDetails] = await db.query(assignmentQuery, [assignmentId]);
 
@@ -358,18 +360,18 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
     const assignment = assignmentDetails[0];
 
     const assignedUsersQuery = `
-      SELECT 
-        u.id, 
-        u.username, 
-        u.realname, 
+      SELECT
+        u.id,
+        u.username,
+        u.realname,
         u.organization
       FROM assignment_user au
-      JOIN users u ON au.user_id = u.id
-      WHERE au.assignment_id = ?;
+      JOIN users u ON au.user_id = u.id AND u.deleted_at IS NULL
+      WHERE au.assignment_id = ? AND au.deleted_at IS NULL;
     `;
     const [assignedUsers] = await db.query(assignedUsersQuery, [assignmentId]);
 
-    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ?;`;
+    const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
     const transformedAssignmentDetails = {
@@ -527,7 +529,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
 // 과제 질문 업데이트 함수
 const updateQuestions = async (assignmentId, questions) => {
   const [existingQuestions] = await db.query(
-    `SELECT id, image FROM questions WHERE assignment_id = ?`,
+    `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
 
@@ -571,7 +573,7 @@ const updateQuestions = async (assignmentId, questions) => {
 // 과제 사용자 할당 업데이트 함수
 const updateUserAssignments = async (assignmentId, users) => {
   const [existingUsers] = await db.query(
-    `SELECT user_id FROM assignment_user WHERE assignment_id = ?`,
+    `SELECT user_id FROM assignment_user WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
 
@@ -722,15 +724,8 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       );
     });
 
-    // 4. 폴더 삭제 (선택적 - 파일은 유지할 수도 있음)
-    const assignmentType = assignment[0].assignment_type;
-    const folderPath = `./assets/${assignmentType}`;
-    try {
-      await fsPromises.access(folderPath);
-      await fsPromises.rm(folderPath, { recursive: true });
-    } catch (error) {
-      // 폴더가 없어도 무시
-    }
+    // 4. 실제 파일은 삭제하지 않음 (Soft Delete이므로 복구 가능성 유지)
+    // 파일 정리가 필요한 경우 별도의 배치 작업으로 처리
 
     res.json({ message: "Assignment successfully deleted." });
   } catch (error) {
@@ -745,7 +740,7 @@ router.get("/:assignmentId/metadata", authenticateToken, async (req, res) => {
 
     // Fetch assignment data to get the folder name
     const [questions] = await db.query(
-      `SELECT image FROM questions WHERE assignment_id = ? LIMIT 1`,
+      `SELECT image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL LIMIT 1`,
       [assignmentId]
     );
 
