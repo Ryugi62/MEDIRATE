@@ -12,12 +12,14 @@ const calculateRates = (answered, total) => {
 
 router.get("/", async (_req, res) => {
   try {
+    // 삭제되지 않은 과제만 조회
     const [assignments] = await db.query(`
       SELECT a.id, a.title, a.creation_date AS createdAt, a.deadline AS endAt, a.assignment_mode AS assignmentMode,
       COUNT(DISTINCT au.user_id) AS evaluatorCount,
-      (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id) AS totalQuestions
+      (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id AND q.deleted_at IS NULL) AS totalQuestions
       FROM assignments a
-      LEFT JOIN assignment_user au ON a.id = au.assignment_id
+      LEFT JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+      WHERE a.deleted_at IS NULL
       GROUP BY a.id
     `);
 
@@ -33,8 +35,8 @@ router.get("/", async (_req, res) => {
           FROM (
             SELECT DISTINCT si.user_id, q.id
             FROM questions q
-            JOIN squares_info si ON q.id = si.question_id
-            WHERE q.assignment_id = ?
+            JOIN squares_info si ON q.id = si.question_id AND si.deleted_at IS NULL
+            WHERE q.assignment_id = ? AND q.deleted_at IS NULL
           ) AS user_question_combinations
           `,
           [assignment.id]
@@ -48,6 +50,7 @@ router.get("/", async (_req, res) => {
           FROM question_responses qr
           JOIN questions q ON qr.question_id = q.id
           WHERE q.assignment_id = ? AND qr.selected_option >= 0
+          AND qr.deleted_at IS NULL AND q.deleted_at IS NULL
           `,
           [assignment.id]
         );
@@ -78,21 +81,23 @@ router.get("/", async (_req, res) => {
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   const { assignmentId } = req.params;
   try {
+    // 삭제되지 않은 과제만 조회
     const [[{ assignment_mode }]] = await db.query(
-      `SELECT assignment_mode FROM assignments WHERE id = ?`,
+      `SELECT assignment_mode FROM assignments WHERE id = ? AND deleted_at IS NULL`,
       [assignmentId]
     );
 
+    // 삭제되지 않은 데이터만 조회
     const [usersData] = await db.query(
       `SELECT u.username AS name, q.id AS questionId, q.image AS questionImage, u.id AS userId, a.title As FileName,
        COALESCE(qr.selected_option, -1) AS originalSelection, COUNT(DISTINCT si.id) AS squareCount
        FROM users u
-       JOIN assignment_user au ON u.id = au.user_id
-       JOIN assignments a ON au.assignment_id = a.id
-       LEFT JOIN questions q ON au.assignment_id = q.assignment_id
-       LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id
-       LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id
-       WHERE au.assignment_id = ?
+       JOIN assignment_user au ON u.id = au.user_id AND au.deleted_at IS NULL
+       JOIN assignments a ON au.assignment_id = a.id AND a.deleted_at IS NULL
+       LEFT JOIN questions q ON au.assignment_id = q.assignment_id AND q.deleted_at IS NULL
+       LEFT JOIN question_responses qr ON q.id = qr.question_id AND qr.user_id = u.id AND qr.deleted_at IS NULL
+       LEFT JOIN squares_info si ON q.id = si.question_id AND si.user_id = u.id AND si.deleted_at IS NULL
+       WHERE au.assignment_id = ? AND u.deleted_at IS NULL
        GROUP BY u.id, q.id`,
       [assignmentId]
     );
@@ -110,8 +115,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
                SELECT question_id, x, y, user_id, isAI, isTemporary,
                       ROW_NUMBER() OVER (PARTITION BY question_id, x, y, user_id ORDER BY id) as rn
                FROM squares_info
+               WHERE deleted_at IS NULL
              ) si
-             JOIN questions q ON si.question_id = q.id
+             JOIN questions q ON si.question_id = q.id AND q.deleted_at IS NULL
              WHERE q.assignment_id = ? AND si.rn = 1`,
             [assignmentId]
           )
@@ -122,7 +128,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         ? await fetchData(
             `SELECT ci.id, ci.width, ci.height, ci.user_id
              FROM canvas_info ci
-             WHERE ci.assignment_id = ?`,
+             WHERE ci.assignment_id = ? AND ci.deleted_at IS NULL`,
             [assignmentId]
           )
         : [];

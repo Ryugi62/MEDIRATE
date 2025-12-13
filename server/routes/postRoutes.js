@@ -34,13 +34,15 @@ router.get("/", async (req, res) => {
       SELECT
         posts.id,
         posts.title,
-        users.username AS author,
+        COALESCE(users.username, '탈퇴한 사용자') AS author,
         posts.creation_date AS lastUpdated,
         posts.type
       FROM
         posts
-      JOIN
-        users ON posts.user_id = users.id
+      LEFT JOIN
+        users ON posts.user_id = users.id AND users.deleted_at IS NULL
+      WHERE
+        posts.deleted_at IS NULL
       ORDER BY
         posts.id DESC
     `;
@@ -93,40 +95,41 @@ router.get("/:id", async (req, res) => {
   const postId = req.params.id;
 
   try {
-    // 게시물 조회
-    const postQuery = "SELECT * FROM posts WHERE id = ?";
+    // 게시물 조회 (삭제되지 않은 것만)
+    const postQuery = "SELECT * FROM posts WHERE id = ? AND deleted_at IS NULL";
     const [post] = await db.query(postQuery, [postId]);
 
     if (!post.length) {
       return res.status(404).json({ error: "게시물을 찾을 수 없습니다." });
     }
 
-    // 댓글 조회
-    const commentsQuery = "SELECT * FROM comments WHERE post_id = ?";
+    // 댓글 조회 (삭제되지 않은 것만)
+    const commentsQuery = "SELECT * FROM comments WHERE post_id = ? AND deleted_at IS NULL";
     const [comments] = await db.query(commentsQuery, [postId]);
 
-    // 첨부 파일 조회
-    const attachmentsQuery = "SELECT * FROM attachments WHERE post_id = ?";
+    // 첨부 파일 조회 (삭제되지 않은 것만)
+    const attachmentsQuery = "SELECT * FROM attachments WHERE post_id = ? AND deleted_at IS NULL";
     const [attachments] = await db.query(attachmentsQuery, [postId]);
 
-    // user_id (ex 59)로 username을 가져오기
-    const usernameQuery = "SELECT username FROM users WHERE id = ?";
+    // user_id로 username을 가져오기 (탈퇴한 사용자 처리)
+    const usernameQuery = "SELECT username FROM users WHERE id = ? AND deleted_at IS NULL";
     const [username] = await db.query(usernameQuery, [post[0].user_id]);
+    const authorName = username.length > 0 ? username[0].username : "탈퇴한 사용자";
 
-    // comment.user_id (ex 59)로 username을 가져오기
-    const commentUsernameQuery = "SELECT username FROM users WHERE id = ?";
+    // comment.user_id로 username을 가져오기 (탈퇴한 사용자 처리)
+    const commentUsernameQuery = "SELECT username FROM users WHERE id = ? AND deleted_at IS NULL";
     for (let i = 0; i < comments.length; i++) {
       const [commentUsername] = await db.query(commentUsernameQuery, [
         comments[i].user_id,
       ]);
-      comments[i].user_id = commentUsername[0].username;
+      comments[i].user_id = commentUsername.length > 0 ? commentUsername[0].username : "탈퇴한 사용자";
     }
 
     // 서버 코드 수정
     const formattedPost = {
       id: post[0].id,
       title: post[0].title,
-      author: username[0].username,
+      author: authorName,
       lastUpdated: post[0].creation_date,
       content: post[0].content,
       files: attachments.map((attachment) => ({
@@ -284,34 +287,51 @@ router.put(
   }
 );
 
-// 게시글 삭제
-router.delete("/:id", async (req, res) => {
+// 게시글 삭제 (Soft Delete)
+router.delete("/:id", authenticateToken, async (req, res) => {
   const postId = req.params.id;
+  const userId = req.user.id;
+  const userRole = req.user.role;
 
   try {
-    // 파일도 삭제
-    const attachmentsQuery = "SELECT * FROM attachments WHERE post_id = ?";
-    const [attachments] = await db.query(attachmentsQuery, [postId]);
+    // 1. 게시글 존재 및 소유권 확인
+    const [post] = await db.query(
+      "SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL",
+      [postId]
+    );
 
-    for (const file of attachments) {
-      const filePath = file.path;
-      // 데이터베이스에서 파일 레코드 삭제
-      const deleteFileQuery = "DELETE FROM attachments WHERE id = ?";
-      await db.query(deleteFileQuery, [file.id]);
-      // 파일 시스템에서 파일 삭제
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          console.error("파일 삭제 중 오류:", err);
-        }
-      });
+    if (!post.length) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
     }
 
-    const query = "DELETE FROM posts WHERE id = ?";
-    await db.query(query, [postId]);
+    // 2. 권한 확인 (본인 또는 admin)
+    if (post[0].user_id !== userId && userRole !== "admin") {
+      return res.status(403).json({ error: "삭제 권한이 없습니다." });
+    }
 
-    res.status(200).send("게시글이 성공적으로 삭제되었습니다.");
+    // 3. 트랜잭션으로 Soft Delete
+    await db.withTransaction(async (conn) => {
+      // 첨부파일 soft delete
+      await conn.query(
+        "UPDATE attachments SET deleted_at = NOW() WHERE post_id = ? AND deleted_at IS NULL",
+        [postId]
+      );
+      // 댓글 soft delete
+      await conn.query(
+        "UPDATE comments SET deleted_at = NOW() WHERE post_id = ? AND deleted_at IS NULL",
+        [postId]
+      );
+      // 게시글 soft delete
+      await conn.query(
+        "UPDATE posts SET deleted_at = NOW() WHERE id = ?",
+        [postId]
+      );
+    });
+
+    res.status(200).json({ message: "게시글이 삭제되었습니다." });
   } catch (error) {
-    res.status(500).send("게시글 삭제 중 오류가 발생했습니다.");
+    console.error("게시글 삭제 중 오류:", error);
+    res.status(500).json({ error: "게시글 삭제 실패" });
   }
 });
 
@@ -383,14 +403,43 @@ router.put(
   }
 );
 
-// 댓글 삭제
-router.delete("/comments/:commentId", async (req, res) => {
+// 댓글 삭제 (Soft Delete)
+router.delete("/comments/:commentId", authenticateToken, async (req, res) => {
   const { commentId } = req.params;
+  const userId = req.user.id;
+  const userRole = req.user.role;
 
   try {
-    const query = "DELETE FROM comments WHERE id = ?";
-    await db.query(query, [commentId]);
-    res.status(200).json({ message: "댓글이 성공적으로 삭제되었습니다." });
+    // 1. 댓글 존재 및 소유권 확인
+    const [comment] = await db.query(
+      "SELECT user_id FROM comments WHERE id = ? AND deleted_at IS NULL",
+      [commentId]
+    );
+
+    if (!comment.length) {
+      return res.status(404).json({ error: "댓글을 찾을 수 없습니다." });
+    }
+
+    // 2. 권한 확인 (본인 또는 admin)
+    if (comment[0].user_id !== userId && userRole !== "admin") {
+      return res.status(403).json({ error: "삭제 권한이 없습니다." });
+    }
+
+    // 3. 트랜잭션으로 Soft Delete (대댓글도 함께)
+    await db.withTransaction(async (conn) => {
+      // 대댓글 soft delete
+      await conn.query(
+        "UPDATE comments SET deleted_at = NOW() WHERE parent_comment_id = ? AND deleted_at IS NULL",
+        [commentId]
+      );
+      // 댓글 soft delete
+      await conn.query(
+        "UPDATE comments SET deleted_at = NOW() WHERE id = ?",
+        [commentId]
+      );
+    });
+
+    res.status(200).json({ message: "댓글이 삭제되었습니다." });
   } catch (error) {
     console.error("댓글 삭제 중 오류:", error);
     res.status(500).json({ error: "댓글 삭제 실패" });

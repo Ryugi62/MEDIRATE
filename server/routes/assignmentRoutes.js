@@ -663,37 +663,76 @@ const updateAssignment = async (params) => {
   ]);
 };
 
-// 과제 삭제
+// 과제 삭제 (Soft Delete + RESTRICT 검증)
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // 1. 과제 존재 확인 (삭제되지 않은 것만)
     const [assignment] = await db.query(
-      `SELECT * FROM assignments WHERE id = ?`,
+      `SELECT * FROM assignments WHERE id = ? AND deleted_at IS NULL`,
       [id]
     );
 
     if (!assignment.length) {
-      return res.status(404).send({ message: "Assignment not found." });
-    } else {
-      const assignmentType = assignment[0].assignment_type;
-      const folderPath = `./assets/${assignmentType}`;
-
-      try {
-        await fsPromises.access(folderPath); // 폴더가 존재하는지 확인
-        await fsPromises.rm(folderPath, { recursive: true }); // 폴더를 비동기적으로 삭제
-      } catch (error) {
-        console.error("Folder does not exist or cannot be removed:", error);
-      }
+      return res.status(404).json({ message: "Assignment not found." });
     }
 
-    await db.query(
-      `DELETE FROM question_responses WHERE question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+    // 2. RESTRICT 검증: 관련 평가 데이터 존재 확인
+    const [responses] = await db.query(
+      `SELECT COUNT(*) as count FROM question_responses qr
+       JOIN questions q ON qr.question_id = q.id
+       WHERE q.assignment_id = ? AND qr.deleted_at IS NULL`,
       [id]
     );
 
-    await db.query(`DELETE FROM assignments WHERE id = ?`, [id]);
-    res.send("Assignment successfully deleted.");
+    const [canvasData] = await db.query(
+      `SELECT COUNT(*) as count FROM canvas_info
+       WHERE assignment_id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+
+    // 관련 평가 데이터가 있으면 삭제 차단
+    if (responses[0].count > 0 || canvasData[0].count > 0) {
+      return res.status(409).json({
+        message: "평가 데이터가 있어 삭제할 수 없습니다.",
+        details: {
+          evaluationResponses: responses[0].count,
+          canvasRecords: canvasData[0].count
+        }
+      });
+    }
+
+    // 3. 트랜잭션으로 Soft Delete
+    await db.withTransaction(async (conn) => {
+      // questions soft delete
+      await conn.query(
+        "UPDATE questions SET deleted_at = NOW() WHERE assignment_id = ? AND deleted_at IS NULL",
+        [id]
+      );
+      // assignment_user soft delete
+      await conn.query(
+        "UPDATE assignment_user SET deleted_at = NOW() WHERE assignment_id = ? AND deleted_at IS NULL",
+        [id]
+      );
+      // assignment soft delete
+      await conn.query(
+        "UPDATE assignments SET deleted_at = NOW() WHERE id = ?",
+        [id]
+      );
+    });
+
+    // 4. 폴더 삭제 (선택적 - 파일은 유지할 수도 있음)
+    const assignmentType = assignment[0].assignment_type;
+    const folderPath = `./assets/${assignmentType}`;
+    try {
+      await fsPromises.access(folderPath);
+      await fsPromises.rm(folderPath, { recursive: true });
+    } catch (error) {
+      // 폴더가 없어도 무시
+    }
+
+    res.json({ message: "Assignment successfully deleted." });
   } catch (error) {
     handleError(res, "Error deleting assignment", error);
   }

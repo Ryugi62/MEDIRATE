@@ -17,6 +17,8 @@ const initialConfig = {
 let pool;
 
 // 각 테이블의 예상 열 정의
+// Soft Delete 패턴: deleted_at 컬럼 추가
+// FK 정책: RESTRICT (평가 데이터 보호), SET NULL (게시글/댓글 작성자 보존), CASCADE (관계 테이블)
 const expectedColumns = {
   users: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
@@ -25,6 +27,7 @@ const expectedColumns = {
     { name: "organization", definition: "VARCHAR(255)" },
     { name: "password", definition: "VARCHAR(255) NOT NULL" },
     { name: "role", definition: "ENUM('user', 'admin') NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -54,6 +57,7 @@ const expectedColumns = {
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "evaluation_time", definition: "INT DEFAULT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -68,6 +72,7 @@ const expectedColumns = {
   assignment_user: [
     { name: "assignment_id", definition: "INT" },
     { name: "user_id", definition: "INT" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (assignment_id, user_id)",
@@ -82,7 +87,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_assignment_user_user",
     },
   ],
@@ -90,6 +95,7 @@ const expectedColumns = {
     { name: "id", definition: "INT AUTO_INCREMENT" },
     { name: "assignment_id", definition: "INT" },
     { name: "image", definition: "VARCHAR(255) NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -98,7 +104,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE RESTRICT",
       constraintName: "fk_questions_assignment",
     },
   ],
@@ -107,6 +113,7 @@ const expectedColumns = {
     { name: "question_id", definition: "INT NOT NULL" },
     { name: "user_id", definition: "INT NOT NULL" },
     { name: "selected_option", definition: "INT NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -119,12 +126,14 @@ const expectedColumns = {
     },
     {
       name: "FOREIGN KEY",
-      definition: "FOREIGN KEY (question_id) REFERENCES questions(id)",
+      definition:
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT",
       constraintName: "fk_question_responses_question",
     },
     {
       name: "FOREIGN KEY",
-      definition: "FOREIGN KEY (user_id) REFERENCES users(id)",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_question_responses_user",
     },
   ],
@@ -138,6 +147,7 @@ const expectedColumns = {
       definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
     },
     { name: "type", definition: "VARCHAR(255) NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -146,7 +156,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
       constraintName: "fk_posts_user",
     },
   ],
@@ -161,6 +171,7 @@ const expectedColumns = {
       definition:
         "TIMESTAMP DEFAULT CONVERT_TZ(CURRENT_TIMESTAMP, 'UTC', 'Asia/Seoul')",
     },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -175,7 +186,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
       constraintName: "fk_comments_user",
     },
     {
@@ -190,6 +201,7 @@ const expectedColumns = {
     { name: "post_id", definition: "INT" },
     { name: "path", definition: "VARCHAR(255) NOT NULL" },
     { name: "filename", definition: "VARCHAR(255) NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -212,6 +224,24 @@ const expectedColumns = {
     { name: "evaluation_time", definition: "INT DEFAULT 0" },
     { name: "start_time", definition: "TIMESTAMP DEFAULT NULL" },
     { name: "end_time", definition: "TIMESTAMP DEFAULT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE RESTRICT",
+      constraintName: "fk_canvas_info_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_canvas_info_user",
+    },
   ],
   squares_info: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
@@ -222,6 +252,7 @@ const expectedColumns = {
     { name: "user_id", definition: "INT" },
     { name: "isAI", definition: "TINYINT(1) DEFAULT 0" },
     { name: "isTemporary", definition: "TINYINT(1) DEFAULT 0" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
@@ -230,7 +261,7 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE",
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT",
       constraintName: "fk_squares_info_question",
     },
     {
@@ -242,13 +273,14 @@ const expectedColumns = {
     {
       name: "FOREIGN KEY",
       definition:
-        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_squares_info_user",
     },
   ],
 };
 
 // 초기 테이블 생성 SQL
+// Soft Delete 및 FK 정책 적용
 const createTablesSQL = {
   users: `CREATE TABLE IF NOT EXISTS \`users\` (
     \`id\` INT AUTO_INCREMENT,
@@ -257,6 +289,7 @@ const createTablesSQL = {
     \`organization\` VARCHAR(255),
     \`password\` VARCHAR(255) NOT NULL,
     \`role\` ENUM('user', 'admin') NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     CONSTRAINT \`users_role_check\` CHECK (\`role\` IN ('user', 'admin'))
   )`,
@@ -271,32 +304,36 @@ const createTablesSQL = {
     \`is_score\` BOOLEAN NOT NULL DEFAULT 1,
     \`is_ai_use\` BOOLEAN NOT NULL DEFAULT 1,
     \`evaluation_time\` INT DEFAULT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     UNIQUE KEY \`title_deadline_unique\` (\`title\`, \`deadline\`)
   )`,
   assignment_user: `CREATE TABLE IF NOT EXISTS \`assignment_user\` (
     \`assignment_id\` INT,
     \`user_id\` INT,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`assignment_id\`, \`user_id\`),
     FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
   questions: `CREATE TABLE IF NOT EXISTS \`questions\` (
     \`id\` INT AUTO_INCREMENT,
     \`assignment_id\` INT,
     \`image\` VARCHAR(255) NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
-    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE RESTRICT
   )`,
   question_responses: `CREATE TABLE IF NOT EXISTS \`question_responses\` (
     \`id\` INT AUTO_INCREMENT,
     \`question_id\` INT NOT NULL,
     \`user_id\` INT NOT NULL,
     \`selected_option\` INT NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     UNIQUE KEY \`question_user_unique\` (\`question_id\`, \`user_id\`),
-    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`),
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`)
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE RESTRICT,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
   posts: `CREATE TABLE IF NOT EXISTS \`posts\` (
     \`id\` INT AUTO_INCREMENT,
@@ -305,8 +342,9 @@ const createTablesSQL = {
     \`content\` TEXT NOT NULL,
     \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     \`type\` VARCHAR(255) NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL
   )`,
   comments: `CREATE TABLE IF NOT EXISTS \`comments\` (
     \`id\` INT AUTO_INCREMENT,
@@ -315,9 +353,10 @@ const createTablesSQL = {
     \`content\` TEXT NOT NULL,
     \`parent_comment_id\` INT,
     \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE,
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL,
     FOREIGN KEY (\`parent_comment_id\`) REFERENCES \`comments\`(\`id\`) ON DELETE SET NULL
   )`,
   attachments: `CREATE TABLE IF NOT EXISTS \`attachments\` (
@@ -325,6 +364,7 @@ const createTablesSQL = {
     \`post_id\` INT,
     \`path\` VARCHAR(255) NOT NULL,
     \`filename\` VARCHAR(255) NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     FOREIGN KEY (\`post_id\`) REFERENCES \`posts\`(\`id\`) ON DELETE CASCADE
   )`,
@@ -338,9 +378,10 @@ const createTablesSQL = {
     \`evaluation_time\` INT DEFAULT 0,
     \`start_time\` TIMESTAMP DEFAULT NULL,
     \`end_time\` TIMESTAMP DEFAULT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
-    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE RESTRICT,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
   squares_info: `CREATE TABLE IF NOT EXISTS \`squares_info\` (
     \`id\` INT AUTO_INCREMENT,
@@ -351,10 +392,11 @@ const createTablesSQL = {
     \`user_id\` INT,
     \`isAI\` TINYINT(1) DEFAULT 0,
     \`isTemporary\` TINYINT(1) DEFAULT 0,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
-    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE RESTRICT,
     FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
-    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
 };
 
@@ -475,7 +517,38 @@ async function query(sql, params) {
   return pool.query(sql, params);
 }
 
+// 트랜잭션 헬퍼 함수
+async function withTransaction(callback) {
+  await poolReady;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await callback(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// Soft Delete 헬퍼 함수
+async function softDelete(table, id, connection = null) {
+  const sql = `UPDATE \`${table}\` SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`;
+  const executor = connection || pool;
+  await poolReady;
+  return executor.query(sql, [id]);
+}
+
+// 활성 레코드만 조회하는 기본 조건
+const activeOnly = "deleted_at IS NULL";
+
 // module.exports에 query 함수를 포함시킵니다.
 module.exports = {
   query,
+  withTransaction,
+  softDelete,
+  activeOnly,
 };
