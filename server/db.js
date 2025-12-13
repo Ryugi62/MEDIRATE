@@ -683,6 +683,20 @@ async function initializeDb() {
       }
     }
 
+    // Update assignment_mode ENUM to include 'Segment' if not already present
+    try {
+      await pool.execute(`
+        ALTER TABLE assignments
+        MODIFY COLUMN assignment_mode ENUM('TextBox', 'BBox', 'Segment') NOT NULL DEFAULT 'TextBox'
+      `);
+      console.log("Updated 'assignment_mode' ENUM to include 'Segment'.");
+    } catch (alterError) {
+      // Ignore if column already has the correct definition
+      if (!alterError.message.includes("Duplicate")) {
+        console.log("assignment_mode ENUM update skipped or already up to date.");
+      }
+    }
+
     console.log("Database initialization completed.");
   } catch (error) {
     console.error("Error initializing database:", error);
