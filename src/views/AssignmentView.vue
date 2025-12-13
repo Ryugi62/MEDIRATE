@@ -9,6 +9,7 @@
         <option value="all">전체 모드</option>
         <option value="TextBox">TextBox</option>
         <option value="BBox">BBox</option>
+        <option value="Segment">Segment</option>
         <option value="Consensus">Consensus (합의)</option>
       </select>
 

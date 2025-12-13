@@ -64,57 +64,81 @@
       </div>
       <div class="assignment-addition">
         <div class="assignment-info">
-          <div class="assignment-field mode-field">
-            <span>
-              <input
-                type="radio"
-                id="field-text-mode"
-                name="mode"
-                value="TextBox"
-                v-model="assignmentDetails.mode"
-              />
-              <label for="field-text-mode">택일형</label>
-            </span>
-            <span>
-              <input
-                type="radio"
-                id="field-bbox-mode"
-                name="mode"
-                value="BBox"
-                v-model="assignmentDetails.mode"
-              />
-              <label for="field-bbox-mode">BBox</label>
-            </span>
+          <!-- A1: 평가 유형 그룹 (택일형, BBox, Segment) -->
+          <div class="mode-group">
+            <span class="group-label">평가 유형</span>
+            <div class="mode-options">
+              <label class="mode-option" :class="{ active: assignmentDetails.mode === 'TextBox' }">
+                <input
+                  type="radio"
+                  id="field-text-mode"
+                  name="mode"
+                  value="TextBox"
+                  v-model="assignmentDetails.mode"
+                />
+                <i class="fas fa-list-ul"></i>
+                <span>택일형</span>
+              </label>
+              <label class="mode-option" :class="{ active: assignmentDetails.mode === 'BBox' }">
+                <input
+                  type="radio"
+                  id="field-bbox-mode"
+                  name="mode"
+                  value="BBox"
+                  v-model="assignmentDetails.mode"
+                />
+                <i class="fas fa-square"></i>
+                <span>BBox</span>
+              </label>
+              <label class="mode-option" :class="{ active: assignmentDetails.mode === 'Segment' }">
+                <input
+                  type="radio"
+                  id="field-segment-mode"
+                  name="mode"
+                  value="Segment"
+                  v-model="assignmentDetails.mode"
+                />
+                <i class="fas fa-draw-polygon"></i>
+                <span>Segment</span>
+              </label>
+            </div>
           </div>
 
-          <div
-            class="assignment-field is_score_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
-              <input
-                type="checkbox"
-                name="is_score"
-                id="is_score"
-                v-model="assignmentDetails.is_score"
-              />
-              <label for="is_score">SCORE</label>
-            </span>
-          </div>
-
-          <div
-            class="assignment-field is_ai_use_field"
-            v-if="assignmentDetails.mode === 'BBox'"
-          >
-            <span>
-              <input
-                type="checkbox"
-                name="is_ai_use"
-                id="is_ai_use"
-                v-model="assignmentDetails.is_ai_use"
-              />
-              <label for="is_ai_use">AI</label>
-            </span>
+          <!-- A2: 검수 옵션 그룹 (Score/AI/Timer) - BBox/Segment 모드에서만 표시 -->
+          <div class="options-group" v-if="assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Segment'">
+            <span class="group-label">검수 옵션</span>
+            <div class="option-items">
+              <label class="option-item" :class="{ active: assignmentDetails.is_score }">
+                <input
+                  type="checkbox"
+                  name="is_score"
+                  id="is_score"
+                  v-model="assignmentDetails.is_score"
+                />
+                <i class="fas fa-chart-bar"></i>
+                <span>Score</span>
+              </label>
+              <label class="option-item" :class="{ active: assignmentDetails.is_ai_use }">
+                <input
+                  type="checkbox"
+                  name="is_ai_use"
+                  id="is_ai_use"
+                  v-model="assignmentDetails.is_ai_use"
+                />
+                <i class="fas fa-robot"></i>
+                <span>AI</span>
+              </label>
+              <label class="option-item" :class="{ active: assignmentDetails.is_timer }">
+                <input
+                  type="checkbox"
+                  name="is_timer"
+                  id="is_timer"
+                  v-model="assignmentDetails.is_timer"
+                />
+                <i class="fas fa-stopwatch"></i>
+                <span>Timer</span>
+              </label>
+            </div>
           </div>
 
           <div
@@ -122,12 +146,12 @@
             :key="fieldName"
             class="assignment-field"
           >
-            <!-- 만약 mode가 bbox면 선택 유형 입력창은 출력하지 않는다. -->
+            <!-- 만약 mode가 BBox 또는 Segment면 선택 유형 입력창은 출력하지 않는다. -->
             <template
               v-if="
                 !(
                   fieldName === 'assignment-type' &&
-                  assignmentDetails.mode === 'BBox'
+                  (assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Segment')
                 )
               "
             >
@@ -169,14 +193,6 @@
               <span class="metadata-due-date">{{
                 assignmentDetails.deadline
               }}</span>
-
-              <button
-                class="delete-question-button"
-                v-if="activeQuestionId !== null"
-                @click="handlerDeleteQuestion(activeQuestionId)"
-              >
-                삭제
-              </button>
             </div>
           </div>
           <div class="assignment-preview-content">
@@ -229,6 +245,13 @@
             </div>
           </div>
           <div class="assignment-save">
+            <button
+              class="delete-question-button"
+              v-if="activeQuestionId !== null"
+              @click="handlerDeleteQuestion(activeQuestionId)"
+            >
+              삭제
+            </button>
             <button @click="saveAssignment">저장</button>
           </div>
         </div>
@@ -259,6 +282,7 @@ export default {
         mode: "BBox",
         is_score: true,
         is_ai_use: true,
+        is_timer: true,
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -411,6 +435,7 @@ export default {
           mode: this.assignmentDetails.mode,
           is_score: this.assignmentDetails.is_score,
           is_ai_use: this.assignmentDetails.is_ai_use,
+          is_timer: this.assignmentDetails.is_timer,
         };
 
         this.$axios
@@ -551,7 +576,7 @@ export default {
   watch: {
     assignmentDetails: {
       handler() {
-        if (this.assignmentDetails.mode === "BBox") {
+        if (this.assignmentDetails.mode === "BBox" || this.assignmentDetails.mode === "Segment") {
           this.assignmentDetails.selectedAssignmentType = "";
           this.assignmentDetails.gradingScale = null;
         }
@@ -780,8 +805,98 @@ hr {
 /* 과제 정보 섹션 */
 .assignment-info {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* A1: 평가 유형 그룹 스타일 */
+.mode-group,
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.group-label {
+  font-weight: bold;
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mode-options,
+.option-items {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-option,
+.option-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border: 2px solid var(--light-gray);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: white;
+  min-width: 70px;
+}
+
+.mode-option input,
+.option-item input {
+  display: none;
+}
+
+.mode-option i,
+.option-item i {
+  font-size: 20px;
+  color: #888;
+  transition: color 0.2s ease;
+}
+
+.mode-option span,
+.option-item span {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* A3: 아이콘 색상 통일 - On 상태 */
+.mode-option.active,
+.option-item.active {
+  border-color: var(--blue);
+  background-color: var(--blue);
+}
+
+.mode-option.active i,
+.option-item.active i {
+  color: white;
+}
+
+.mode-option.active span,
+.option-item.active span {
+  color: white;
+}
+
+/* Hover 효과 */
+.mode-option:hover:not(.active),
+.option-item:hover:not(.active) {
+  border-color: var(--blue);
+  background-color: #f0f7ff;
+}
+
+.mode-option:hover:not(.active) i,
+.option-item:hover:not(.active) i {
+  color: var(--blue);
 }
 
 /* 과제 필드 */
@@ -790,18 +905,6 @@ hr {
   gap: 8px;
   text-wrap: nowrap;
   align-items: center;
-}
-
-.is_score_field,
-.is_ai_use_field,
-.mode-field {
-  flex: 0;
-
-  span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
 }
 
 /* 과제 필드 입력 */
@@ -860,9 +963,11 @@ hr {
 }
 
 .delete-question-button {
-  margin-left: auto;
-  margin-right: 16px;
   background-color: var(--pink);
+}
+
+.delete-question-button:hover {
+  background-color: var(--pink-hover);
 }
 
 /* 평가 액션 */
@@ -886,6 +991,7 @@ hr {
   padding: 8px;
   display: flex;
   justify-content: center;
+  gap: 12px;
   border-top: 1px solid var(--light-gray);
 }
 

@@ -13,27 +13,28 @@
           <input type="checkbox" v-model="goNext" />
           Save 시 Next
         </label>
-        |
-        <div class="timer-section">
-          <div class="timer-display">
-            {{ formattedTime }}
+        <template v-if="is_timer">
+          |
+          <div class="timer-section">
+            <div class="timer-display">
+              {{ formattedTime }}
+            </div>
+            <div class="timer-controls">
+              <button @click="toggleTimer" class="timer-button">
+                {{ isRunning ? "평가중지" : "평가시작" }}
+              </button>
+            </div>
           </div>
-          <div class="timer-controls">
-            <button @click="toggleTimer" class="timer-button">
-              {{ isRunning ? "평가중지" : "평가시작" }}
-            </button>
-            <button @click="refreshTimer" class="timer-button refresh-button" :disabled="isRunning" title="새로고침">
-              가장 마지막 평가 시간으로 복귀
-            </button>
-          </div>
-        </div>
+        </template>
       </span>
 
       <div class="icon-list">
         <i v-for="icon in iconList" :key="icon.name" :class="[
           'fas',
           icon.name,
-          { active: icon.active },
+          { active: icon.name === 'fa-robot' ? showAiBoxes : icon.active },
+          { 'ai-active': icon.name === 'fa-robot' && showAiBoxes },
+          { 'ai-inactive': icon.name === 'fa-robot' && !showAiBoxes },
           { disabled: !isRunning },
         ]" @click="handleIconClick(icon)" :aria-label="icon.explanation">
           <span class="icon-explanation">({{ icon.explanation }})</span>
@@ -41,11 +42,6 @@
       </div>
 
       <div class="bbox-component__actions">
-        <!-- is_ai_use가 true인 경우에만 점수 조절 슬라이드 바 표시 -->
-        <div class="is_score_field" v-if="is_ai_use && is_score">
-          <label for="is_score">{{ score_value }}%</label>
-          <input type="range" name="is_score" id="is_score" min="0" max="100" v-model="score_value" />
-        </div>
         <button @click="applyMitosis" :disabled="!is_ai_use">AI Apply</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
@@ -79,6 +75,7 @@ export default {
     assignmentIndex: { type: Number, required: true, default: 0 },
     is_score: { type: Boolean, required: true, default: true },
     is_ai_use: { type: Boolean, required: true, default: true },
+    is_timer: { type: Boolean, required: false, default: true },
     evaluation_time: { type: Number, required: false, default: 0 },
   },
 
@@ -103,7 +100,6 @@ export default {
       showAiAlert: false,
       temporarySquares: [],
       goNext: true,
-      score_value: 50,
       timer: 0,
       isRunning: false,
       timerInterval: null,
@@ -508,12 +504,6 @@ export default {
         // AI 박스는 showAiBoxes가 true일 때만 표시
         if (square.isAI && !this.showAiBoxes) return;
 
-        if (
-          square.isAI &&
-          this.is_score &&
-          this.score_value / 100 > square.score
-        )
-          return;
         ctx.lineWidth = 2;
         ctx.strokeStyle = square.isAI ? "#FFFF00" : "#FF0000";
         ctx.globalAlpha = square.isTemporaryAI ? 0.7 : 1;
@@ -633,7 +623,7 @@ export default {
         if (s.questionIndex !== this.questionIndex) {
           return true; // 다른 질문의 박스는 유지
         }
-        return !s.isAI || s.score >= this.score_value / 100;
+        return true; // 모든 AI 박스 포함
       });
 
       // 현재 질문의 박스만 업데이트
@@ -661,16 +651,6 @@ export default {
       } else {
         // Pause the timer
         this.pauseTimer();
-      }
-    },
-
-    async refreshTimer() {
-      try {
-        this.timer = this.evaluation_time;
-        this.redrawSquares(); // Update display
-      } catch (error) {
-        console.error("타이머 초기화 중 오류 발생:", error);
-        alert("타이머 초기화에 실패했습니다.");
       }
     },
 
@@ -723,6 +703,11 @@ export default {
     if (this.evaluation_time) {
       this.timer = this.evaluation_time;
     }
+
+    // D1: Timer가 비활성화된 경우 평가는 항상 가능하도록 설정
+    if (!this.is_timer) {
+      this.isRunning = true;
+    }
   },
 
   beforeUnmount() {
@@ -747,10 +732,6 @@ export default {
 
     isSliderActive() {
       this.resizeCanvas();
-    },
-
-    score_value() {
-      this.redrawSquares();
     },
   },
 };
@@ -792,9 +773,11 @@ export default {
 
 .icon-list i {
   cursor: pointer;
-  padding: 10px;
-  transition: color 0.3s;
+  padding: 12px;
+  font-size: 18px;
+  transition: all 0.3s;
   position: relative;
+  border-radius: 8px;
 }
 
 .icon-list i.disabled {
@@ -831,6 +814,21 @@ export default {
 
 .icon-list i:hover {
   color: var(--hover-color, #0056b3);
+}
+
+/* B3: AI 아이콘 On/Off 상태 표시 */
+.icon-list i.ai-active {
+  color: #FFD700;
+  background-color: #333;
+}
+
+.icon-list i.ai-inactive {
+  color: #888;
+  background-color: transparent;
+}
+
+.icon-list i.ai-active:hover {
+  background-color: #444;
 }
 
 .bbox-component__actions {

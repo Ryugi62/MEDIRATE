@@ -23,14 +23,6 @@
             <button @click="toggleTimer" class="timer-button">
               {{ isRunning ? "평가중지" : "평가시작" }}
             </button>
-            <button
-              @click="refreshTimer"
-              class="timer-button refresh-button"
-              :disabled="isRunning"
-              title="새로고침"
-            >
-              가장 마지막 평가 시간으로 복귀
-            </button>
           </div>
         </div>
       </span>
@@ -529,10 +521,6 @@ export default {
         clearInterval(this.timerInterval);
         this.timerInterval = null;
       }
-    },
-
-    refreshTimer() {
-      this.timer = this.evaluation_time || 0;
     },
 
     commitChanges() {

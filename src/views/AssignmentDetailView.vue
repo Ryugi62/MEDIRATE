@@ -114,7 +114,7 @@
       </div>
 
       <BBoxComponent
-        v-else
+        v-else-if="isBBoxMode"
         :src="activeQuestionImageUrl"
         :questionIndex="activeQuestionId"
         v-model:squares="currentAssignmentDetails.squares"
@@ -124,6 +124,22 @@
         @commitAssignmentChanges="commitAssignmentChanges"
         :is_score="currentAssignmentDetails.is_score"
         :is_ai_use="currentAssignmentDetails.is_ai_use"
+        :is_timer="currentAssignmentDetails.is_timer !== false"
+        :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
+      />
+
+      <SegmentComponent
+        v-else-if="isSegmentMode"
+        :src="activeQuestionImageUrl"
+        :questionIndex="activeQuestionId"
+        v-model:polygons="currentAssignmentDetails.polygons"
+        :beforeCanvas="currentAssignmentDetails.beforeCanvas"
+        :assignmentType="currentAssignmentDetails.assignmentType"
+        :assignmentIndex="currentAssignmentDetails.id"
+        @commitAssignmentChanges="commitAssignmentChanges"
+        :is_score="currentAssignmentDetails.is_score"
+        :is_ai_use="currentAssignmentDetails.is_ai_use"
+        :is_timer="currentAssignmentDetails.is_timer !== false"
         :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
       />
     </div>
@@ -140,6 +156,7 @@
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxComponent from "@/components/BBoxComponent.vue";
+import SegmentComponent from "@/components/SegmentComponent.vue";
 
 export default {
   name: "AssignmentEvaluationView",
@@ -179,11 +196,18 @@ export default {
   components: {
     ImageComponent,
     BBoxComponent,
+    SegmentComponent,
   },
 
   computed: {
     isTextBoxMode() {
       return this.currentAssignmentDetails.assignmentMode === "TextBox";
+    },
+    isBBoxMode() {
+      return this.currentAssignmentDetails.assignmentMode === "BBox";
+    },
+    isSegmentMode() {
+      return this.currentAssignmentDetails.assignmentMode === "Segment";
     },
     uniqueQuestionCount() {
       return this.currentAssignmentDetails.questions.filter(
@@ -408,6 +432,7 @@ export default {
       if (event.repeat) return; // 키 반복 이벤트 무시
 
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault(); // B1: 웹페이지 스크롤 방지
         this.moveQuestion(event.key);
         this.keyPressInterval = setInterval(() => {
           this.moveQuestion(event.key);
