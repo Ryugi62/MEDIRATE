@@ -52,7 +52,7 @@ const expectedColumns = {
     { name: "selection_type", definition: "VARCHAR(255)" },
     {
       name: "assignment_mode",
-      definition: "ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox'",
+      definition: "ENUM('TextBox', 'BBox', 'Segment') NOT NULL DEFAULT 'TextBox'",
     },
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
@@ -424,7 +424,7 @@ const createTablesSQL = {
     \`deadline\` DATE NOT NULL,
     \`assignment_type\` VARCHAR(255),
     \`selection_type\` VARCHAR(255),
-    \`assignment_mode\` ENUM('TextBox', 'BBox') NOT NULL DEFAULT 'TextBox',
+    \`assignment_mode\` ENUM('TextBox', 'BBox', 'Segment') NOT NULL DEFAULT 'TextBox',
     \`is_score\` BOOLEAN NOT NULL DEFAULT 1,
     \`is_ai_use\` BOOLEAN NOT NULL DEFAULT 1,
     \`evaluation_time\` INT DEFAULT NULL,
