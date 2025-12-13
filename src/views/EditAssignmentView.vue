@@ -738,6 +738,7 @@ hr {
   border: 1px solid var(--light-gray);
   border-radius: 4px;
   gap: 6px;
+  overflow-x: hidden;
   overflow-y: auto;
   min-height: 0;
 }
@@ -759,6 +760,7 @@ hr {
 
 /* 유저 추가 아이템 박스 */
 .user-item-box--add {
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
 }

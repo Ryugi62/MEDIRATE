@@ -22,35 +22,21 @@
         </div>
         <hr />
         <div class="user-list">
-          <div class="user-item-box user-item-box--add">
+          <span class="user-count"
+            >선택된 평가자: {{ addedUsers.length }} / {{ maxUserCount }}</span
+          >
+          <div class="user-item-box user-item-box--toggle">
             <div
               v-for="user in filteredUserList"
               :key="user.id"
-              @click="addUser(user)"
-              :class="['user-item-add', { active: isUserAdded(user) }]"
+              @click="toggleUser(user)"
+              :class="['user-item-toggle', { selected: isUserAdded(user) }]"
             >
               <div class="user-item-content">
                 <span class="user-name">{{ user.realname.trim() }}</span>
                 <span class="user-affiliation">{{ user.username }}</span>
               </div>
-              <i class="fa-solid fa-user-plus"></i>
-            </div>
-          </div>
-          <hr />
-          <span class="user-count"
-            >{{ addedUsers.length }} / {{ maxUserCount }}</span
-          >
-          <div class="user-item-box user-item-box--added">
-            <div
-              v-for="(user, index) in addedUsers"
-              :key="user.id"
-              class="user-item-added"
-            >
-              <div class="user-item-content">
-                <span class="user-name">{{ user.realname.trim() }}</span>
-                <span class="user-affiliation">{{ user.username }}</span>
-              </div>
-              <i class="fa-solid fa-user-minus" @click="removeUser(index)"></i>
+              <i :class="isUserAdded(user) ? 'fa-solid fa-check' : 'fa-solid fa-plus'"></i>
             </div>
           </div>
         </div>
@@ -376,18 +362,19 @@ export default {
         (addedUser) => addedUser.username === user.username
       );
     },
-    addUser(user) {
-      if (
-        this.addedUsers.length < this.maxUserCount &&
-        !this.isUserAdded(user)
-      ) {
+    toggleUser(user) {
+      const index = this.addedUsers.findIndex(
+        (addedUser) => addedUser.username === user.username
+      );
+      if (index !== -1) {
+        // 이미 선택됨 -> 선택 해제
+        this.addedUsers.splice(index, 1);
+      } else if (this.addedUsers.length < this.maxUserCount) {
+        // 선택 안됨 + 최대 수 미만 -> 선택
         this.addedUsers.push(user);
       } else {
-        alert("최대 유저 수를 초과하였거나 이미 추가된 유저입니다.");
+        alert(`최대 ${this.maxUserCount}명까지 선택 가능합니다.`);
       }
-    },
-    removeUser(index) {
-      this.addedUsers.splice(index, 1);
     },
     saveAssignment() {
       if (
@@ -699,6 +686,7 @@ hr {
   border: 1px solid var(--light-gray);
   border-radius: 4px;
   gap: 6px;
+  overflow-x: hidden;
   overflow-y: auto;
   min-height: 0;
 }
@@ -718,7 +706,52 @@ hr {
   font-size: 13px;
 }
 
-/* 유저 추가 아이템 박스 */
+/* 유저 토글 아이템 박스 */
+.user-item-box--toggle {
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 유저 토글 아이템 */
+.user-item-toggle {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  cursor: pointer;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.user-item-toggle:hover {
+  background-color: #f5f5f5;
+}
+
+.user-item-toggle.selected {
+  background-color: #e3f2fd;
+  border-color: var(--blue);
+}
+
+.user-item-toggle.selected .fa-check {
+  color: var(--blue);
+}
+
+.user-item-toggle .fa-plus {
+  color: #999;
+}
+
+.user-item-toggle:hover .fa-plus {
+  color: var(--blue);
+}
+
+/* 유저 추가 아이템 박스 (기존 호환) */
 .user-item-box--add {
   overflow-y: auto;
   flex: 1;

@@ -43,7 +43,7 @@
           <button class="edit-button" @click="moveToAssignmentManagement">
             과제수정
           </button>
-          <button class="delete" @click="deleteAssignment">과제삭제</button>
+          <button v-if="isAdmin" class="delete" @click="deleteAssignment">과제삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
           <button @click="exportImage">이미지 다운로드</button>
         </div>
@@ -1030,6 +1030,10 @@ export default {
   },
 
   computed: {
+    isAdmin() {
+      const user = this.$store.getters.getUser;
+      return user?.isAdministrator || user?.role === 'admin';
+    },
     completionPercentage() {
       if (this.assignmentMode === "TextBox") {
         if (!this.data.length) return "0%";
