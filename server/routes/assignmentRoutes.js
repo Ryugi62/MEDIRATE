@@ -136,7 +136,14 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
           return;
         }
 
-        const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
+        const parsed = JSON.parse(jsonContent);
+        const annotations = parsed.annotation;
+
+        if (!annotations || !Array.isArray(annotations)) {
+          return;
+        }
+
+        const bbox = annotations.map((annotation) => {
           const [x, y] = annotation.bbox;
           const score = annotation.score ? annotation.score : 0.6;
           return { x, y, questionIndex: question.id, score: score };
