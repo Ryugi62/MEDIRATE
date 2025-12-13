@@ -559,53 +559,63 @@ export default {
 </script>
 
 <style scoped>
+.assignment-detail-view {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .assignment-overview {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px solid var(--light-gray);
-  height: 60px;
+  height: 50px;
+  flex-shrink: 0;
 }
 
 .assignment-metadata {
   display: flex;
   align-items: center;
-  padding-left: 24px;
-  gap: 16px;
+  padding-left: 16px;
+  gap: 12px;
 }
 
 .metadata-assignment-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .metadata-student-name,
 .metadata-due-date,
 .metadata-start-time,
 .metadata-end-time {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .evaluation-actions {
   display: flex;
   align-items: center;
-  margin-right: 46px;
-  gap: 16px;
+  margin-right: 16px;
+  gap: 12px;
 }
 
 .evaluation-score {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .evaluation-score > strong {
   color: var(--blue);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .assignment-content {
   display: flex;
-  gap: 24px;
-  padding: 24px;
-  max-height: 673px;
+  gap: 16px;
+  padding: 12px 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .grades-table {
@@ -613,6 +623,8 @@ export default {
   overflow-x: hidden;
   border: 1px solid var(--light-gray);
   word-break: keep-all;
+  min-width: 150px;
+  flex-shrink: 0;
 }
 
 table {
@@ -621,7 +633,7 @@ table {
 }
 
 td > img {
-  width: 25px;
+  width: 22px;
 }
 
 thead {
@@ -636,9 +648,10 @@ tbody tr:hover {
 
 th,
 td {
-  padding: 8px 10px;
+  padding: 6px 8px;
   text-align: center;
   border-bottom: 1px solid var(--light-gray);
+  font-size: 12px;
 }
 
 .grades-table table tbody tr.active {
@@ -722,23 +735,20 @@ tr.active > * {
 .row-number {
   font-weight: bold;
   color: #666;
-  width: 40px;
-  min-width: 40px;
-}
-
-.grades-table {
-  min-width: 180px;
+  width: 35px;
+  min-width: 35px;
 }
 
 .shortcut-help {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 8px 24px;
+  gap: 8px;
+  padding: 6px 16px;
   background-color: #f5f5f5;
   border-top: 1px solid var(--light-gray);
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
+  flex-shrink: 0;
 }
 
 .shortcut-help span {
@@ -749,8 +759,17 @@ tr.active > * {
   background-color: #e0e0e0;
   border: 1px solid #ccc;
   border-radius: 3px;
-  padding: 2px 6px;
+  padding: 1px 4px;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.loading-message {
+  height: calc(100vh - 71px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
 }
 </style>

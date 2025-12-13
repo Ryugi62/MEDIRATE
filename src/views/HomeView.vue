@@ -14,8 +14,14 @@ export default {
 
 <style>
 .home {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 50px;
+  overflow: hidden;
 }
 
 .home h1 {

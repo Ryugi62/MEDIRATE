@@ -585,23 +585,27 @@ export default {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 10px;
+  padding: 8px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .consensus-component__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .consensus-component__header__left {
-  gap: 8px;
+  gap: 6px;
   display: flex;
   align-items: center;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .consensus-component__header label {
@@ -653,11 +657,11 @@ export default {
 }
 
 .action-btn {
-  padding: 8px 12px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   transition: background-color 0.3s;
 }
 
@@ -687,10 +691,11 @@ export default {
 .save-btn {
   background-color: var(--primary-color, #007bff);
   color: white;
-  padding: 8px 16px;
+  padding: 4px 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 11px;
 }
 
 .save-btn:hover {
@@ -702,11 +707,14 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 0;
+  overflow: hidden;
 }
 
 canvas {
   border: 1px solid #ccc;
-  min-height: 550px;
+  max-width: 100%;
+  max-height: 100%;
   transition: border 0.3s;
   background-color: #000;
 }
@@ -716,26 +724,29 @@ canvas:hover {
 }
 
 .consensus-component__footer {
-  padding: 10px;
+  padding: 6px 10px;
   color: #fff;
   background-color: #000;
-  margin-top: 10px;
+  margin-top: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
 }
 
 .response-count {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .consensus-component__instructions {
-  padding: 8px;
+  padding: 6px;
   background-color: #f0f0f0;
   border-radius: 4px;
-  margin-top: 10px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 /* 타이머 섹션 스타일 */
@@ -743,28 +754,28 @@ canvas:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .timer-display {
   font-weight: bold;
-  font-size: 18px;
+  font-size: 14px;
   color: #333;
 }
 
 .timer-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .timer-button {
   background-color: var(--primary-color, #007bff);
   color: white;
   border: none;
-  padding: 8px 12px;
+  padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 11px;
   transition: background-color 0.3s;
   display: flex;
   align-items: center;

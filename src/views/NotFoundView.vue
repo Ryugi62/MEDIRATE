@@ -13,9 +13,15 @@ export default {
 
 <style scoped>
 .not-found-view {
+  height: calc(100vh - 71px);
   max-width: 600px;
   margin: 0 auto;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .not-found-view h1 {

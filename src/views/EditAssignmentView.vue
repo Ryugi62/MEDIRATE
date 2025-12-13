@@ -635,46 +635,49 @@ hr {
 
 /* 전체 컨테이너 */
 .assignment-container {
-  height: 100%;
+  height: calc(100vh - 71px);
   display: flex;
   flex-direction: column;
-  min-width: 1500px;
+  overflow: hidden;
 }
 
 /* 과제 제목 */
 .assignment-title {
   margin: 0;
-  height: 60px;
+  height: 50px;
   display: flex;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
   align-items: center;
-  padding-left: 24px;
+  padding-left: 16px;
   border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 /* 내용 컨테이너 */
 .content-container {
-  gap: 16px;
+  gap: 12px;
   flex: 1;
   display: flex;
-  padding: 16px;
-  padding-left: 24px;
-  padding-right: 46px;
+  padding: 12px 16px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* 유저 추가 섹션 */
 .user-addition {
-  gap: 16px;
-  width: 30%;
+  gap: 12px;
+  width: 240px;
+  min-width: 240px;
+  flex-shrink: 0;
   display: flex;
-  max-width: 350px;
   flex-direction: column;
 }
 
 /* 라벨 */
 .content-container label {
   font-weight: bold;
+  font-size: 13px;
 }
 
 #user-search {
@@ -684,9 +687,12 @@ hr {
 /* 유저 검색 박스 */
 .user-search-box {
   display: flex;
-  width: fit-content;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-search-label {
+  font-size: 12px;
 }
 
 /* 유저 검색 입력 */
@@ -701,14 +707,16 @@ hr {
 /* 유저 검색 입력 상자 */
 .user-search-input input {
   border: none;
-  padding: 8px;
+  padding: 6px 8px;
   box-sizing: border-box;
+  font-size: 13px;
+  width: 100%;
 }
 
 /* 검색 아이콘 */
 .search-icon {
   color: var(--white);
-  padding: 12px;
+  padding: 8px 10px;
   background-color: var(--blue);
   cursor: pointer;
 }
@@ -729,23 +737,24 @@ hr {
   flex: 1;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
-  gap: 8px;
+  gap: 6px;
   overflow-y: auto;
-  max-height: 676px;
+  min-height: 0;
 }
 
 /* 유저 아이템 박스 */
 .user-item-box {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 6px 10px;
 }
 
 /* 유저 추가 및 제거 아이템 */
 .user-item-add,
 .user-item-added {
-  padding: 4px 0;
+  padding: 3px 0;
+  font-size: 13px;
 }
 
 /* 유저 추가 아이템 박스 */
@@ -763,9 +772,10 @@ hr {
 .user-item-add,
 .user-item-added {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   height: fit-content;
+  cursor: pointer;
   justify-content: space-between;
 }
 
@@ -776,12 +786,22 @@ hr {
 /* 유저 추가 아이템 콘텐츠 */
 .user-item-content {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.user-affiliation {
+  font-size: 11px;
+  color: #666;
 }
 
 /* 이미 추가된 유저 아이템 박스 */
 .user-item-box--added {
-  min-height: 212px;
+  min-height: 100px;
 }
 
 .user-item-added {
@@ -790,12 +810,12 @@ hr {
 
 /* 유저 수 카운트 */
 .user-count {
-  padding: 0 16px;
-  font-size: 14px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .user-count strong {
-  font-size: 20px;
+  font-size: 16px;
   color: var(--blue);
 }
 
@@ -803,6 +823,7 @@ hr {
 .fa-user-plus,
 .fa-user-minus {
   cursor: pointer;
+  font-size: 12px;
 }
 
 .fa-user-plus:hover,
@@ -819,31 +840,40 @@ hr {
   color: var(--pink-hover);
 }
 
+/* 가이드 이미지 숨기기 */
+.guide_container {
+  display: none;
+}
+
 .guide_container_image {
   width: 100%;
 }
 
 /* 과제 추가 섹션 */
 .assignment-addition {
-  gap: 16px;
-  width: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* 과제 정보 섹션 */
 .assignment-info {
-  gap: 16px;
+  gap: 12px;
   display: flex;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 /* 과제 필드 */
 .assignment-field {
   display: flex;
-  gap: 8px;
-  text-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
   align-items: center;
+  font-size: 13px;
 }
 
 .is_score_field,
@@ -862,16 +892,25 @@ hr {
 .assignment-field input,
 .assignment-field select {
   flex: 1;
-  padding: 8px;
+  padding: 6px 8px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
   box-sizing: border-box;
-  height: 42px;
+  height: 34px;
+  font-size: 13px;
+  min-width: 100px;
+  max-width: 180px;
+}
+
+.assignment-field button {
+  padding: 6px 12px;
+  font-size: 12px;
+  height: 34px;
 }
 
 .assignment-field-select {
   display: flex;
-  text-wrap: nowrap;
+  white-space: nowrap;
 }
 
 /* 과제 미리보기 */
@@ -881,6 +920,8 @@ hr {
   display: flex;
   border-radius: 4px;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 과제 미리보기 머리글 */
@@ -888,7 +929,8 @@ hr {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px solid var(--light-gray);
-  height: 60px;
+  height: 40px;
+  flex-shrink: 0;
 }
 
 /* 과제 메타데이터 */
@@ -896,32 +938,35 @@ hr {
   display: flex;
   width: 100%;
   align-items: center;
-  padding-left: 16px;
-  gap: 16px;
+  padding-left: 12px;
+  gap: 12px;
 }
 
 .metadata-assignment-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .metadata-student-name {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .metadata-due-date {
-  font-size: 14px;
+  font-size: 12px;
+  color: #666;
 }
 
 .delete-question-button {
   margin-left: auto;
-  margin-right: 16px;
+  margin-right: 12px;
   background-color: var(--pink);
   border: none;
-  padding: 8px 16px;
+  padding: 4px 12px;
   border-radius: 4px;
   color: var(--white);
   cursor: pointer;
+  font-size: 12px;
 }
 
 .delete-question-button:hover {
@@ -932,34 +977,38 @@ hr {
 .evaluation-actions {
   display: flex;
   align-items: center;
-  margin-right: 16px;
-  gap: 16px;
+  margin-right: 12px;
+  gap: 12px;
 }
 
 /* 과제 미리보기 내용 */
 .assignment-preview-content {
-  padding: 16px;
+  padding: 10px;
   flex: 1;
   display: flex;
-  gap: 16px;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 과제 저장 버튼 */
 .assignment-save {
-  gap: 16px;
-  padding: 8px;
+  gap: 10px;
+  padding: 6px;
   display: flex;
   justify-content: center;
   border-top: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 .assignment-save button {
-  padding: 8px 16px;
+  padding: 6px 16px;
   background-color: var(--blue);
   border: none;
   border-radius: 4px;
   color: var(--white);
   cursor: pointer;
+  font-size: 13px;
 }
 
 .assignment-save button:hover {
@@ -968,14 +1017,15 @@ hr {
 
 /* 점수 테이블 이미지 */
 td > img {
-  width: 25px;
+  width: 20px;
 }
 
 /* 점수 테이블 */
 .grades-table {
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 668px;
+  flex: 0 0 auto;
+  max-width: 250px;
   border: 1px solid var(--light-gray);
 }
 
@@ -995,14 +1045,16 @@ thead {
 /* 테이블 행 호버 */
 tbody tr:hover {
   background-color: #f5f5f5;
+  cursor: pointer;
 }
 
 /* 셀 */
 th,
 td {
-  padding: 8px 10px;
+  padding: 4px 6px;
   text-align: center;
   border-bottom: 1px solid var(--light-gray);
+  font-size: 12px;
 }
 
 /* 활성 테이블 행 */
@@ -1017,25 +1069,26 @@ tbody tr.active {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 학생 응답 이미지 크기 조정 */
 .student-response-image img {
-  width: fit-content;
-  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-  max-height: 530px;
 }
 
 /* 전체 화면 아이콘 */
 .fa-expand {
   position: absolute;
-  bottom: 16px;
-  right: 16px;
+  bottom: 12px;
+  right: 12px;
   color: var(--white);
   background-color: var(--black);
-  padding: 8px;
+  padding: 6px;
   border-radius: 50%;
   cursor: pointer;
 }

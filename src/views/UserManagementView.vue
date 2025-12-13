@@ -299,26 +299,36 @@ export default {
 
 <style scoped>
 .user-management-container {
-  margin: 20px auto;
-  padding: 30px;
+  height: calc(100vh - 71px);
+  padding: 16px;
   background-color: #ffffff;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-family: "Roboto", sans-serif;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .title-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 h1 {
-  font-size: 24px;
+  font-size: 20px;
   color: #333;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #0056b3;
+  margin: 0;
+}
+
+form {
+  flex-shrink: 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 12px;
 }
 
 .input-group,
@@ -333,13 +343,14 @@ input[type="text"],
 input[type="password"],
 select {
   width: 100%;
-  padding: 12px;
-  margin: 10px 0;
-  border: 2px solid #ced4da;
-  border-radius: 8px;
+  padding: 8px;
+  margin: 6px 0;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
   background-color: #f8f9fa;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  font-size: 13px;
 }
 
 input[type="text"]:focus,
@@ -347,7 +358,7 @@ input[type="password"]:focus,
 select:focus {
   border-color: #0056b3;
   background-color: #e8f0fe;
-  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.25);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
 }
 
 .check-button,
@@ -358,14 +369,14 @@ button[type="button"],
 .save-button,
 .cancel-button {
   width: 100%;
-  padding: 10px 0;
-  margin-top: 10px;
-  font-size: 16px;
+  padding: 8px 0;
+  margin-top: 6px;
+  font-size: 13px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: white;
   background-color: #007bff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease-in-out;
   box-sizing: border-box;
 }
@@ -378,7 +389,6 @@ button[type="button"]:hover,
 .save-button:hover,
 .cancel-button:hover {
   background-color: #0056b3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .delete-button,
@@ -398,13 +408,18 @@ button[type="button"]:hover,
 
 .button-container {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.button-container button {
+  flex: 1;
 }
 
 .table-container {
-  margin-top: 20px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .user-table {
@@ -414,15 +429,17 @@ button[type="button"]:hover,
 
 th,
 td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #dee2e6;
+  padding: 8px 12px;
   text-align: center;
+  border-bottom: 1px solid #dee2e6;
+  font-size: 13px;
 }
 
 thead {
   background-color: #0056b3;
   color: #ffffff;
+  position: sticky;
+  top: 0;
 }
 
 tr:nth-child(even) {
@@ -430,38 +447,44 @@ tr:nth-child(even) {
 }
 
 .action-buttons {
-  gap: 10px;
+  gap: 6px;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
+}
+
+.action-buttons button {
+  width: auto;
+  padding: 4px 10px;
+  margin: 0;
 }
 
 .error-message {
   color: #dc3545;
+  font-size: 12px;
 }
 
 .success-message {
   color: #28a745;
+  font-size: 12px;
 }
 
 .info-message {
   color: #17a2b8;
+  font-size: 12px;
 }
 
 .add-user-button {
-  padding: 10px 20px;
-  font-size: 16px;
+  padding: 8px 16px;
+  font-size: 13px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: white;
   background-color: #007bff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease-in-out;
-  box-sizing: border-box;
 }
 
 .add-user-button:hover {
   background-color: #0056b3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .button-container > button[type="submit"] {

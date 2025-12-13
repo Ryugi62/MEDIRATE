@@ -1086,34 +1086,70 @@ export default {
 </script>
 
 <style scoped>
+.dashboard {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .title {
-  font-size: 24px;
-  height: 60px;
+  font-size: 18px;
+  height: 45px;
   display: flex;
   align-items: center;
-  padding-left: 24px;
+  padding-left: 16px;
   font-weight: 500;
   margin: 0;
   border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
+}
+
+.dashboard-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .table-header {
-  height: 60px;
+  height: 45px;
   display: flex;
-  padding-left: 24px;
-  padding-right: 46px;
+  padding-left: 16px;
+  padding-right: 16px;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   border-bottom: 1px solid var(--light-gray);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.table-header button {
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 .table-body {
-  padding-left: 24px;
+  display: flex;
+  gap: 12px;
+  padding: 8px 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .table-title {
   font-weight: bold;
+  font-size: 13px;
   margin: 0;
   padding: 0;
   margin-right: auto;
@@ -1121,26 +1157,29 @@ export default {
 
 .slider-container {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.slider-container input[type="range"] {
+  width: 80px;
 }
 
 .completed-status {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .completed-status > strong {
   color: var(--blue);
-  font-size: 20px;
-}
-
-.table-body {
-  display: flex;
-  gap: 16px;
+  font-size: 16px;
 }
 
 .table-section {
-  max-height: 710px;
   overflow-y: auto;
+  overflow-x: auto;
+  flex-shrink: 0;
+  max-width: 50%;
 }
 
 .assignment-table {
@@ -1151,9 +1190,10 @@ export default {
 th,
 td {
   border: 1px solid #ddd;
-  padding: 8px;
+  padding: 4px 6px;
   text-align: center;
-  min-width: 35px;
+  min-width: 30px;
+  font-size: 11px;
 }
 
 tr.active {
@@ -1162,21 +1202,22 @@ tr.active {
 }
 
 td > img {
-  width: 25px;
+  width: 20px;
 }
 
 .image-box {
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin-right: 46px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .image-box > img {
   width: 100%;
   margin: auto;
   object-fit: contain;
-  max-height: 710px;
+  max-height: 100%;
 }
 
 .table-head,
@@ -1212,5 +1253,32 @@ tfoot > tr > th {
 }
 .fa-robot:active {
   color: var(--blue-active);
+}
+
+.exporting-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  z-index: 1000;
+  font-size: 14px;
+}
+
+.loading-message {
+  height: calc(100vh - 71px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
+}
+
+/* 가이드 이미지 숨김 */
+.dashboard > img {
+  display: none;
 }
 </style>

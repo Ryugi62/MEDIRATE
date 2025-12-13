@@ -197,24 +197,32 @@ export default {
 .board {
   max-width: 960px;
   margin: 0 auto;
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .board__title {
   margin: 0;
-  padding: 14px 24px;
-  font-size: 24px;
+  padding: 12px 16px;
+  font-size: 18px;
   font-weight: 500;
   border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 .form__group {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .create-post__form {
-  margin-top: 41px;
-  margin-left: 24px;
-  margin-right: 46px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 16px;
+  margin-left: 16px;
+  margin-right: 16px;
 }
 
 /* select */
@@ -285,13 +293,13 @@ hr {
 
 <style>
 .ql-editor {
-  min-height: 550px;
-  max-height: 400px;
+  min-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
   padding: 8px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
-  font-size: 16px;
+  font-size: 14px;
   word-break: break-all;
 }
 </style>

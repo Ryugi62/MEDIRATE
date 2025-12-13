@@ -37,8 +37,9 @@
         <table>
           <thead>
             <tr>
+              <th class="col-num">번호</th>
               <th>이미지</th>
-              <th>FP 개수</th>
+              <th>FP</th>
               <th>응답</th>
             </tr>
           </thead>
@@ -52,6 +53,7 @@
                 completed: question.respondedCount === question.fpCount,
               }"
             >
+              <td class="row-number">{{ idx + 1 }}</td>
               <td class="image-cell">
                 <img :src="getImageThumbnail(question.image)" alt="Question" />
                 <span class="image-name">{{ question.image }}</span>
@@ -426,78 +428,87 @@ export default {
 </script>
 
 <style scoped>
+.consensus-detail-view {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .header-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-  padding-left: 24px;
-  height: 60px;
+  font-size: 20px;
+  font-weight: 600;
+  padding-left: 16px;
+  height: 50px;
   border-bottom: 1px solid var(--light-gray);
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .consensus-overview {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px solid var(--light-gray);
-  min-height: 60px;
-  padding: 8px 0;
+  min-height: 40px;
+  padding: 6px 0;
+  flex-shrink: 0;
 }
 
 .consensus-metadata {
   display: flex;
   align-items: center;
-  padding-left: 24px;
-  gap: 16px;
+  padding-left: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .metadata-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .metadata-due-date,
 .metadata-start-time,
 .metadata-end-time {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .evaluation-actions {
   display: flex;
   align-items: center;
-  margin-right: 24px;
-  gap: 16px;
+  margin-right: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .evaluation-score {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .evaluation-score > strong {
   color: var(--blue);
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .legend {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
+  gap: 10px;
+  font-size: 11px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .legend-item::before {
   content: "";
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
 }
 
@@ -515,22 +526,26 @@ export default {
 
 .consensus-content {
   display: flex;
-  gap: 24px;
-  padding: 24px;
-  max-height: calc(100vh - 220px);
+  gap: 16px;
+  padding: 12px 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .images-table {
-  width: 300px;
-  min-width: 300px;
+  width: 320px;
+  min-width: 320px;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 thead {
@@ -550,35 +565,56 @@ tbody tr:hover {
 
 th,
 td {
-  padding: 8px 10px;
+  padding: 6px 4px;
   text-align: center;
   border-bottom: 1px solid var(--light-gray);
+  font-size: 11px;
 }
+
+th.col-num { width: 32px; }
+th:nth-child(2) { width: auto; } /* 이미지 */
+th:nth-child(3) { width: 32px; } /* FP */
+th:nth-child(4) { width: 50px; } /* 응답 */
 
 .image-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   text-align: left;
 }
 
 .image-cell img {
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
 .image-name {
-  font-size: 12px;
+  font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 150px;
+}
+
+.col-num,
+.row-number {
+  width: 32px;
+  text-align: center;
+}
+
+.row-number {
+  font-weight: bold;
+  color: #666;
 }
 
 .fp-count {
   font-weight: bold;
   color: #ffa500;
+}
+
+.response-status {
+  font-size: 10px;
 }
 
 .response-status .complete {
@@ -595,6 +631,7 @@ td {
 }
 
 .images-table table tbody tr.active td,
+.images-table table tbody tr.active .row-number,
 .images-table table tbody tr.active .image-name,
 .images-table table tbody tr.active .fp-count,
 .images-table table tbody tr.active .response-status span {
@@ -610,27 +647,28 @@ td {
 }
 
 .keyboard-guide {
-  padding: 12px 24px;
+  padding: 8px 16px;
   background-color: var(--ultra-light-gray);
   border-top: 1px solid var(--light-gray);
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
+  flex-shrink: 0;
 }
 
 .keyboard-guide .key {
   background-color: #e0e0e0;
-  padding: 2px 6px;
+  padding: 1px 4px;
   border-radius: 3px;
   font-family: monospace;
-  margin: 0 4px;
+  margin: 0 3px;
 }
 
 .loading-message {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  font-size: 18px;
+  height: calc(100vh - 71px);
+  font-size: 16px;
   color: #666;
 }
 </style>

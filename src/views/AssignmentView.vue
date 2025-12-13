@@ -464,13 +464,16 @@ export default {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--light-gray);
-  padding: 9px 24px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .header-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .assignment-search-input {
@@ -479,19 +482,20 @@ export default {
   overflow: hidden;
   border-radius: 4px;
   border: 1px solid var(--light-gray);
-  margin-right: 22px;
   transition: all 0.3s ease;
 }
 
 .search-input-focused {
   border-color: var(--blue);
-  box-shadow: 0 0 5px var(--blue);
+  box-shadow: 0 0 4px var(--blue);
 }
 
 .assignment-search-input input {
   border: none;
-  padding: 8px;
+  padding: 6px 8px;
   box-sizing: border-box;
+  width: 120px;
+  font-size: 13px;
 }
 
 .assignment-search:focus {
@@ -500,7 +504,7 @@ export default {
 
 .search-icon,
 .reset-icon {
-  padding: 12px;
+  padding: 8px 10px;
   cursor: pointer;
 }
 
@@ -530,14 +534,14 @@ export default {
 }
 
 .assignments-table-container {
-  min-width: 950px;
-  min-height: 676px;
+  flex: 1;
+  overflow-x: auto;
 }
 
 .assignments-table-container table {
-  padding-right: 46px;
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 table thead tr {
@@ -545,15 +549,12 @@ table thead tr {
 }
 
 th {
-  padding: 12px 24px;
+  padding: 10px 8px;
   text-align: center;
   font-weight: bold;
   border-bottom: 1px solid var(--light-gray);
-}
-
-th:last-child,
-td:last-child {
-  padding-right: 46px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .sortable {
@@ -569,8 +570,12 @@ td:last-child {
 }
 
 td {
-  padding: 12px 24px;
+  padding: 10px 8px;
   text-align: center;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 tbody > tr:hover {
@@ -579,7 +584,12 @@ tbody > tr:hover {
 }
 
 .assignment-id {
-  width: 54px;
+  width: 50px;
+}
+
+.assignment-mode {
+  width: 80px;
+  font-weight: 500;
 }
 
 .assignment-title {
@@ -587,28 +597,34 @@ tbody > tr:hover {
 }
 
 .assignment-creation-date,
-.assignment-due-date,
-.assignment-status,
+.assignment-due-date {
+  width: 90px;
+}
+
+.assignment-status {
+  width: 70px;
+}
+
 .assignment-progress {
-  width: 95px;
+  width: 80px;
 }
 
 .assignment-progress strong {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--blue);
 }
 
 .pagination-nav {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
-  position: relative;
+  padding: 12px 0;
 }
 
 .pagination {
   display: flex;
   list-style: none;
   padding: 0;
+  margin: 0;
   align-items: center;
 }
 
@@ -619,11 +635,12 @@ tbody > tr:hover {
 .pagination__button,
 .pagination__link {
   display: inline-block;
-  margin: 0 5px;
-  padding: 5px 10px;
+  margin: 0 4px;
+  padding: 4px 8px;
   cursor: pointer;
   border-radius: 50%;
   border: 1px solid var(--white);
+  font-size: 13px;
 }
 
 .pagination__button--disabled {
@@ -645,15 +662,16 @@ tbody > tr:hover {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .mode-filter,
 .cancer-filter {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   background-color: white;
 }
@@ -662,11 +680,6 @@ tbody > tr:hover {
 .cancer-filter:focus {
   outline: none;
   border-color: var(--blue);
-}
-
-.assignment-mode {
-  width: 90px;
-  font-weight: 500;
 }
 
 /* 합의 과제 행 스타일 */

@@ -496,17 +496,28 @@ h1 {
   margin: 0;
 }
 
+.board-container {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .board-title {
   margin: 0;
-  padding: 14px 24px;
-  font-size: 24px;
+  padding: 12px 16px;
+  font-size: 18px;
   font-weight: 500;
   border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 .post-container {
-  padding: 48px 24px;
-  margin-right: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 16px;
+  margin-right: 8px;
 }
 
 .post-title {

@@ -139,16 +139,26 @@ export default {
 </script>
 
 <style scoped>
+.board {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .board__title {
   margin: 0;
-  padding: 15.5px 24px;
-  font-size: 24px;
-  font-weight: 500;
+  padding: 12px 16px;
+  font-size: 20px;
+  font-weight: 600;
   border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
 }
 
 .board__table-container {
-  min-height: 676px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .board__table {
@@ -161,8 +171,12 @@ export default {
 }
 
 .head-row__cell {
-  padding: 12px 24px;
+  padding: 10px 16px;
   text-align: center;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  background: white;
 }
 
 .table__body-row {
@@ -174,11 +188,9 @@ export default {
 }
 
 .body-row__cell {
-  padding: 12px 24px;
+  padding: 10px 16px;
   text-align: center;
-}
-.body-row__cell:last-child {
-  padding-right: 46px;
+  font-size: 13px;
 }
 
 .body-row__cell--number {
@@ -197,19 +209,21 @@ export default {
 }
 
 .body-row__cell--date {
-  width: 100px;
+  width: 90px;
 }
 
 .board__pagination-nav {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  padding: 12px 0;
   position: relative;
+  flex-shrink: 0;
 }
 
 .pagination {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .pagination__item {
@@ -219,11 +233,12 @@ export default {
 .pagination__button,
 .pagination__link {
   display: inline-block;
-  margin: 0 5px;
-  padding: 5px 10px;
+  margin: 0 4px;
+  padding: 4px 8px;
   cursor: pointer;
   border-radius: 50%;
   border: 1px solid var(--white);
+  font-size: 13px;
 }
 .pagination__link:hover {
   color: var(--gray);
@@ -235,16 +250,17 @@ export default {
 }
 
 .pagination__link--write {
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 4px;
   border: 1px solid var(--blue);
   color: var(--blue);
   text-decoration: none;
   transition: background-color 0.3s;
   position: absolute;
-  right: 46px;
+  right: 16px;
   top: 50%;
   transform: translateY(-50%);
+  font-size: 13px;
 }
 
 .table__body-row--notice {
