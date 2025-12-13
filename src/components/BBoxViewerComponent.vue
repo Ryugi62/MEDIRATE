@@ -84,10 +84,14 @@ export default {
       this.localSquares = []; // 기존 데이터 초기화
 
       for (const user of this.userSquaresList) {
-        if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
+        if (!user.beforeCanvas) {
+          user.beforeCanvas = { width: img.width, height: img.height };
+        } else if (!user.beforeCanvas.width || !user.beforeCanvas.height) {
           user.beforeCanvas.width = img.width;
           user.beforeCanvas.height = img.height;
         }
+
+        if (!user.squares || !Array.isArray(user.squares)) continue;
 
         const beforePosition = this.calculateImagePosition(width, height);
         const userBeforePosition = this.calculateImagePosition(

@@ -517,6 +517,7 @@ export default {
     },
 
     getValidSquaresCount(squares, questionId) {
+      if (!squares || !Array.isArray(squares)) return 0;
       const count = squares.filter(
         (square) => square.questionIndex === questionId && !square.isTemporary
       ).length;

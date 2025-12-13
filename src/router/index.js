@@ -8,7 +8,6 @@ import PostDetailView from "../views/PostDetailView.vue";
 import AssignmentView from "../views/AssignmentView.vue";
 import AssignmentDetail from "../views/AssignmentDetailView.vue";
 import EvaluationView from "../views/EvaluationView.vue";
-import EditAssignmentView from "../views/EditAssignmentView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
 import UserManagementView from "../views/UserManagementView.vue";
@@ -65,7 +64,7 @@ const routes = [
   {
     path: "/edit-assignment/:id",
     name: "edit-assignment",
-    component: EditAssignmentView,
+    component: EvaluationView,
     meta: { requiresAuth: true },
   },
   {

@@ -2,7 +2,7 @@
 
 <template>
   <div class="assignment-container">
-    <h1 class="assignment-title">과제 관리</h1>
+    <h1 class="assignment-title">{{ isEditMode ? '과제 수정' : '과제 관리' }}</h1>
 
     <div class="content-container">
       <div class="user-addition">
@@ -238,7 +238,7 @@
             >
               삭제
             </button>
-            <button @click="saveAssignment">저장</button>
+            <button @click="saveAssignment">{{ isEditMode ? '과제 저장' : '과제 생성' }}</button>
           </div>
         </div>
       </div>
@@ -302,9 +302,12 @@ export default {
     };
   },
 
-  mounted() {
-    this.fetchUserList();
-    this.fetchFolderList();
+  async mounted() {
+    await this.fetchUserList();
+    await this.fetchFolderList();
+    if (this.isEditMode) {
+      await this.fetchAssignmentData();
+    }
   },
 
   components: {
@@ -312,6 +315,12 @@ export default {
   },
 
   computed: {
+    isEditMode() {
+      return !!this.$route.params.id;
+    },
+    assignmentId() {
+      return this.$route.params.id;
+    },
     filteredUserList() {
       if (!this.searchInput) return this.userList;
       const searchKeyword = this.searchInput.toLowerCase();
@@ -407,39 +416,66 @@ export default {
         input.disabled = true;
       });
 
-      if (this.assignmentDetails.id) {
-        alert("과제 변경사항을 저장합니다");
-      } else {
-        alert("새로운 과제를 생성합니다");
+      const assignmentData = {
+        title: this.assignmentDetails.title,
+        deadline: this.assignmentDetails.deadline,
+        assignment_type: this.assignmentDetails.selectedAssignmentId,
+        selection_type:
+          this.assignmentDetails.mode === "TextBox"
+            ? this.assignmentDetails.selectedAssignmentType
+            : "",
+        questions: this.assignmentDetails.questions,
+        users: this.addedUsers.map((user) => user.id),
+        mode: this.assignmentDetails.mode,
+        is_score: this.assignmentDetails.is_score,
+        is_ai_use: this.assignmentDetails.is_ai_use,
+        is_timer: this.assignmentDetails.is_timer,
+        gradingScale:
+          this.assignmentDetails.mode === "TextBox"
+            ? this.assignmentDetails.gradingScale
+            : [],
+      };
 
-        const newAssignment = {
-          title: this.assignmentDetails.title,
-          deadline: this.assignmentDetails.deadline,
-          assignment_type: this.assignmentDetails.selectedAssignmentId,
-          selection_type: this.assignmentDetails.selectedAssignmentType,
-          questions: this.assignmentDetails.questions,
-          users: this.addedUsers.map((user) => user.id),
-          mode: this.assignmentDetails.mode,
-          is_score: this.assignmentDetails.is_score,
-          is_ai_use: this.assignmentDetails.is_ai_use,
-          is_timer: this.assignmentDetails.is_timer,
-        };
-
+      if (this.isEditMode) {
+        // 수정 모드: PUT 요청
+        assignmentData.id = this.assignmentDetails.id;
         this.$axios
-          .post("/api/assignments/", newAssignment, {
+          .put(`/api/assignments/edit/${this.assignmentDetails.id}`, assignmentData, {
             headers: {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
             },
           })
-          .then((response) => {
-            response.data;
-
+          .then(() => {
+            alert("과제가 성공적으로 저장되었습니다.");
+            this.$store.commit("setAssignmentSearchHistory", "");
+            this.$store.commit("setAssignmentCurrentPage", 1);
+            this.$router.push({ name: "assignment" });
+          })
+          .catch((error) => {
+            console.error("과제 수정 중 오류 발생:", error);
+            this.$el.querySelectorAll("input, select").forEach((input) => {
+              input.disabled = false;
+            });
+          });
+      } else {
+        // 생성 모드: POST 요청
+        this.$axios
+          .post("/api/assignments/", assignmentData, {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          })
+          .then(() => {
+            alert("새로운 과제가 생성되었습니다.");
             this.$store.commit("setAssignmentSearchHistory", "");
             this.$store.commit("setAssignmentCurrentPage", 1);
             this.$router.push({ name: "assignment" });
           })
           .catch((error) => {
             console.error("새로운 과제 생성 중 오류 발생:", error);
+            this.$el.querySelectorAll("input, select").forEach((input) => {
+              input.disabled = false;
+            });
           });
       }
     },
@@ -523,6 +559,39 @@ export default {
         .catch((error) => {
           console.error("유저 정보를 가져오는 중 오류 발생:", error);
         });
+    },
+
+    async fetchAssignmentData() {
+      try {
+        const response = await this.$axios.get(
+          `/api/assignments/${this.assignmentId}/all`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        this.activeQuestionId = 0;
+        this.addedUsers = response.data.assignedUsers;
+        this.assignmentDetails.id = response.data.id;
+        this.assignmentDetails.title = response.data.title;
+        this.assignmentDetails.deadline = new Date(response.data.deadline)
+          .toISOString()
+          .split("T")[0];
+        this.assignmentDetails.selectedAssignmentId =
+          response.data.selectedAssignmentType;
+        this.assignmentDetails.selectedAssignmentType =
+          response.data.selectedAssignmentId;
+        this.assignmentDetails.questions = response.data.questions;
+        this.assignmentDetails.gradingScale = response.data.gradingScale;
+        this.assignmentDetails.mode = response.data.assigment_mode;
+        this.assignmentDetails.is_score =
+          response.data.is_score === 1 ? true : false;
+        this.assignmentDetails.is_ai_use =
+          response.data.is_ai_use === 1 ? true : false;
+      } catch (error) {
+        console.error("과제 정보를 가져오는 중 오류 발생:", error);
+      }
     },
 
     handlerDeleteQuestion(questionId) {
