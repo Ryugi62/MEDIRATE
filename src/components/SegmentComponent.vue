@@ -576,6 +576,7 @@ export default {
   flex-direction: column;
   padding: 8px;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 

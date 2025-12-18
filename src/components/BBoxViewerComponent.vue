@@ -517,6 +517,9 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .bbox-component__header,
@@ -539,18 +542,18 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 0;
+  overflow: hidden;
 }
 
 canvas {
-  width: 100%;
-  height: 100%;
-  min-height: 550px;
-  background-color: rgb(0, 0, 0);
+  max-height: 100%;
+  background-color: white;
 }
 
 .bbox-component__footer {
   padding: 5px;
-  color: white;
-  background-color: black;
+  color: #333;
+  background-color: #f5f5f5;
 }
 </style>

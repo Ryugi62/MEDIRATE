@@ -141,7 +141,7 @@ export default {
   overflow: hidden;
   position: relative; /* 이미지의 부모를 상대 위치로 설정 */
   cursor: grab;
-  background-color: black;
+  background-color: white;
 }
 
 .image-wrapper:active {
@@ -163,8 +163,8 @@ footer {
   width: 100%;
   text-align: center;
   box-sizing: border-box;
-  color: white;
+  color: #333;
   padding: 5px;
-  background-color: black;
+  background-color: #f5f5f5;
 }
 </style>

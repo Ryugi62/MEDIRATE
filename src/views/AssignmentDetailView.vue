@@ -561,9 +561,11 @@ export default {
 <style scoped>
 .assignment-detail-view {
   height: calc(100vh - 71px);
+  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .assignment-overview {
@@ -621,7 +623,9 @@ export default {
   padding: 8px 12px;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .grades-table {
@@ -630,6 +634,7 @@ export default {
   border: 1px solid var(--light-gray);
   word-break: keep-all;
   min-width: 150px;
+  max-width: 300px;
   flex-shrink: 0;
 }
 
