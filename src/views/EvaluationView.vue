@@ -136,7 +136,6 @@
                   v-for="tag in assignmentDetails.tags"
                   :key="tag.id || tag.name"
                   class="tag-badge"
-                  :style="{ backgroundColor: tag.color || '#666' }"
                 >
                   #{{ tag.name }}
                   <i class="fa-solid fa-xmark" @click="removeTag(tag)"></i>
@@ -1144,7 +1143,7 @@ hr {
 /* A3: 해시태그 입력 */
 .tag-input-group {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
 }
 
@@ -1152,7 +1151,6 @@ hr {
   font-size: 13px;
   font-weight: bold;
   white-space: nowrap;
-  padding-top: 8px;
 }
 
 .tag-input-container {
@@ -1165,7 +1163,7 @@ hr {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
   background-color: white;
@@ -1175,16 +1173,18 @@ hr {
 
 .selected-tags:focus-within {
   border-color: var(--blue);
+  box-shadow: 0 0 4px var(--blue);
 }
 
 .tag-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
   font-size: 12px;
   color: white;
+  background-color: var(--blue);
   white-space: nowrap;
 }
 
@@ -1201,10 +1201,14 @@ hr {
 .tag-text-input {
   border: none;
   outline: none;
-  padding: 4px;
+  padding: 4px 6px;
   font-size: 13px;
-  min-width: 120px;
+  min-width: 140px;
   flex: 1;
+}
+
+.tag-text-input::placeholder {
+  color: #999;
 }
 
 .tag-suggestions {
@@ -1214,18 +1218,18 @@ hr {
   right: 0;
   background: white;
   border: 1px solid var(--light-gray);
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  max-height: 150px;
+  border-radius: 4px;
+  max-height: 200px;
   overflow-y: auto;
   z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 2px;
 }
 
 .tag-suggestion-item {
   display: flex;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
 }
@@ -1235,7 +1239,7 @@ hr {
 }
 
 .suggestion-name {
-  color: var(--blue);
+  color: #333;
 }
 
 .suggestion-count {

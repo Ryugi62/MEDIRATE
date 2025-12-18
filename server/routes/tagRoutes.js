@@ -204,6 +204,57 @@ router.put("/assignment/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/tags/assignment/:assignmentId/add - 과제에 태그 추가 (기존 유지)
+router.post("/assignment/:assignmentId/add", authenticateToken, async (req, res) => {
+  const { assignmentId } = req.params;
+  const { tags } = req.body; // ["tag1", "tag2", ...]
+
+  if (!tags || !Array.isArray(tags) || tags.length === 0) {
+    return res.status(400).json({ message: "태그 배열이 필요합니다." });
+  }
+
+  try {
+    for (const name of tags) {
+      const tagName = name.trim().toLowerCase().replace(/^#/, "");
+      if (!tagName) continue;
+
+      // 태그 존재 확인 또는 생성
+      let [existing] = await db.query(
+        `SELECT id FROM tags WHERE name = ? AND deleted_at IS NULL`,
+        [tagName]
+      );
+
+      let tagId;
+      if (existing.length > 0) {
+        tagId = existing[0].id;
+      } else {
+        const [insertResult] = await db.query(
+          `INSERT INTO tags (name) VALUES (?)`,
+          [tagName]
+        );
+        tagId = insertResult.insertId;
+      }
+
+      // 이미 연결되어 있는지 확인
+      const [linked] = await db.query(
+        `SELECT * FROM assignment_tags WHERE assignment_id = ? AND tag_id = ?`,
+        [assignmentId, tagId]
+      );
+
+      if (linked.length === 0) {
+        await db.query(
+          `INSERT INTO assignment_tags (assignment_id, tag_id) VALUES (?, ?)`,
+          [assignmentId, tagId]
+        );
+      }
+    }
+
+    res.json({ message: "태그가 추가되었습니다." });
+  } catch (error) {
+    handleError(res, "태그 추가 중 오류 발생", error);
+  }
+});
+
 // ========================================
 // 합의과제 태그 연결 API
 // ========================================
@@ -249,6 +300,57 @@ router.put("/consensus/:consensusId", authenticateToken, async (req, res) => {
     res.json({ message: "합의과제 태그가 설정되었습니다." });
   } catch (error) {
     handleError(res, "합의과제 태그 설정 중 오류 발생", error);
+  }
+});
+
+// POST /api/tags/consensus/:consensusId/add - 합의과제에 태그 추가 (기존 유지)
+router.post("/consensus/:consensusId/add", authenticateToken, async (req, res) => {
+  const { consensusId } = req.params;
+  const { tags } = req.body; // ["tag1", "tag2", ...]
+
+  if (!tags || !Array.isArray(tags) || tags.length === 0) {
+    return res.status(400).json({ message: "태그 배열이 필요합니다." });
+  }
+
+  try {
+    for (const name of tags) {
+      const tagName = name.trim().toLowerCase().replace(/^#/, "");
+      if (!tagName) continue;
+
+      // 태그 존재 확인 또는 생성
+      let [existing] = await db.query(
+        `SELECT id FROM tags WHERE name = ? AND deleted_at IS NULL`,
+        [tagName]
+      );
+
+      let tagId;
+      if (existing.length > 0) {
+        tagId = existing[0].id;
+      } else {
+        const [insertResult] = await db.query(
+          `INSERT INTO tags (name) VALUES (?)`,
+          [tagName]
+        );
+        tagId = insertResult.insertId;
+      }
+
+      // 이미 연결되어 있는지 확인
+      const [linked] = await db.query(
+        `SELECT * FROM consensus_assignment_tags WHERE consensus_assignment_id = ? AND tag_id = ?`,
+        [consensusId, tagId]
+      );
+
+      if (linked.length === 0) {
+        await db.query(
+          `INSERT INTO consensus_assignment_tags (consensus_assignment_id, tag_id) VALUES (?, ?)`,
+          [consensusId, tagId]
+        );
+      }
+    }
+
+    res.json({ message: "태그가 추가되었습니다." });
+  } catch (error) {
+    handleError(res, "태그 추가 중 오류 발생", error);
   }
 });
 

@@ -5,7 +5,7 @@
 
     <div class="header-controls">
       <!-- 모드 필터 -->
-      <select v-model="selectedMode" class="mode-filter" @change="current = 1">
+      <select v-model="selectedMode" class="mode-filter">
         <option value="all">전체 모드</option>
         <option value="TextBox">TextBox</option>
         <option value="BBox">BBox</option>
@@ -13,13 +13,35 @@
         <option value="Consensus">Consensus (합의)</option>
       </select>
 
-      <!-- 암종 필터 -->
-      <select v-model="selectedCancerType" class="cancer-filter" @change="current = 1">
-        <option value="all">전체 암종</option>
-        <option v-for="cancer in cancerTypes" :key="cancer.key" :value="cancer.key">
-          {{ cancer.label }}
-        </option>
-      </select>
+      <!-- 태그 필터 (자동완성 input) -->
+      <div class="tag-filter-wrapper">
+        <div class="tag-filter-input-container">
+          <span v-if="selectedTag !== 'all'" class="selected-tag-badge">
+            #{{ selectedTag }}
+            <i class="fa-solid fa-xmark" @click="clearTagFilter"></i>
+          </span>
+          <input
+            v-else
+            type="text"
+            v-model="tagFilterInput"
+            class="tag-filter-input"
+            placeholder="태그 검색..."
+            @focus="showTagSuggestions = true"
+            @blur="hideTagSuggestions"
+            @input="onTagFilterInput"
+          />
+        </div>
+        <div v-if="showTagSuggestions && filteredTagSuggestions.length > 0" class="tag-suggestions-dropdown">
+          <div
+            v-for="tag in filteredTagSuggestions"
+            :key="tag.name"
+            class="tag-suggestion-item"
+            @mousedown.prevent="selectTagFilter(tag.name)"
+          >
+            #{{ tag.name }} <span class="tag-count">({{ tag.count }})</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 과제 리스트에서 제목으로 검색 -->
       <div
@@ -117,14 +139,14 @@
         <i
           class="fa-solid fa-chevron-right pagination__button"
           @click="changePage(current + 1)"
-          :class="{ 'pagination__button--disabled': current === total }"
+          :class="{ 'pagination__button--disabled': current === totalPages }"
         ></i>
       </li>
       <li>
         <i
           class="fa-solid fa-angles-right pagination__button"
-          @click="changePage(total)"
-          :class="{ 'pagination__button--disabled': current === total }"
+          @click="changePage(totalPages)"
+          :class="{ 'pagination__button--disabled': current === totalPages }"
         ></i>
       </li>
     </ul>
@@ -136,30 +158,21 @@ export default {
   name: "AssignmentEvaluationView",
   data() {
     return {
-      originalAssignments: [],
-      assignments: [],
-      current: this.$store.getters.getAssignmentCurrentPage || 1, // Vuex에서 현재 페이지 가져오기
-      perPage: 50,
-      sortColumn: this.$store.getters.getAssignmentSortColumn || "id", // Vuex에서 정렬 상태 가져오기
-      sortDirection: this.$store.getters.getAssignmentSortDirection || "down", // Vuex에서 정렬 방향 가져오기
+      assignments: [], // 현재 페이지 데이터
+      current: this.$store.getters.getAssignmentCurrentPage || 1,
+      perPage: 15,
+      total: 0, // 서버에서 받은 총 개수
+      totalPages: 1, // 총 페이지 수
+      sortColumn: this.$store.getters.getAssignmentSortColumn || "id",
+      sortDirection: this.$store.getters.getAssignmentSortDirection || "down",
       searchQuery: this.$store.getters.getAssignmentSearchHistory || "",
       isFocused: false,
-      selectedMode: "all", // all, TextBox, BBox, Consensus
-      selectedCancerType: "all", // 암종 필터
-      // 암종 매핑 (약자 → 한글명)
-      cancerTypeMap: {
-        'blad': '방광암',
-        'brst': '유방암',
-        'breast': '유방암',
-        'gist': 'GIST',
-        'lms': '평활근육종',
-        'u-lms': '자궁평활근육종',
-        'net': '신경내분비종양',
-        'sarc': '육종',
-        'stump': '미분화육종',
-        'u_stmp': '자궁미분화육종',
-        'usmt': '연조직악성종양',
-      },
+      isLoading: false, // 로딩 상태
+      selectedMode: "all", // all, TextBox, BBox, Segment, Consensus
+      selectedTag: "all",
+      tagFilterInput: "",
+      showTagSuggestions: false,
+      allTags: [], // 서버에서 받은 태그 목록
     };
   },
   computed: {
@@ -204,71 +217,24 @@ export default {
         },
       ];
     },
-    // 데이터에서 사용 가능한 암종 목록 추출
-    cancerTypes() {
-      const types = new Set();
-      this.originalAssignments.forEach((a) => {
-        const cancerType = this.extractCancerType(a.title);
-        if (cancerType) types.add(cancerType);
-      });
-      return Array.from(types)
-        .sort()
-        .map((key) => ({
-          key,
-          label: this.cancerTypeMap[key] || key.toUpperCase(),
-        }));
-    },
-    // 모드 및 암종 필터가 적용된 과제 목록
-    filteredAssignments() {
-      let result = this.assignments;
-
-      // 모드 필터
-      if (this.selectedMode !== "all") {
-        result = result.filter((a) => a.mode === this.selectedMode);
+    // 태그 필터 자동완성 제안
+    filteredTagSuggestions() {
+      if (!this.tagFilterInput) {
+        return this.allTags.slice(0, 10);
       }
-
-      // 암종 필터
-      if (this.selectedCancerType !== "all") {
-        result = result.filter((a) => {
-          const cancerType = this.extractCancerType(a.title);
-          return cancerType === this.selectedCancerType;
-        });
-      }
-
-      return result;
+      const query = this.tagFilterInput.toLowerCase().replace(/^#/, "");
+      return this.allTags
+        .filter((tag) => tag.name.toLowerCase().includes(query))
+        .slice(0, 10);
     },
-    // 정렬된 과제 목록 반환
-    sortedAssignments() {
-      return [...this.filteredAssignments].sort((a, b) => {
-        let aValue = this.getValue(a, this.sortColumn);
-        let bValue = this.getValue(b, this.sortColumn);
-
-        if (typeof aValue === "string" && aValue.includes("%")) {
-          aValue = parseFloat(aValue.replace("%", ""));
-        }
-        if (typeof bValue === "string" && bValue.includes("%")) {
-          bValue = parseFloat(bValue.replace("%", ""));
-        }
-
-        if (aValue < bValue) return this.sortDirection === "up" ? -1 : 1;
-        if (aValue > bValue) return this.sortDirection === "up" ? 1 : -1;
-        return 0;
-      });
-    },
-    // 현재 페이지에 표시되는 과제 목록 반환
+    // 서버 페이지네이션 - 현재 페이지 데이터 그대로 사용
     visibleAssignments() {
-      const start = (this.current - 1) * this.perPage;
-      const end = this.current * this.perPage;
-      return this.sortedAssignments.slice(start, end);
-    },
-    // 총 페이지 수 계산
-    total() {
-      return Math.ceil(this.filteredAssignments.length / this.perPage);
+      return this.assignments;
     },
     // 표시되는 페이지 수 계산
     visiblePages() {
       const start = Math.max(1, this.current - 2);
-      const end = Math.min(this.total, start + 4);
+      const end = Math.min(this.totalPages, start + 4);
       return Array.from({ length: end - start + 1 }, (_, i) => start + i);
     },
   },
@@ -283,10 +249,22 @@ export default {
     current(newPage) {
       this.updateAssignmentCurrentPage(newPage);
     },
+
+    // 모드 필터 변경 시 데이터 다시 로드
+    selectedMode() {
+      this.current = 1;
+      this.loadPaginatedData();
+    },
+
+    // 태그 필터 변경 시 데이터 다시 로드
+    selectedTag() {
+      this.current = 1;
+      this.loadPaginatedData();
+    },
   },
 
   async mounted() {
-    await this.loadAssignments();
+    await this.loadPaginatedData();
 
     // 실시간 업데이트를 위한 storage 이벤트 리스너
     window.addEventListener('storage', this.handleStorageChange);
@@ -297,77 +275,140 @@ export default {
   },
 
   methods: {
-    // 제목에서 암종 추출 (예: "0-blad-mitof-01E-101" → "blad")
-    extractCancerType(title) {
-      if (!title) return null;
-      // 패턴: [batch_id]-[cancer_type]-[model]-[case_id]
-      // 예: 0-blad-mitof-01E-101, 2nd-brst-mitof-AT17, 2nd-u-lms-mitof-10
-      const match = title.match(/^[0-9a-z]*-([a-z_-]+)-(?:mitof|model)/i);
-      if (match) {
-        return match[1].toLowerCase();
-      }
-      return null;
+    // 태그 필터 입력 처리
+    onTagFilterInput() {
+      this.showTagSuggestions = true;
+    },
+
+    // 태그 필터 선택
+    selectTagFilter(tagName) {
+      this.selectedTag = tagName;
+      this.tagFilterInput = "";
+      this.showTagSuggestions = false;
+      // current = 1과 loadPaginatedData는 watch에서 처리됨
+    },
+
+    // 태그 필터 초기화
+    clearTagFilter() {
+      this.selectedTag = "all";
+      this.tagFilterInput = "";
+      // current = 1과 loadPaginatedData는 watch에서 처리됨
+    },
+
+    // 태그 제안 드롭다운 숨기기
+    hideTagSuggestions() {
+      setTimeout(() => {
+        this.showTagSuggestions = false;
+      }, 150);
     },
 
     // 실시간 업데이트를 위한 storage 이벤트 핸들러
     handleStorageChange(event) {
       if (event.key === 'assignmentUpdated') {
-        this.loadAssignments();
+        this.loadPaginatedData();
       }
     },
 
-    // 과제 목록 로드
-    async loadAssignments() {
+    // 서버 페이지네이션 데이터 로드
+    async loadPaginatedData() {
+      this.isLoading = true;
       const headers = {
         Authorization: `Bearer ${this.$store.getters.getUser.token}`,
       };
 
       try {
-        // 일반 과제와 합의 과제를 병렬로 가져오기
-        const [assignmentsRes, consensusRes] = await Promise.all([
-          this.$axios.get("/api/assignments", { headers }),
-          this.$axios.get("/api/consensus", { headers }),
-        ]);
+        // Consensus 모드일 경우 별도 처리
+        if (this.selectedMode === "Consensus") {
+          const consensusRes = await this.$axios.get("/api/consensus", { headers });
+          let consensusAssignments = consensusRes.data.map((c) => ({
+            id: `C${c.id}`,
+            consensusId: c.id,
+            title: c.title,
+            mode: "Consensus",
+            CreationDate: c.creation_date,
+            dueDate: c.deadline,
+            status: this.getConsensusStatus(c),
+            completed: c.responded_fp || 0,
+            total: c.total_fp || 0,
+            tags: c.tags || [],
+            isConsensus: true,
+          }));
 
-        // 일반 과제에 mode 필드 추가
-        const regularAssignments = assignmentsRes.data.map((a) => ({
-          ...a,
-          mode: a.assignmentMode || "BBox",
-          isConsensus: false,
-        }));
+          // 검색어 필터 (클라이언트)
+          if (this.searchQuery) {
+            consensusAssignments = consensusAssignments.filter((a) =>
+              a.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+            );
+          }
 
-        // 합의 과제 형식 변환
-        const consensusAssignments = consensusRes.data.map((c) => ({
-          id: `C${c.id}`, // 합의 과제는 ID 앞에 C 붙이기
-          consensusId: c.id,
-          title: c.title,
-          mode: "Consensus",
-          CreationDate: c.creation_date,
-          dueDate: c.deadline,
-          status: this.getConsensusStatus(c),
-          completed: c.responded_fp || 0,
-          total: c.total_fp || 0,
-          isConsensus: true,
-        }));
+          // 태그 필터 (클라이언트)
+          if (this.selectedTag !== "all") {
+            consensusAssignments = consensusAssignments.filter((a) => {
+              if (!a.tags || a.tags.length === 0) return false;
+              return a.tags.some((t) => t.name === this.selectedTag);
+            });
+          }
 
-        // 두 목록 합치기
-        this.originalAssignments = [...regularAssignments, ...consensusAssignments];
-        this.assignments = [...this.originalAssignments];
+          // 정렬 (클라이언트)
+          consensusAssignments.sort((a, b) => {
+            let aValue = this.getValue(a, this.sortColumn);
+            let bValue = this.getValue(b, this.sortColumn);
+            if (aValue < bValue) return this.sortDirection === "up" ? -1 : 1;
+            if (aValue > bValue) return this.sortDirection === "up" ? 1 : -1;
+            return 0;
+          });
 
-        // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-        if (this.searchQuery) {
-          this.assignAssignmentSearchFromStore();
-        }
+          // 페이지네이션 (클라이언트)
+          this.total = consensusAssignments.length;
+          this.totalPages = Math.ceil(this.total / this.perPage) || 1;
+          const start = (this.current - 1) * this.perPage;
+          const end = start + this.perPage;
+          this.assignments = consensusAssignments.slice(start, end);
 
-        // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-        if (this.$store.getters.getAssignmentCurrentPage) {
-          this.current = Math.min(
-            this.$store.getters.getAssignmentCurrentPage,
-            this.total
-          );
+          // 태그 목록 수집
+          const tagCount = {};
+          consensusRes.data.forEach((c) => {
+            if (c.tags) {
+              c.tags.forEach((tag) => {
+                tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
+              });
+            }
+          });
+          this.allTags = Object.entries(tagCount)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+        } else {
+          // 일반 과제 서버 페이지네이션
+          const params = {
+            page: this.current,
+            limit: this.perPage,
+            search: this.searchQuery || "",
+            mode: this.selectedMode,
+            tag: this.selectedTag,
+            status: "all",
+            sortBy: this.sortColumn === "CreationDate" ? "createdAt" : this.sortColumn,
+            sortDir: this.sortDirection,
+          };
+
+          const response = await this.$axios.get("/api/assignments/paginated", { headers, params });
+          const { data, pagination, allTags } = response.data;
+
+          // 데이터 변환
+          this.assignments = data.map((a) => ({
+            ...a,
+            mode: a.assignmentMode || "BBox",
+            tags: a.tags || [],
+            isConsensus: false,
+          }));
+
+          this.total = pagination.total;
+          this.totalPages = pagination.totalPages;
+          this.allTags = allTags || [];
         }
       } catch (error) {
         console.error("과제 목록 로딩 오류:", error);
+      } finally {
+        this.isLoading = false;
       }
     },
     // 합의 과제 상태 계산
@@ -391,23 +432,30 @@ export default {
     },
 
     // 페이지 변경
-    changePage(pageNumber) {
-      const newPage = Math.max(1, Math.min(pageNumber, this.total));
-      this.current = newPage;
+    async changePage(pageNumber) {
+      const newPage = Math.max(1, Math.min(pageNumber, this.totalPages));
+      if (newPage !== this.current) {
+        this.current = newPage;
+        await this.loadPaginatedData();
+      }
     },
 
     // 특정 키로 과제 목록 정렬
-    sortBy(columnKey) {
+    async sortBy(columnKey) {
       if (this.sortColumn === columnKey) {
         this.sortDirection = this.sortDirection === "up" ? "down" : "up";
       } else {
         this.sortColumn = columnKey;
-        this.sortDirection = columnKey === "id" ? "down" : "up"; // ID 열은 항상 내림차순으로 시작
+        this.sortDirection = columnKey === "id" ? "down" : "up";
       }
       // Vuex에 정렬 상태 저장
       this.$store.commit("setAssignmentSortColumn", this.sortColumn);
       this.$store.commit("setAssignmentSortDirection", this.sortDirection);
+
+      this.current = 1;
+      await this.loadPaginatedData();
     },
+
     getValue(obj, key) {
       if (key === "progress") {
         return `${obj.completed || 0} / ${obj.total || 0}`;
@@ -415,34 +463,24 @@ export default {
       if (key === "CreationDate" || key === "dueDate") {
         if (obj[key] && !isNaN(Date.parse(obj[key]))) {
           const date = new Date(obj[key]);
-          return date.toISOString().split("T")[0]; // YYYY-MM-DD 형식으로 반환
+          return date.toISOString().split("T")[0];
         }
         return "N/A";
       }
       return obj[key] || "N/A";
     },
-    searchAssignment() {
-      if (this.searchQuery === "") {
-        this.resetSearch();
-        return;
-      }
-      this.assignments = this.originalAssignments.filter((assignment) =>
-        assignment.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
-      );
-      this.current = 1; // 검색 후 첫 페이지로 이동
-    },
-    resetSearch() {
-      this.searchQuery = "";
-      this.assignments = this.originalAssignments;
-      this.current = 1; // 리셋 후 첫 페이지로 이동
+
+    async searchAssignment() {
+      this.current = 1;
+      this.$store.commit("setAssignmentSearchHistory", this.searchQuery);
+      await this.loadPaginatedData();
     },
 
-    // Assign search from store
-    assignAssignmentSearchFromStore() {
-      this.assignments = this.originalAssignments.filter((assignment) =>
-        assignment.title.toLowerCase().includes(this.searchQuery.toLowerCase())
-      );
+    async resetSearch() {
+      this.searchQuery = "";
       this.current = 1;
+      this.$store.commit("setAssignmentSearchHistory", "");
+      await this.loadPaginatedData();
     },
 
     // Update search history in Vuex store
@@ -666,8 +704,7 @@ tbody > tr:hover {
   flex-wrap: wrap;
 }
 
-.mode-filter,
-.cancer-filter {
+.mode-filter {
   padding: 6px 10px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
@@ -676,10 +713,89 @@ tbody > tr:hover {
   background-color: white;
 }
 
-.mode-filter:focus,
-.cancer-filter:focus {
+.mode-filter:focus {
   outline: none;
   border-color: var(--blue);
+}
+
+/* 태그 필터 (자동완성) */
+.tag-filter-wrapper {
+  position: relative;
+}
+
+.tag-filter-input-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: white;
+  min-width: 140px;
+  height: 32px;
+}
+
+.tag-filter-input {
+  border: none;
+  outline: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  width: 100%;
+  background: transparent;
+}
+
+.tag-filter-input::placeholder {
+  color: #999;
+}
+
+.selected-tag-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 2px 4px;
+  background-color: var(--blue);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.selected-tag-badge i {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.selected-tag-badge i:hover {
+  opacity: 1;
+}
+
+.tag-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.tag-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tag-suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.tag-suggestion-item .tag-count {
+  color: #999;
+  font-size: 11px;
 }
 
 /* 합의 과제 행 스타일 */

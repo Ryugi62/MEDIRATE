@@ -167,7 +167,179 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   }
 });
 
-// 과제 목록 가져오기
+// 페이지네이션 지원 과제 목록 API
+router.get("/paginated", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      page = 1,
+      limit = 15,
+      search = "",
+      mode = "all",
+      tag = "all",
+      status = "all",
+      sortBy = "id",
+      sortDir = "desc",
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+
+    // WHERE 조건 구성
+    let whereConditions = ["a.deleted_at IS NULL", "au.user_id = ?"];
+    let params = [userId];
+
+    if (search) {
+      whereConditions.push("a.title LIKE ?");
+      params.push(`${search}%`);
+    }
+
+    if (mode !== "all") {
+      whereConditions.push("a.assignment_mode = ?");
+      params.push(mode);
+    }
+
+    if (tag !== "all") {
+      whereConditions.push(`
+        EXISTS (
+          SELECT 1 FROM assignment_tags at2
+          JOIN tags t2 ON at2.tag_id = t2.id
+          WHERE at2.assignment_id = a.id AND t2.name = ? AND t2.deleted_at IS NULL
+        )
+      `);
+      params.push(tag);
+    }
+
+    if (status !== "all") {
+      if (status === "진행 중") {
+        whereConditions.push("a.deadline >= CURRENT_DATE");
+      } else if (status === "완료") {
+        whereConditions.push("a.deadline < CURRENT_DATE");
+      }
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    // 정렬 컬럼 매핑
+    const sortColumnMap = {
+      id: "a.id",
+      title: "a.title",
+      mode: "a.assignment_mode",
+      createdAt: "a.creation_date",
+      dueDate: "a.deadline",
+      status: "a.deadline",
+    };
+    const sortColumn = sortColumnMap[sortBy] || "a.id";
+    const sortDirection = sortDir === "up" ? "ASC" : "DESC";
+
+    // 전체 개수 조회
+    const [countResult] = await db.query(
+      `SELECT COUNT(DISTINCT a.id) as total
+       FROM assignments a
+       JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countResult[0].total;
+
+    // 페이지네이션된 데이터 조회
+    const [assignments] = await db.query(
+      `SELECT
+        a.id,
+        a.title,
+        a.creation_date AS CreationDate,
+        a.deadline AS dueDate,
+        a.assignment_mode AS assignmentMode,
+        CASE
+          WHEN a.deadline >= CURRENT_DATE THEN '진행 중'
+          ELSE '완료'
+        END AS status,
+        (SELECT COUNT(*) FROM questions WHERE assignment_id = a.id AND deleted_at IS NULL) AS total,
+        MAX(ci.evaluation_time) AS evaluation_time,
+        MAX(ci.start_time) AS start_time,
+        MAX(ci.end_time) AS end_time
+       FROM assignments a
+       JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+       LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = ? AND ci.deleted_at IS NULL
+       WHERE ${whereClause}
+       GROUP BY a.id, a.title, a.creation_date, a.deadline, a.assignment_mode
+       ORDER BY ${sortColumn} ${sortDirection}
+       LIMIT ? OFFSET ?`,
+      [userId, ...params, limitNum, offset]
+    );
+
+    // 각 과제의 완료 수, 태그 조회
+    for (const assignment of assignments) {
+      const { id } = assignment;
+
+      // 완료 수 계산 (TextBox 모드)
+      const [completedResult] = await db.query(
+        `SELECT COUNT(*) as count FROM questions q
+         JOIN question_responses qr ON q.id = qr.question_id
+         WHERE q.assignment_id = ? AND qr.user_id = ? AND qr.selected_option <> -1
+         AND q.deleted_at IS NULL AND qr.deleted_at IS NULL`,
+        [id, userId]
+      );
+      assignment.completed = completedResult[0].count;
+
+      // BBox/Segment 모드 완료 수 추가
+      const [canvas] = await db.query(
+        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+        [id, userId]
+      );
+
+      if (canvas.length > 0) {
+        const [squares] = await db.query(
+          `SELECT DISTINCT question_id
+           FROM squares_info
+           WHERE canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL)
+           AND deleted_at IS NULL`,
+          [id, userId]
+        );
+        assignment.completed += squares.length;
+      }
+
+      // 태그 조회
+      const [tags] = await db.query(
+        `SELECT t.id, t.name, t.color
+         FROM tags t
+         JOIN assignment_tags at ON t.id = at.tag_id
+         WHERE at.assignment_id = ? AND t.deleted_at IS NULL`,
+        [id]
+      );
+      assignment.tags = tags;
+    }
+
+    // 전체 태그 목록 (필터용)
+    const [allTags] = await db.query(`
+      SELECT t.name, COUNT(at.assignment_id) as count
+      FROM tags t
+      JOIN assignment_tags at ON t.id = at.tag_id
+      JOIN assignments a ON at.assignment_id = a.id AND a.deleted_at IS NULL
+      JOIN assignment_user au ON a.id = au.assignment_id AND au.user_id = ? AND au.deleted_at IS NULL
+      WHERE t.deleted_at IS NULL
+      GROUP BY t.id
+      ORDER BY count DESC
+    `, [userId]);
+
+    res.json({
+      data: assignments,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+      allTags,
+    });
+  } catch (error) {
+    console.error("Failed to fetch paginated assignments:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// 과제 목록 가져오기 (기존 API - 하위 호환성 유지)
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -219,6 +391,16 @@ router.get("/", authenticateToken, async (req, res) => {
           const [squares] = await db.query(squaresQuery, [id, userId]);
           assignment.completed += squares.length;
         }
+
+        // 태그 조회
+        const [tags] = await db.query(
+          `SELECT t.id, t.name, t.color
+           FROM tags t
+           JOIN assignment_tags at ON t.id = at.tag_id
+           WHERE at.assignment_id = ? AND t.deleted_at IS NULL`,
+          [id]
+        );
+        assignment.tags = tags;
       })
     );
 

@@ -9,22 +9,47 @@
     <div class="header-row">
       <h1 class="header-title">대시 보드</h1>
 
-      <!-- 일괄 할당 버튼 (Consensus 선택 시 표시) -->
-      <button
-        v-if="selectedConsensusIds.length > 0"
-        class="bulk-assign-button"
-        @click="showBulkAssignModal = true"
-      >
-        <i class="fa-solid fa-users-gear"></i>
-        선택된 과제 할당자 변경 ({{ selectedConsensusIds.length }})
-      </button>
+      <!-- 일괄 작업 영역 (선택된 항목이 있을 때 표시) -->
+      <div v-if="selectedItems.length > 0" class="bulk-actions">
+        <span class="selection-count">{{ selectedItems.length }}개 선택됨</span>
+        <button class="bulk-action-btn" @click="selectAllPage" title="현재 페이지 전체 선택">
+          <i class="fa-solid fa-check-double"></i>
+          페이지 전체 선택 ({{ data.length }})
+        </button>
+        <button class="bulk-action-btn" @click="clearSelection" title="선택 해제">
+          <i class="fa-solid fa-xmark"></i>
+          선택 해제
+        </button>
+        <div class="bulk-action-dropdown">
+          <button class="bulk-action-btn bulk-action-main" @click="toggleBulkMenu">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+            일괄 작업
+            <i class="fa-solid fa-caret-down"></i>
+          </button>
+          <div v-if="showBulkMenu" class="bulk-menu">
+            <div class="bulk-menu-item" @click="openBulkTagModal">
+              <i class="fa-solid fa-tags"></i>
+              태그 추가
+            </div>
+            <div v-if="hasSelectedConsensus" class="bulk-menu-item" @click="showBulkAssignModal = true; showBulkMenu = false">
+              <i class="fa-solid fa-users-gear"></i>
+              할당자 변경 (Consensus)
+            </div>
+            <div class="bulk-menu-item bulk-menu-item--danger" @click="confirmBulkDelete">
+              <i class="fa-solid fa-trash"></i>
+              삭제
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 필터 그룹 -->
       <div class="filter-group">
-        <select v-model="selectedMode" class="mode-filter" @change="current = 1">
+        <select v-model="selectedMode" class="mode-filter">
           <option value="all">전체 모드</option>
           <option value="TextBox">TextBox</option>
           <option value="BBox">BBox</option>
+          <option value="Segment">Segment</option>
           <option value="Consensus">Consensus (합의)</option>
         </select>
 
@@ -129,13 +154,13 @@
       <!-- 테이블 헤더 -->
       <thead>
         <tr>
-          <!-- 체크박스 열 (Consensus 전용) -->
-          <th class="checkbox-col" v-if="showConsensusCheckbox">
+          <!-- 체크박스 열 -->
+          <th class="checkbox-col">
             <input
               type="checkbox"
-              :checked="isAllConsensusSelected"
-              @change="toggleAllConsensus"
-              title="전체 선택/해제"
+              :checked="isAllPageSelected"
+              @change="toggleAllPage"
+              title="현재 페이지 전체 선택/해제"
             />
           </th>
           <!-- 각 열의 제목 -->
@@ -166,17 +191,16 @@
           :class="{
             completed: item.answerRate === '100%',
             'consensus-row': item.isConsensus,
-            'selected-row': item.isConsensus && selectedConsensusIds.includes(item.consensusId),
+            'selected-row': isItemSelected(item),
           }"
           @click="goToDetail(item)"
         >
-          <!-- 체크박스 열 (Consensus 전용) -->
-          <td class="checkbox-col" v-if="showConsensusCheckbox">
+          <!-- 체크박스 열 -->
+          <td class="checkbox-col">
             <input
-              v-if="item.isConsensus"
               type="checkbox"
-              :checked="selectedConsensusIds.includes(item.consensusId)"
-              @click.stop="toggleConsensusSelection(item.consensusId)"
+              :checked="isItemSelected(item)"
+              @click.stop="toggleItemSelection(item)"
             />
           </td>
           <!-- 각 열의 데이터 -->
@@ -192,13 +216,58 @@
     </table>
   </div>
 
-  <!-- 일괄 할당 모달 -->
+  <!-- 일괄 할당 모달 (Consensus용) -->
   <BulkAssignModal
     v-if="showBulkAssignModal"
-    :assignment-ids="selectedConsensusIds"
+    :assignment-ids="selectedConsensusOnlyIds"
     @close="showBulkAssignModal = false"
     @assigned="onBulkAssigned"
   />
+
+  <!-- 일괄 태그 추가 모달 -->
+  <div v-if="showBulkTagModal" class="modal-overlay" @click.self="showBulkTagModal = false">
+    <div class="bulk-tag-modal">
+      <div class="modal-header">
+        <h3>태그 일괄 추가</h3>
+        <i class="fa-solid fa-xmark modal-close" @click="showBulkTagModal = false"></i>
+      </div>
+      <div class="modal-body">
+        <p class="modal-info">{{ selectedItems.length }}개 과제에 태그를 추가합니다.</p>
+        <div class="bulk-tag-input-wrapper">
+          <input
+            type="text"
+            v-model="bulkTagInput"
+            @input="searchBulkTags"
+            @keydown.enter.prevent="addBulkTagFromInput"
+            placeholder="추가할 태그 입력..."
+            class="bulk-tag-input"
+          />
+          <div v-if="bulkTagSuggestions.length > 0" class="bulk-tag-suggestions">
+            <div
+              v-for="tag in bulkTagSuggestions"
+              :key="tag.name"
+              class="bulk-tag-suggestion-item"
+              @click="addBulkTag(tag.name)"
+            >
+              #{{ tag.name }} <span class="tag-count">({{ tag.count }})</span>
+            </div>
+          </div>
+        </div>
+        <div class="selected-bulk-tags">
+          <span v-for="tag in bulkTagsToAdd" :key="tag" class="bulk-tag-badge">
+            #{{ tag }}
+            <i class="fa-solid fa-xmark" @click="removeBulkTag(tag)"></i>
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn--cancel" @click="showBulkTagModal = false">취소</button>
+        <button class="modal-btn modal-btn--confirm" @click="applyBulkTags" :disabled="bulkTagsToAdd.length === 0">
+          적용
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- 페이지네이션 -->
   <nav class="pagination-nav" aria-label="Pagination">
@@ -258,88 +327,75 @@ export default {
   data() {
     return {
       sortColumn: "id",
-      sortDirection: "up",
-      originalData: [],
-      data: [],
-      current: this.$store.getters.getDashboardCurrentPage || 1, // Vuex에서 현재 페이지 가져오기
-      total: 0,
-      lastPage: 0,
-      itemsPerPage: 50,
+      sortDirection: "down", // 기본 내림차순
+      data: [], // 현재 페이지 데이터
+      current: this.$store.getters.getDashboardCurrentPage || 1,
+      total: 0, // 서버에서 받은 총 개수
+      totalPages: 1, // 총 페이지 수
+      itemsPerPage: 15,
       searchQuery: this.$store.getters.getDashboardSearchHistory || "",
-      isFocused: false, // 추가
+      isFocused: false,
       isExporting: false,
+      isLoading: false, // 로딩 상태
       exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
       sliderValue: 1,
       score_value: 50,
-      selectedMode: "all", // all, TextBox, BBox, Consensus
+      selectedMode: "all", // all, TextBox, BBox, Consensus, Segment
       selectedTag: "all", // 태그 필터
       tagFilterInput: "", // 태그 필터 검색어
-      showTagSuggestions: false, // 태그 제안 드롭다운 표시 여부
-      // 모든 태그 목록 (사용 빈도순)
-      allTags: [],
-      // 일괄 할당 관련
-      selectedConsensusIds: [],
+      showTagSuggestions: false,
+      allTags: [], // 서버에서 받은 태그 목록
+      // 일괄 작업 관련
+      selectedItems: [],
+      showBulkMenu: false,
       showBulkAssignModal: false,
+      showBulkTagModal: false,
+      bulkTagInput: "",
+      bulkTagSuggestions: [],
+      bulkTagsToAdd: [],
     };
   },
 
   computed: {
-    // 체크박스 표시 여부 (Consensus 모드이거나 전체 모드일 때)
-    showConsensusCheckbox() {
-      return this.selectedMode === "all" || this.selectedMode === "Consensus";
+    // 현재 페이지의 모든 과제가 선택되었는지
+    isAllPageSelected() {
+      if (this.data.length === 0) return false;
+      return this.data.every((item) => this.isItemSelected(item));
     },
-    // 현재 페이지의 모든 Consensus 과제가 선택되었는지
-    isAllConsensusSelected() {
-      const consensusItems = this.paginatedData.filter((item) => item.isConsensus);
-      if (consensusItems.length === 0) return false;
-      return consensusItems.every((item) =>
-        this.selectedConsensusIds.includes(item.consensusId)
-      );
+    // 선택된 항목 중 Consensus가 있는지
+    hasSelectedConsensus() {
+      return this.selectedItems.some((item) => item.isConsensus);
+    },
+    // 선택된 Consensus 과제의 ID만 추출
+    selectedConsensusOnlyIds() {
+      return this.selectedItems
+        .filter((item) => item.isConsensus)
+        .map((item) => item.consensusId);
     },
     // 태그 필터 자동완성 제안
     filteredTagSuggestions() {
       if (!this.tagFilterInput) {
-        return this.allTags.slice(0, 10); // 입력 없으면 상위 10개
+        return this.allTags.slice(0, 10);
       }
       const query = this.tagFilterInput.toLowerCase().replace(/^#/, "");
       return this.allTags
         .filter((tag) => tag.name.toLowerCase().includes(query))
         .slice(0, 10);
     },
-    // 모드, 태그 필터가 적용된 데이터
-    filteredData() {
-      let result = this.data;
-
-      // 모드 필터
-      if (this.selectedMode !== "all") {
-        result = result.filter((item) => item.mode === this.selectedMode);
-      }
-
-      // 태그 필터
-      if (this.selectedTag !== "all") {
-        result = result.filter((item) => {
-          if (!item.tags || item.tags.length === 0) return false;
-          return item.tags.some((t) => t.name === this.selectedTag);
-        });
-      }
-
-      return result;
-    },
+    // 서버 페이지네이션 - 현재 페이지 데이터 그대로 사용
     paginatedData() {
-      const start = (this.current - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.filteredData.slice(start, end);
+      return this.data;
     },
-    filteredTotal() {
-      return this.filteredData.length;
+    // 서버에서 받은 데이터를 필터된 데이터로 사용 (일괄 선택용)
+    filteredData() {
+      return this.data;
     },
     filteredLastPage() {
-      return Math.ceil(this.filteredTotal / this.itemsPerPage) || 1;
+      return this.totalPages || 1;
     },
     visiblePages() {
-      const totalPages = Math.ceil(this.filteredTotal / this.itemsPerPage);
-      const startPage = Math.max(1, Math.min(this.current - 2, totalPages - 4));
-      const endPage = Math.min(totalPages, startPage + 4);
+      const startPage = Math.max(1, Math.min(this.current - 2, this.totalPages - 4));
+      const endPage = Math.min(this.totalPages, startPage + 4);
       const pages = [];
       for (let i = startPage; i <= endPage; i++) {
         pages.push(i);
@@ -395,82 +451,133 @@ export default {
     current(newPage) {
       this.updateDashboardCurrentPage(newPage);
     },
+
+    // 모드 필터 변경 시 데이터 다시 로드
+    selectedMode() {
+      this.current = 1;
+      this.loadPaginatedData();
+    },
+
+    // 태그 필터 변경 시 데이터 다시 로드
+    selectedTag() {
+      this.current = 1;
+      this.loadPaginatedData();
+    },
   },
 
   async mounted() {
-    const headers = {
-      Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-    };
-
-    try {
-      // 일반 대시보드와 합의 과제를 병렬로 가져오기
-      const [dashboardRes, consensusRes] = await Promise.all([
-        this.$axios.get("/api/dashboard", { headers }),
-        this.$axios.get("/api/consensus", { headers }),
-      ]);
-
-      // 일반 대시보드 데이터에 mode 필드 추가
-      const regularData = dashboardRes.data.map((item) => ({
-        ...item,
-        mode: item.assignmentMode || "BBox",
-        tags: item.tags || [],
-        isConsensus: false,
-      }));
-
-      // 합의 과제 대시보드 형식으로 변환
-      const consensusData = consensusRes.data.map((c) => ({
-        id: `C${c.id}`,
-        consensusId: c.id,
-        title: c.title,
-        mode: "Consensus",
-        createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
-        endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
-        evaluatorCount: c.evaluator_count || 0,
-        answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
-        unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
-        tags: c.tags || [],
-        isConsensus: true,
-      }));
-
-      // 두 목록 합치기
-      this.originalData = [...regularData, ...consensusData];
-
-      // 모든 태그 수집 (사용 횟수 포함)
-      const tagCount = {};
-      this.originalData.forEach((item) => {
-        if (item.tags) {
-          item.tags.forEach((tag) => {
-            tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
-          });
-        }
-      });
-      this.allTags = Object.entries(tagCount)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
-      this.data = [...this.originalData];
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.sortBy(this.sortColumn); // 초기 정렬 적용
-
-      // 만약 store에 검색 기록이 있다면 해당 검색을 수행
-      if (this.searchQuery) {
-        this.assignDashboardSearchFromStore();
-      }
-
-      // 만약 store에 현재 페이지가 있다면 해당 페이지로 이동
-      if (this.$store.getters.getDashboardCurrentPage) {
-        // 페이지 번호가 총 페이지 수를 초과하지 않도록 조정
-        this.current = Math.min(
-          this.$store.getters.getDashboardCurrentPage,
-          this.lastPage
-        );
-      }
-    } catch (error) {
-      console.error("대시보드 데이터 로딩 오류:", error);
-    }
+    // 초기 데이터 로드
+    await this.loadPaginatedData();
   },
 
   methods: {
+    // 서버 페이지네이션 데이터 로드
+    async loadPaginatedData() {
+      this.isLoading = true;
+      const headers = {
+        Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+      };
+
+      try {
+        // Consensus 모드일 경우 별도 처리
+        if (this.selectedMode === "Consensus") {
+          const consensusRes = await this.$axios.get("/api/consensus", { headers });
+          let consensusData = consensusRes.data.map((c) => ({
+            id: `C${c.id}`,
+            consensusId: c.id,
+            title: c.title,
+            mode: "Consensus",
+            createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
+            endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
+            evaluatorCount: c.evaluator_count || 0,
+            answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
+            unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
+            tags: c.tags || [],
+            isConsensus: true,
+          }));
+
+          // 검색어 필터 (클라이언트)
+          if (this.searchQuery) {
+            consensusData = consensusData.filter((item) =>
+              item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+            );
+          }
+
+          // 태그 필터 (클라이언트)
+          if (this.selectedTag !== "all") {
+            consensusData = consensusData.filter((item) => {
+              if (!item.tags || item.tags.length === 0) return false;
+              return item.tags.some((t) => t.name === this.selectedTag);
+            });
+          }
+
+          // 정렬 (클라이언트)
+          consensusData.sort((a, b) => {
+            let aValue = a[this.sortColumn];
+            let bValue = b[this.sortColumn];
+            if (typeof aValue === "string" && aValue.includes("%")) {
+              aValue = parseFloat(aValue.replace("%", ""));
+            }
+            if (typeof bValue === "string" && bValue.includes("%")) {
+              bValue = parseFloat(bValue.replace("%", ""));
+            }
+            let comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            return this.sortDirection === "up" ? comparison : -comparison;
+          });
+
+          // 페이지네이션 (클라이언트)
+          this.total = consensusData.length;
+          this.totalPages = Math.ceil(this.total / this.itemsPerPage) || 1;
+          const start = (this.current - 1) * this.itemsPerPage;
+          const end = start + this.itemsPerPage;
+          this.data = consensusData.slice(start, end);
+
+          // 태그 목록 수집
+          const tagCount = {};
+          consensusRes.data.forEach((c) => {
+            if (c.tags) {
+              c.tags.forEach((tag) => {
+                tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
+              });
+            }
+          });
+          this.allTags = Object.entries(tagCount)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+        } else {
+          // 일반 대시보드 서버 페이지네이션
+          const params = {
+            page: this.current,
+            limit: this.itemsPerPage,
+            search: this.searchQuery || "",
+            mode: this.selectedMode,
+            tag: this.selectedTag,
+            sortBy: this.sortColumn,
+            sortDir: this.sortDirection,
+          };
+
+          const response = await this.$axios.get("/api/dashboard/paginated", { headers, params });
+          const { data, pagination, allTags } = response.data;
+
+          // 데이터 변환
+          this.data = data.map((item) => ({
+            ...item,
+            mode: item.assignmentMode || "BBox",
+            tags: item.tags || [],
+            isConsensus: false,
+          }));
+
+          this.total = pagination.total;
+          this.totalPages = pagination.totalPages;
+          this.allTags = allTags || [];
+        }
+      } catch (error) {
+        console.error("대시보드 데이터 로딩 오류:", error);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
     // 다른 페이지로 리다이렉트
     goToDetail(item) {
       if (item.isConsensus) {
@@ -481,10 +588,10 @@ export default {
     },
 
     // 페이지 변경
-    changePage(pageNumber) {
-      const totalPages = this.filteredLastPage;
-      if (pageNumber >= 1 && pageNumber <= totalPages) {
+    async changePage(pageNumber) {
+      if (pageNumber >= 1 && pageNumber <= this.totalPages && pageNumber !== this.current) {
         this.current = pageNumber;
+        await this.loadPaginatedData();
       }
     },
 
@@ -495,63 +602,33 @@ export default {
       return Math.round(value) + "%";
     },
 
-    sortBy(columnKey) {
+    async sortBy(columnKey) {
       if (this.sortColumn === columnKey) {
         this.sortDirection = this.sortDirection === "up" ? "down" : "up";
       } else {
         this.sortColumn = columnKey;
-        this.sortDirection = "up";
+        this.sortDirection = "down"; // 새 컬럼은 내림차순 시작
       }
 
-      this.data.sort((a, b) => {
-        let aValue = a[columnKey];
-        let bValue = b[columnKey];
-
-        if (typeof aValue === "string" && aValue.includes("%")) {
-          aValue = parseFloat(aValue.replace("%", ""));
-        }
-        if (typeof bValue === "string" && bValue.includes("%")) {
-          bValue = parseFloat(bValue.replace("%", ""));
-        }
-
-        let comparison = 0;
-        if (aValue > bValue) {
-          comparison = 1;
-        } else if (aValue < bValue) {
-          comparison = -1;
-        }
-
-        return this.sortDirection === "up" ? comparison : -comparison;
-      });
-
-      this.current = 1; // 정렬 후 첫 페이지로 이동
+      this.current = 1;
+      await this.loadPaginatedData();
     },
 
     changeSliderValue(event) {
       this.sliderValue = event.target.value;
     },
 
-    searchDashboard() {
-      if (this.searchQuery === "") {
-        this.resetSearch();
-        return;
-      }
-      this.data = this.originalData.filter((item) =>
-        item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
-      );
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.current = 1; // 검색 후 첫 페이지로 이동
+    async searchDashboard() {
+      this.current = 1;
       this.$store.commit("setDashboardSearchHistory", this.searchQuery);
+      await this.loadPaginatedData();
     },
 
-    resetSearch() {
+    async resetSearch() {
       this.searchQuery = "";
-      this.data = this.originalData;
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.current = 1; // 리셋 후 첫 페이지로 이동
+      this.current = 1;
       this.$store.commit("setDashboardSearchHistory", "");
+      await this.loadPaginatedData();
     },
 
     downloadSearchedItems() {
@@ -632,21 +709,6 @@ export default {
         });
     },
 
-    setSearchQuery() {
-      this.searchQuery = this.$store.getters.getDashboardSearchHistory
-        ? this.$store.getters.getDashboardSearchHistory
-        : "";
-    },
-
-    assignDashboardSearchFromStore() {
-      this.data = this.originalData.filter((item) =>
-        item.title.toLowerCase().includes(this.searchQuery.toLowerCase())
-      );
-      this.total = this.data.length;
-      this.lastPage = Math.ceil(this.total / this.itemsPerPage);
-      this.current = 1;
-    },
-
     // Update search history in Vuex store
     updateDashboardSearchHistory(history) {
       this.$store.commit("setDashboardSearchHistory", history);
@@ -714,45 +776,227 @@ export default {
       }
     },
 
-    // Consensus 과제 선택 토글
-    toggleConsensusSelection(consensusId) {
-      const index = this.selectedConsensusIds.indexOf(consensusId);
+    // 아이템이 선택되었는지 확인
+    isItemSelected(item) {
+      return this.selectedItems.some(
+        (selected) => selected.id === item.id && selected.isConsensus === item.isConsensus
+      );
+    },
+
+    // 개별 아이템 선택 토글
+    toggleItemSelection(item) {
+      const index = this.selectedItems.findIndex(
+        (selected) => selected.id === item.id && selected.isConsensus === item.isConsensus
+      );
       if (index > -1) {
-        this.selectedConsensusIds.splice(index, 1);
+        this.selectedItems.splice(index, 1);
       } else {
-        this.selectedConsensusIds.push(consensusId);
+        this.selectedItems.push({
+          id: item.id,
+          isConsensus: item.isConsensus,
+          consensusId: item.consensusId,
+        });
       }
     },
 
-    // 현재 페이지의 모든 Consensus 과제 선택/해제
-    toggleAllConsensus() {
-      const consensusItems = this.paginatedData.filter((item) => item.isConsensus);
-      const allSelected = this.isAllConsensusSelected;
-
+    // 현재 페이지 전체 선택/해제
+    toggleAllPage() {
+      const allSelected = this.isAllPageSelected;
       if (allSelected) {
-        // 모두 해제
-        consensusItems.forEach((item) => {
-          const index = this.selectedConsensusIds.indexOf(item.consensusId);
+        // 현재 페이지 아이템들 해제
+        this.data.forEach((item) => {
+          const index = this.selectedItems.findIndex(
+            (selected) => selected.id === item.id && selected.isConsensus === item.isConsensus
+          );
           if (index > -1) {
-            this.selectedConsensusIds.splice(index, 1);
+            this.selectedItems.splice(index, 1);
           }
         });
       } else {
-        // 모두 선택
-        consensusItems.forEach((item) => {
-          if (!this.selectedConsensusIds.includes(item.consensusId)) {
-            this.selectedConsensusIds.push(item.consensusId);
+        // 현재 페이지 아이템들 선택
+        this.data.forEach((item) => {
+          if (!this.isItemSelected(item)) {
+            this.selectedItems.push({
+              id: item.id,
+              isConsensus: item.isConsensus,
+              consensusId: item.consensusId,
+            });
           }
         });
       }
+    },
+
+    // 현재 페이지 전체 선택
+    selectAllPage() {
+      this.data.forEach((item) => {
+        if (!this.isItemSelected(item)) {
+          this.selectedItems.push({
+            id: item.id,
+            isConsensus: item.isConsensus,
+            consensusId: item.consensusId,
+          });
+        }
+      });
+    },
+
+    // 선택 해제
+    clearSelection() {
+      this.selectedItems = [];
+    },
+
+    // 일괄 작업 메뉴 토글
+    toggleBulkMenu() {
+      this.showBulkMenu = !this.showBulkMenu;
     },
 
     // 일괄 할당 완료 후 처리
     onBulkAssigned() {
       this.showBulkAssignModal = false;
-      this.selectedConsensusIds = [];
+      this.selectedItems = [];
+      this.showBulkMenu = false;
       // 데이터 새로고침
       this.$router.go(0);
+    },
+
+    // 일괄 태그 추가 모달 열기
+    openBulkTagModal() {
+      this.showBulkTagModal = true;
+      this.showBulkMenu = false;
+      this.bulkTagInput = "";
+      this.bulkTagSuggestions = [];
+      this.bulkTagsToAdd = [];
+    },
+
+    // 일괄 태그 검색
+    searchBulkTags() {
+      if (!this.bulkTagInput) {
+        this.bulkTagSuggestions = this.allTags.slice(0, 10);
+        return;
+      }
+      const query = this.bulkTagInput.toLowerCase().replace(/^#/, "");
+      this.bulkTagSuggestions = this.allTags
+        .filter((tag) => tag.name.toLowerCase().includes(query))
+        .slice(0, 10);
+    },
+
+    // 일괄 태그 추가
+    addBulkTag(tagName) {
+      const normalizedTag = tagName.toLowerCase().replace(/^#/, "").trim();
+      if (normalizedTag && !this.bulkTagsToAdd.includes(normalizedTag)) {
+        this.bulkTagsToAdd.push(normalizedTag);
+      }
+      this.bulkTagInput = "";
+      this.bulkTagSuggestions = [];
+    },
+
+    // 입력에서 태그 추가
+    addBulkTagFromInput() {
+      if (this.bulkTagInput.trim()) {
+        this.addBulkTag(this.bulkTagInput);
+      }
+    },
+
+    // 일괄 태그 제거
+    removeBulkTag(tagName) {
+      const index = this.bulkTagsToAdd.indexOf(tagName);
+      if (index > -1) {
+        this.bulkTagsToAdd.splice(index, 1);
+      }
+    },
+
+    // 일괄 태그 적용
+    async applyBulkTags() {
+      if (this.bulkTagsToAdd.length === 0) return;
+
+      try {
+        this.isExporting = true;
+        this.exportingMessage = "태그를 추가하는 중입니다...";
+
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+
+        // 일반 과제와 Consensus 과제 분리
+        const regularAssignments = this.selectedItems.filter((item) => !item.isConsensus);
+        const consensusAssignments = this.selectedItems.filter((item) => item.isConsensus);
+
+        // 일반 과제에 태그 추가
+        for (const item of regularAssignments) {
+          await this.$axios.post(
+            `/api/tags/assignment/${item.id}/add`,
+            { tags: this.bulkTagsToAdd },
+            { headers }
+          );
+        }
+
+        // Consensus 과제에 태그 추가
+        for (const item of consensusAssignments) {
+          await this.$axios.post(
+            `/api/tags/consensus/${item.consensusId}/add`,
+            { tags: this.bulkTagsToAdd },
+            { headers }
+          );
+        }
+
+        alert(`${this.selectedItems.length}개 과제에 태그가 추가되었습니다.`);
+        this.showBulkTagModal = false;
+        this.selectedItems = [];
+        this.$router.go(0);
+      } catch (error) {
+        console.error("태그 추가 오류:", error);
+        alert("태그 추가 중 오류가 발생했습니다.");
+      } finally {
+        this.isExporting = false;
+        this.exportingMessage = "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
+      }
+    },
+
+    // 일괄 삭제 확인
+    async confirmBulkDelete() {
+      this.showBulkMenu = false;
+
+      const regularCount = this.selectedItems.filter((item) => !item.isConsensus).length;
+      const consensusCount = this.selectedItems.filter((item) => item.isConsensus).length;
+
+      let message = `정말 ${this.selectedItems.length}개 과제를 삭제하시겠습니까?\n`;
+      if (regularCount > 0) message += `- 일반 과제: ${regularCount}개\n`;
+      if (consensusCount > 0) message += `- Consensus 과제: ${consensusCount}개\n`;
+      message += "\n이 작업은 되돌릴 수 없습니다.";
+
+      if (!confirm(message)) return;
+
+      try {
+        this.isExporting = true;
+        this.exportingMessage = "과제를 삭제하는 중입니다...";
+
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+
+        // 일반 과제와 Consensus 과제 분리
+        const regularAssignments = this.selectedItems.filter((item) => !item.isConsensus);
+        const consensusAssignments = this.selectedItems.filter((item) => item.isConsensus);
+
+        // 일반 과제 삭제
+        for (const item of regularAssignments) {
+          await this.$axios.delete(`/api/assignments/${item.id}`, { headers });
+        }
+
+        // Consensus 과제 삭제
+        for (const item of consensusAssignments) {
+          await this.$axios.delete(`/api/consensus/${item.consensusId}`, { headers });
+        }
+
+        alert(`${this.selectedItems.length}개 과제가 삭제되었습니다.`);
+        this.selectedItems = [];
+        this.$router.go(0);
+      } catch (error) {
+        console.error("삭제 오류:", error);
+        alert("삭제 중 오류가 발생했습니다.");
+      } finally {
+        this.isExporting = false;
+        this.exportingMessage = "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
+      }
     },
 
     // 태그 필터 입력 처리
@@ -765,14 +1009,14 @@ export default {
       this.selectedTag = tagName;
       this.tagFilterInput = "";
       this.showTagSuggestions = false;
-      this.current = 1;
+      // current = 1과 loadPaginatedData는 watch에서 처리됨
     },
 
     // 태그 필터 초기화
     clearTagFilter() {
       this.selectedTag = "all";
       this.tagFilterInput = "";
-      this.current = 1;
+      // current = 1과 loadPaginatedData는 watch에서 처리됨
     },
 
     // 태그 제안 드롭다운 숨기기 (딜레이 적용)
@@ -1252,5 +1496,261 @@ td.assignment-mode {
 
 .bulk-assign-button i {
   font-size: 14px;
+}
+
+/* 일괄 작업 영역 */
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: #e3f2fd;
+  border-radius: 6px;
+}
+
+.selection-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+.bulk-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bulk-action-btn:hover {
+  background-color: #f5f5f5;
+}
+
+.bulk-action-btn.bulk-action-main {
+  background-color: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+
+.bulk-action-btn.bulk-action-main:hover {
+  background-color: var(--blue-hover);
+}
+
+.bulk-action-dropdown {
+  position: relative;
+}
+
+.bulk-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid var(--light-gray);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+  min-width: 160px;
+  margin-top: 4px;
+}
+
+.bulk-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.bulk-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.bulk-menu-item:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.bulk-menu-item:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
+.bulk-menu-item--danger {
+  color: #dc3545;
+}
+
+.bulk-menu-item--danger:hover {
+  background-color: #fff5f5;
+}
+
+/* 일괄 태그 모달 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.bulk-tag-modal {
+  background: white;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.modal-close {
+  cursor: pointer;
+  color: #999;
+  font-size: 16px;
+}
+
+.modal-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-info {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #666;
+}
+
+.bulk-tag-input-wrapper {
+  position: relative;
+}
+
+.bulk-tag-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.bulk-tag-input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.bulk-tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.bulk-tag-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.bulk-tag-suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.selected-bulk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  min-height: 30px;
+}
+
+.bulk-tag-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background-color: var(--blue);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.bulk-tag-badge i {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.bulk-tag-badge i:hover {
+  opacity: 1;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--light-gray);
+}
+
+.modal-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.modal-btn--cancel {
+  background-color: white;
+  border-color: var(--light-gray);
+}
+
+.modal-btn--cancel:hover {
+  background-color: #f5f5f5;
+}
+
+.modal-btn--confirm {
+  background-color: var(--blue);
+  color: white;
+}
+
+.modal-btn--confirm:hover:not(:disabled) {
+  background-color: var(--blue-hover);
+}
+
+.modal-btn--confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
