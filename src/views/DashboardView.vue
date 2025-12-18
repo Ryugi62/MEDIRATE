@@ -1533,13 +1533,13 @@ td.assignment-mode {
 }
 
 .bulk-action-btn.bulk-action-main {
-  background-color: var(--blue);
+  background-color: #333;
   color: white;
-  border-color: var(--blue);
+  border-color: #333;
 }
 
 .bulk-action-btn.bulk-action-main:hover {
-  background-color: var(--blue-hover);
+  background-color: #555;
 }
 
 .bulk-action-dropdown {
@@ -1741,12 +1741,12 @@ td.assignment-mode {
 }
 
 .modal-btn--confirm {
-  background-color: var(--blue);
+  background-color: #333;
   color: white;
 }
 
 .modal-btn--confirm:hover:not(:disabled) {
-  background-color: var(--blue-hover);
+  background-color: #555;
 }
 
 .modal-btn--confirm:disabled {

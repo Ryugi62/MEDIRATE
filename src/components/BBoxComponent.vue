@@ -892,12 +892,7 @@ export default {
 canvas {
   border: 1px solid #ccc;
   min-height: 550px;
-  transition: border 0.3s;
   background-color: #fff;
-}
-
-canvas:hover {
-  border: 1px solid var(--primary-color, #007bff);
 }
 
 .bbox-component__footer {
