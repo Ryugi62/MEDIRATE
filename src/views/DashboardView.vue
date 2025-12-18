@@ -9,8 +9,25 @@
     <div class="header-row">
       <h1 class="header-title">대시 보드</h1>
 
+      <!-- 일괄 할당 버튼 (Consensus 선택 시 표시) -->
+      <button
+        v-if="selectedConsensusIds.length > 0"
+        class="bulk-assign-button"
+        @click="showBulkAssignModal = true"
+      >
+        <i class="fa-solid fa-users-gear"></i>
+        선택된 과제 할당자 변경 ({{ selectedConsensusIds.length }})
+      </button>
+
       <!-- 필터 그룹 -->
       <div class="filter-group">
+        <select v-model="selectedProject" class="project-filter" @change="current = 1">
+          <option value="all">전체 프로젝트</option>
+          <option v-for="project in projects" :key="project.key" :value="project.key">
+            {{ project.label }}
+          </option>
+        </select>
+
         <select v-model="selectedMode" class="mode-filter" @change="current = 1">
           <option value="all">전체 모드</option>
           <option value="TextBox">TextBox</option>
@@ -96,6 +113,15 @@
       <!-- 테이블 헤더 -->
       <thead>
         <tr>
+          <!-- 체크박스 열 (Consensus 전용) -->
+          <th class="checkbox-col" v-if="showConsensusCheckbox">
+            <input
+              type="checkbox"
+              :checked="isAllConsensusSelected"
+              @change="toggleAllConsensus"
+              title="전체 선택/해제"
+            />
+          </th>
           <!-- 각 열의 제목 -->
           <th
             v-for="column in columns"
@@ -124,9 +150,19 @@
           :class="{
             completed: item.answerRate === '100%',
             'consensus-row': item.isConsensus,
+            'selected-row': item.isConsensus && selectedConsensusIds.includes(item.consensusId),
           }"
           @click="goToDetail(item)"
         >
+          <!-- 체크박스 열 (Consensus 전용) -->
+          <td class="checkbox-col" v-if="showConsensusCheckbox">
+            <input
+              v-if="item.isConsensus"
+              type="checkbox"
+              :checked="selectedConsensusIds.includes(item.consensusId)"
+              @click.stop="toggleConsensusSelection(item.consensusId)"
+            />
+          </td>
           <!-- 각 열의 데이터 -->
           <td v-for="column in columns" :key="column.key" :class="column.class">
             {{
@@ -139,6 +175,14 @@
       </tbody>
     </table>
   </div>
+
+  <!-- 일괄 할당 모달 -->
+  <BulkAssignModal
+    v-if="showBulkAssignModal"
+    :assignment-ids="selectedConsensusIds"
+    @close="showBulkAssignModal = false"
+    @assigned="onBulkAssigned"
+  />
 
   <!-- 페이지네이션 -->
   <nav class="pagination-nav" aria-label="Pagination">
@@ -186,8 +230,14 @@
 </template>
 
 <script>
+import BulkAssignModal from "@/components/BulkAssignModal.vue";
+
 export default {
   name: "DashboardView",
+
+  components: {
+    BulkAssignModal,
+  },
 
   data() {
     return {
@@ -207,41 +257,52 @@ export default {
       score_value: 50,
       selectedMode: "all", // all, TextBox, BBox, Consensus
       selectedCancerType: "all", // 암종 필터
-      // 암종 매핑 (약자 → 한글명)
-      cancerTypeMap: {
-        'blad': '방광암',
-        'brst': '유방암',
-        'breast': '유방암',
-        'gist': 'GIST',
-        'lms': '평활근육종',
-        'u-lms': '자궁평활근육종',
-        'net': '신경내분비종양',
-        'sarc': '육종',
-        'stump': '미분화육종',
-        'u_stmp': '자궁미분화육종',
-        'usmt': '연조직악성종양',
-      },
+      selectedProject: "all", // 프로젝트 필터
+      // DB에서 가져온 암종 목록
+      cancerTypeList: [],
+      // DB에서 가져온 프로젝트 목록
+      projectList: [],
+      // 일괄 할당 관련
+      selectedConsensusIds: [],
+      showBulkAssignModal: false,
     };
   },
 
   computed: {
-    // 데이터에서 사용 가능한 암종 목록 추출
-    cancerTypes() {
-      const types = new Set();
-      this.originalData.forEach((item) => {
-        const cancerType = this.extractCancerType(item.title);
-        if (cancerType) types.add(cancerType);
-      });
-      return Array.from(types)
-        .sort()
-        .map((key) => ({
-          key,
-          label: this.cancerTypeMap[key] || key.toUpperCase(),
-        }));
+    // 체크박스 표시 여부 (Consensus 모드이거나 전체 모드일 때)
+    showConsensusCheckbox() {
+      return this.selectedMode === "all" || this.selectedMode === "Consensus";
     },
-    // 모드 및 암종 필터가 적용된 데이터
+    // 현재 페이지의 모든 Consensus 과제가 선택되었는지
+    isAllConsensusSelected() {
+      const consensusItems = this.paginatedData.filter((item) => item.isConsensus);
+      if (consensusItems.length === 0) return false;
+      return consensusItems.every((item) =>
+        this.selectedConsensusIds.includes(item.consensusId)
+      );
+    },
+    // DB에서 가져온 암종 목록 (code 기준으로 정렬)
+    cancerTypes() {
+      return this.cancerTypeList.map((ct) => ({
+        key: ct.code,
+        label: ct.name_ko || ct.code.toUpperCase(),
+      }));
+    },
+    // DB에서 가져온 프로젝트 목록
+    projects() {
+      return this.projectList.map((p) => ({
+        key: p.id,
+        label: p.name,
+      }));
+    },
+    // 모드, 프로젝트, 암종 필터가 적용된 데이터
     filteredData() {
       let result = this.data;
+
+      // 프로젝트 필터
+      if (this.selectedProject !== "all") {
+        result = result.filter((item) => item.projectId === this.selectedProject);
+      }
 
       // 모드 필터
       if (this.selectedMode !== "all") {
@@ -251,6 +312,10 @@ export default {
       // 암종 필터
       if (this.selectedCancerType !== "all") {
         result = result.filter((item) => {
+          // DB의 cancer_type_id가 있으면 사용, 없으면 제목에서 추출
+          if (item.cancerTypeCode) {
+            return item.cancerTypeCode === this.selectedCancerType;
+          }
           const cancerType = this.extractCancerType(item.title);
           return cancerType === this.selectedCancerType;
         });
@@ -336,11 +401,17 @@ export default {
     };
 
     try {
-      // 일반 대시보드와 합의 과제를 병렬로 가져오기
-      const [dashboardRes, consensusRes] = await Promise.all([
+      // 일반 대시보드, 합의 과제, 암종 목록, 프로젝트 목록을 병렬로 가져오기
+      const [dashboardRes, consensusRes, cancerTypesRes, projectsRes] = await Promise.all([
         this.$axios.get("/api/dashboard", { headers }),
         this.$axios.get("/api/consensus", { headers }),
+        this.$axios.get("/api/projects/cancer-types", { headers }),
+        this.$axios.get("/api/projects", { headers }),
       ]);
+
+      // 암종 및 프로젝트 목록 저장
+      this.cancerTypeList = cancerTypesRes.data || [];
+      this.projectList = projectsRes.data || [];
 
       // 일반 대시보드 데이터에 mode 필드 추가
       const regularData = dashboardRes.data.map((item) => ({
@@ -360,6 +431,8 @@ export default {
         evaluatorCount: c.evaluator_count || 0,
         answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
         unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
+        projectId: c.project_id,
+        cancerTypeCode: c.cancer_type_code,
         isConsensus: true,
       }));
 
@@ -639,6 +712,47 @@ export default {
           "잠시만 기다려주세요. 데이터를 다운로드 중입니다.";
       }
     },
+
+    // Consensus 과제 선택 토글
+    toggleConsensusSelection(consensusId) {
+      const index = this.selectedConsensusIds.indexOf(consensusId);
+      if (index > -1) {
+        this.selectedConsensusIds.splice(index, 1);
+      } else {
+        this.selectedConsensusIds.push(consensusId);
+      }
+    },
+
+    // 현재 페이지의 모든 Consensus 과제 선택/해제
+    toggleAllConsensus() {
+      const consensusItems = this.paginatedData.filter((item) => item.isConsensus);
+      const allSelected = this.isAllConsensusSelected;
+
+      if (allSelected) {
+        // 모두 해제
+        consensusItems.forEach((item) => {
+          const index = this.selectedConsensusIds.indexOf(item.consensusId);
+          if (index > -1) {
+            this.selectedConsensusIds.splice(index, 1);
+          }
+        });
+      } else {
+        // 모두 선택
+        consensusItems.forEach((item) => {
+          if (!this.selectedConsensusIds.includes(item.consensusId)) {
+            this.selectedConsensusIds.push(item.consensusId);
+          }
+        });
+      }
+    },
+
+    // 일괄 할당 완료 후 처리
+    onBulkAssigned() {
+      this.showBulkAssignModal = false;
+      this.selectedConsensusIds = [];
+      // 데이터 새로고침
+      this.$router.go(0);
+    },
   },
 };
 </script>
@@ -674,6 +788,7 @@ export default {
   gap: 8px;
 }
 
+.project-filter,
 .mode-filter,
 .cancer-filter {
   padding: 6px 10px;
@@ -685,6 +800,7 @@ export default {
   min-width: 100px;
 }
 
+.project-filter:focus,
 .mode-filter:focus,
 .cancer-filter:focus {
   outline: none;
@@ -1008,10 +1124,59 @@ td.assignment-mode {
 
 /* 합의 과제 행 스타일 */
 .consensus-row {
-  background-color: #fff8e1;
+  background-color: transparent;
 }
 
 .consensus-row:hover {
-  background-color: #ffecb3 !important;
+  background-color: #f5f5f5 !important;
+}
+
+/* 체크박스 열 스타일 */
+.checkbox-col {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox-col input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+/* 선택된 행 스타일 */
+.selected-row {
+  background-color: #e3f2fd !important;
+}
+
+.selected-row:hover {
+  background-color: #bbdefb !important;
+}
+
+/* 일괄 할당 버튼 */
+.bulk-assign-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background-color: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bulk-assign-button:hover {
+  background-color: var(--blue-hover);
+}
+
+.bulk-assign-button:active {
+  background-color: var(--blue-active);
+}
+
+.bulk-assign-button i {
+  font-size: 14px;
 }
 </style>

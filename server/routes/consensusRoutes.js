@@ -29,6 +29,8 @@ router.get("/", authenticateToken, async (req, res) => {
         ca.score_threshold,
         ca.assignment_type,
         ca.creation_date,
+        ca.project_id,
+        ct.code AS cancer_type_code,
         (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
         (SELECT COUNT(DISTINCT cr.fp_square_id)
          FROM consensus_responses cr
@@ -40,6 +42,7 @@ router.get("/", authenticateToken, async (req, res) => {
       FROM consensus_assignments ca
       JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
       LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
+      LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
       WHERE cua.user_id = ? AND ca.deleted_at IS NULL
       ORDER BY ca.creation_date DESC
     `;
@@ -76,16 +79,29 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
 
     const assignment = assignmentResult[0];
 
-    // 2. FP 사각형 조회 (이미지별로 그룹화)
-    const [fpSquares] = await db.query(
-      `SELECT id, question_image, x, y, ai_score
-       FROM consensus_fp_squares
-       WHERE consensus_assignment_id = ? AND deleted_at IS NULL
-       ORDER BY question_image, id`,
+    // 2. 할당된 평가자 목록 조회
+    const [evaluators] = await db.query(
+      `SELECT u.id, u.username, u.realname, u.organization
+       FROM consensus_user_assignments cua
+       JOIN users u ON cua.user_id = u.id AND u.deleted_at IS NULL
+       WHERE cua.consensus_assignment_id = ? AND cua.deleted_at IS NULL`,
       [consensusId]
     );
 
-    // 3. 사용자의 응답 조회
+    // 3. FP 사각형 조회 (이미지별로 그룹화) + 동의 수 집계
+    const [fpSquares] = await db.query(
+      `SELECT cfp.id, cfp.question_image, cfp.x, cfp.y, cfp.ai_score,
+              (SELECT COUNT(*) FROM consensus_responses cr
+               WHERE cr.fp_square_id = cfp.id AND cr.response = 'agree' AND cr.deleted_at IS NULL) as agree_count,
+              (SELECT COUNT(*) FROM consensus_responses cr
+               WHERE cr.fp_square_id = cfp.id AND cr.response = 'disagree' AND cr.deleted_at IS NULL) as disagree_count
+       FROM consensus_fp_squares cfp
+       WHERE cfp.consensus_assignment_id = ? AND cfp.deleted_at IS NULL
+       ORDER BY cfp.question_image, cfp.id`,
+      [consensusId]
+    );
+
+    // 4. 사용자의 응답 조회
     const [responses] = await db.query(
       `SELECT cr.fp_square_id, cr.response
        FROM consensus_responses cr
@@ -100,7 +116,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       responseMap[r.fp_square_id] = r.response;
     });
 
-    // 4. 캔버스 정보 조회
+    // 5. 캔버스 정보 조회
     const [canvasResult] = await db.query(
       `SELECT id, width, height, last_question_image, evaluation_time, start_time, end_time
        FROM consensus_canvas_info
@@ -117,7 +133,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       end_time: null,
     };
 
-    // 5. 이미지 목록 생성 (중복 제거)
+    // 6. 이미지 목록 생성 (중복 제거)
     const imageSet = new Set(fpSquares.map((fp) => fp.question_image));
     const images = Array.from(imageSet).map((img) => {
       const imageFpSquares = fpSquares.filter((fp) => fp.question_image === img);
@@ -132,10 +148,23 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       };
     });
 
+    // 7. 각 FP에 골드 스탠다드 여부 추가 (2/3 이상 동의)
+    const evaluatorCount = evaluators.length;
+    const threshold = Math.ceil(evaluatorCount * 2 / 3); // 2/3 이상
+
+    const fpSquaresWithGS = fpSquares.map((fp) => ({
+      ...fp,
+      total_responses: fp.agree_count + fp.disagree_count,
+      is_gold_standard: fp.agree_count >= threshold,
+    }));
+
     res.json({
       ...assignment,
+      evaluators,
+      evaluatorCount,
+      threshold,
       images,
-      fpSquares,
+      fpSquares: fpSquaresWithGS,
       responses: responseMap,
       canvasInfo,
     });
@@ -562,6 +591,229 @@ router.get("/:consensusId/images/:imageName", authenticateToken, async (req, res
     });
   } catch (error) {
     handleError(res, "이미지 FP 정보 조회 중 오류 발생", error);
+  }
+});
+
+// ========================================
+// 평가자 그룹 관리 API
+// ========================================
+
+// GET /api/consensus/groups - 평가자 그룹 목록
+router.get("/groups/list", authenticateToken, async (req, res) => {
+  try {
+    const [groups] = await db.query(
+      `SELECT eg.id, eg.name, eg.description, eg.created_by, eg.creation_date,
+              u.realname as creator_name,
+              (SELECT COUNT(*) FROM evaluator_group_members egm
+               WHERE egm.group_id = eg.id AND egm.deleted_at IS NULL) as member_count
+       FROM evaluator_groups eg
+       LEFT JOIN users u ON eg.created_by = u.id
+       WHERE eg.deleted_at IS NULL
+       ORDER BY eg.creation_date DESC`
+    );
+
+    // 각 그룹의 멤버 정보도 함께 조회
+    for (const group of groups) {
+      const [members] = await db.query(
+        `SELECT u.id, u.username, u.realname, u.organization
+         FROM evaluator_group_members egm
+         JOIN users u ON egm.user_id = u.id AND u.deleted_at IS NULL
+         WHERE egm.group_id = ? AND egm.deleted_at IS NULL`,
+        [group.id]
+      );
+      group.members = members;
+    }
+
+    res.json(groups);
+  } catch (error) {
+    handleError(res, "평가자 그룹 목록 조회 중 오류 발생", error);
+  }
+});
+
+// POST /api/consensus/groups - 그룹 생성
+router.post("/groups", authenticateToken, async (req, res) => {
+  const { name, description, member_ids } = req.body;
+  const createdBy = req.user.id;
+
+  if (!name) {
+    return res.status(400).json({ message: "그룹 이름은 필수입니다." });
+  }
+
+  try {
+    await db.withTransaction(async (conn) => {
+      // 그룹 생성
+      const [result] = await conn.query(
+        `INSERT INTO evaluator_groups (name, description, created_by)
+         VALUES (?, ?, ?)`,
+        [name, description || null, createdBy]
+      );
+
+      const groupId = result.insertId;
+
+      // 멤버 추가
+      if (member_ids && member_ids.length > 0) {
+        for (const userId of member_ids) {
+          await conn.query(
+            `INSERT INTO evaluator_group_members (group_id, user_id)
+             VALUES (?, ?)`,
+            [groupId, userId]
+          );
+        }
+      }
+
+      res.status(201).json({
+        message: "평가자 그룹이 생성되었습니다.",
+        groupId,
+      });
+    });
+  } catch (error) {
+    handleError(res, "평가자 그룹 생성 중 오류 발생", error);
+  }
+});
+
+// PUT /api/consensus/groups/:id - 그룹 수정
+router.put("/groups/:groupId", authenticateToken, async (req, res) => {
+  const { groupId } = req.params;
+  const { name, description, member_ids } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ message: "그룹 이름은 필수입니다." });
+  }
+
+  try {
+    await db.withTransaction(async (conn) => {
+      // 그룹 정보 업데이트
+      await conn.query(
+        `UPDATE evaluator_groups SET name = ?, description = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+        [name, description || null, groupId]
+      );
+
+      // 기존 멤버 soft delete
+      await conn.query(
+        `UPDATE evaluator_group_members SET deleted_at = NOW()
+         WHERE group_id = ? AND deleted_at IS NULL`,
+        [groupId]
+      );
+
+      // 새 멤버 추가
+      if (member_ids && member_ids.length > 0) {
+        for (const userId of member_ids) {
+          // 이미 존재하는 경우 복원, 없으면 새로 추가
+          await conn.query(
+            `INSERT INTO evaluator_group_members (group_id, user_id, deleted_at)
+             VALUES (?, ?, NULL)
+             ON DUPLICATE KEY UPDATE deleted_at = NULL`,
+            [groupId, userId]
+          );
+        }
+      }
+
+      res.json({ message: "평가자 그룹이 수정되었습니다." });
+    });
+  } catch (error) {
+    handleError(res, "평가자 그룹 수정 중 오류 발생", error);
+  }
+});
+
+// DELETE /api/consensus/groups/:id - 그룹 삭제
+router.delete("/groups/:groupId", authenticateToken, async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    await db.withTransaction(async (conn) => {
+      // 멤버 soft delete
+      await conn.query(
+        `UPDATE evaluator_group_members SET deleted_at = NOW()
+         WHERE group_id = ?`,
+        [groupId]
+      );
+
+      // 그룹 soft delete
+      await conn.query(
+        `UPDATE evaluator_groups SET deleted_at = NOW()
+         WHERE id = ?`,
+        [groupId]
+      );
+    });
+
+    res.json({ message: "평가자 그룹이 삭제되었습니다." });
+  } catch (error) {
+    handleError(res, "평가자 그룹 삭제 중 오류 발생", error);
+  }
+});
+
+// ========================================
+// PUT /api/consensus/bulk-assign - 선택한 과제에 일괄 할당
+// ========================================
+router.put("/bulk-assign", authenticateToken, async (req, res) => {
+  const { assignment_ids, user_ids } = req.body;
+
+  if (!assignment_ids || assignment_ids.length === 0) {
+    return res.status(400).json({ message: "과제를 선택해주세요." });
+  }
+
+  if (!user_ids || user_ids.length === 0) {
+    return res.status(400).json({ message: "평가자를 선택해주세요." });
+  }
+
+  try {
+    await db.withTransaction(async (conn) => {
+      for (const assignmentId of assignment_ids) {
+        // 기존 할당 soft delete
+        await conn.query(
+          `UPDATE consensus_user_assignments SET deleted_at = NOW()
+           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+          [assignmentId]
+        );
+
+        // 기존 캔버스 정보 soft delete
+        await conn.query(
+          `UPDATE consensus_canvas_info SET deleted_at = NOW()
+           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+          [assignmentId]
+        );
+
+        // 새 사용자 할당
+        for (const userId of user_ids) {
+          // consensus_user_assignments에 추가
+          await conn.query(
+            `INSERT INTO consensus_user_assignments (consensus_assignment_id, user_id, deleted_at)
+             VALUES (?, ?, NULL)
+             ON DUPLICATE KEY UPDATE deleted_at = NULL`,
+            [assignmentId, userId]
+          );
+
+          // consensus_canvas_info 생성 (없는 경우)
+          const [existingCanvas] = await conn.query(
+            `SELECT id FROM consensus_canvas_info
+             WHERE consensus_assignment_id = ? AND user_id = ?`,
+            [assignmentId, userId]
+          );
+
+          if (existingCanvas.length === 0) {
+            await conn.query(
+              `INSERT INTO consensus_canvas_info (consensus_assignment_id, user_id, width, height, evaluation_time)
+               VALUES (?, ?, 0, 0, 0)`,
+              [assignmentId, userId]
+            );
+          } else {
+            // 기존 캔버스 복원
+            await conn.query(
+              `UPDATE consensus_canvas_info SET deleted_at = NULL
+               WHERE consensus_assignment_id = ? AND user_id = ?`,
+              [assignmentId, userId]
+            );
+          }
+        }
+      }
+    });
+
+    res.json({
+      message: `${assignment_ids.length}개 과제에 ${user_ids.length}명의 평가자가 할당되었습니다.`,
+    });
+  } catch (error) {
+    handleError(res, "일괄 할당 중 오류 발생", error);
   }
 });
 

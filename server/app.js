@@ -16,6 +16,7 @@ const downloadSearchedAssignments = require("./routes/downloadSearchedAssignment
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const consensusRoutes = require("./routes/consensusRoutes");
+const projectRoutes = require("./routes/projectRoutes");
 
 // Constants and configurations
 const app = express();
@@ -59,6 +60,7 @@ app.use("/api/download", downloadSearchedAssignments);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/consensus", consensusRoutes);
+app.use("/api/projects", projectRoutes);
 app.use((req, res, next) => {
   req.setTimeout(0); // 타임아웃을 무제한으로 설정
   next();

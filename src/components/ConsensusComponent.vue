@@ -106,6 +106,16 @@ export default {
       required: false,
       default: 0,
     },
+    evaluatorCount: {
+      type: Number,
+      required: false,
+      default: 3,
+    },
+    threshold: {
+      type: Number,
+      required: false,
+      default: 2,
+    },
   },
 
   emits: ["commitConsensusChanges"],
@@ -399,6 +409,21 @@ export default {
           canvasX - 10,
           canvasY + 22
         );
+
+        // 동의 수 배지 표시 (fp에 agree_count가 있을 때)
+        if (fp.agree_count !== undefined && fp.agree_count > 0) {
+          const badgeText = `${fp.agree_count}/${this.evaluatorCount}`;
+          const isGoldStandard = fp.is_gold_standard;
+
+          // 배지 배경
+          ctx.fillStyle = isGoldStandard ? "#4caf50" : "#666";
+          ctx.fillRect(canvasX + 8, canvasY - 22, 22, 14);
+
+          // 배지 텍스트
+          ctx.font = "bold 9px Arial";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(badgeText, canvasX + 10, canvasY - 12);
+        }
       });
 
       // 마우스 호버 시 확대 영역

@@ -12,13 +12,15 @@ const calculateRates = (answered, total) => {
 
 router.get("/", async (_req, res) => {
   try {
-    // 삭제되지 않은 과제만 조회
+    // 삭제되지 않은 과제만 조회 (프로젝트 및 암종 정보 포함)
     const [assignments] = await db.query(`
       SELECT a.id, a.title, a.creation_date AS createdAt, a.deadline AS endAt, a.assignment_mode AS assignmentMode,
+      a.project_id AS projectId, ct.code AS cancerTypeCode,
       COUNT(DISTINCT au.user_id) AS evaluatorCount,
       (SELECT COUNT(*) FROM questions q WHERE q.assignment_id = a.id AND q.deleted_at IS NULL) AS totalQuestions
       FROM assignments a
       LEFT JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+      LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
       WHERE a.deleted_at IS NULL
       GROUP BY a.id
     `);

@@ -12,11 +12,11 @@
         <span class="metadata-due-date">
           마감일: {{ formatDate(currentConsensusDetails.deadline) }}
         </span>
-        <span v-if="canvasInfo.start_time" class="metadata-start-time">
-          시작 시간: {{ formatDateTime(canvasInfo.start_time) }}
+        <span v-if="currentConsensusDetails.evaluators" class="metadata-evaluators">
+          평가자: {{ evaluatorNames }} ({{ currentConsensusDetails.evaluatorCount }}명)
         </span>
-        <span v-if="canvasInfo.end_time" class="metadata-end-time">
-          종료 시간: {{ formatDateTime(canvasInfo.end_time) }}
+        <span v-if="canvasInfo.start_time" class="metadata-start-time">
+          시작: {{ formatDateTime(canvasInfo.start_time) }}
         </span>
       </div>
 
@@ -26,8 +26,8 @@
         </span>
         <span class="legend">
           <span class="legend-item pending">미응답</span>
-          <span class="legend-item agree">동의</span>
-          <span class="legend-item disagree">비동의</span>
+          <span class="legend-item agree">동의 (논 마이토시스)</span>
+          <span class="legend-item disagree">비동의 (마이토시스)</span>
         </span>
       </div>
     </div>
@@ -41,6 +41,8 @@
               <th>이미지</th>
               <th>FP</th>
               <th>응답</th>
+              <th>동의</th>
+              <th>판정</th>
             </tr>
           </thead>
           <tbody>
@@ -71,6 +73,15 @@
                   {{ question.respondedCount }} / {{ question.fpCount }}
                 </span>
               </td>
+              <td class="agree-count">
+                {{ question.agreeCount }} / {{ currentConsensusDetails.evaluatorCount || 3 }}
+              </td>
+              <td class="gold-standard">
+                <span v-if="question.goldStandardCount > 0" class="gs-badge">
+                  GS {{ question.goldStandardCount }}
+                </span>
+                <span v-else>-</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -83,6 +94,8 @@
         :questionImage="activeQuestionImage"
         :canvasInfo="canvasInfo"
         :evaluation_time="canvasInfo.evaluation_time || 0"
+        :evaluatorCount="currentConsensusDetails.evaluatorCount || 3"
+        :threshold="currentConsensusDetails.threshold || 2"
         @commitConsensusChanges="commitConsensusChanges"
       />
     </div>
@@ -145,6 +158,16 @@ export default {
   },
 
   computed: {
+    // 평가자 이름 목록
+    evaluatorNames() {
+      if (!this.currentConsensusDetails || !this.currentConsensusDetails.evaluators) {
+        return "";
+      }
+      return this.currentConsensusDetails.evaluators
+        .map((e) => e.realname)
+        .join(", ");
+    },
+
     // 이미지별 FP 목록과 응답 상태 계산
     questionList() {
       if (!this.currentConsensusDetails || !this.currentConsensusDetails.fpSquares) {
@@ -158,11 +181,21 @@ export default {
             image: fp.question_image,
             fpCount: 0,
             respondedCount: 0,
+            agreeCount: 0,
+            goldStandardCount: 0,
           };
         }
         imageMap[fp.question_image].fpCount++;
         if (this.localResponses[fp.id]) {
           imageMap[fp.question_image].respondedCount++;
+        }
+        // 가장 높은 동의 수 추적
+        if (fp.agree_count > imageMap[fp.question_image].agreeCount) {
+          imageMap[fp.question_image].agreeCount = fp.agree_count;
+        }
+        // 골드 스탠다드 개수 집계
+        if (fp.is_gold_standard) {
+          imageMap[fp.question_image].goldStandardCount++;
         }
       });
 
@@ -571,10 +604,12 @@ td {
   font-size: 11px;
 }
 
-th.col-num { width: 32px; }
+th.col-num { width: 28px; }
 th:nth-child(2) { width: auto; } /* 이미지 */
-th:nth-child(3) { width: 32px; } /* FP */
-th:nth-child(4) { width: 50px; } /* 응답 */
+th:nth-child(3) { width: 28px; } /* FP */
+th:nth-child(4) { width: 42px; } /* 응답 */
+th:nth-child(5) { width: 36px; } /* 동의 */
+th:nth-child(6) { width: 42px; } /* 판정 */
 
 .image-cell {
   display: flex;
@@ -624,6 +659,32 @@ th:nth-child(4) { width: 50px; } /* 응답 */
 
 .response-status .partial {
   color: #ff8800;
+}
+
+.agree-count {
+  font-size: 10px;
+  color: #666;
+}
+
+.gold-standard {
+  font-size: 10px;
+}
+
+.gs-badge {
+  background-color: #4caf50;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 9px;
+}
+
+.metadata-evaluators {
+  font-size: 12px;
+  color: #666;
+  background-color: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .images-table table tbody tr.active {

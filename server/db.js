@@ -57,6 +57,8 @@ const expectedColumns = {
     { name: "is_score", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "is_ai_use", definition: "BOOLEAN NOT NULL DEFAULT 1" },
     { name: "evaluation_time", definition: "INT DEFAULT NULL" },
+    { name: "project_id", definition: "INT DEFAULT NULL" },
+    { name: "cancer_type_id", definition: "INT DEFAULT NULL" },
     { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
@@ -67,6 +69,18 @@ const expectedColumns = {
       name: "UNIQUE",
       definition: "UNIQUE KEY title_deadline_unique (title, deadline)",
       constraintName: "title_deadline_unique",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+      constraintName: "fk_assignment_project",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (cancer_type_id) REFERENCES cancer_types(id) ON DELETE SET NULL",
+      constraintName: "fk_assignment_cancer_type",
     },
   ],
   assignment_user: [
@@ -290,11 +304,25 @@ const expectedColumns = {
       name: "creation_date",
       definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
     },
+    { name: "project_id", definition: "INT DEFAULT NULL" },
+    { name: "cancer_type_id", definition: "INT DEFAULT NULL" },
     { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
     {
       name: "PRIMARY KEY",
       definition: "PRIMARY KEY (id)",
       constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+      constraintName: "fk_consensus_assignment_project",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (cancer_type_id) REFERENCES cancer_types(id) ON DELETE SET NULL",
+      constraintName: "fk_consensus_assignment_cancer_type",
     },
   ],
   consensus_user_assignments: [
@@ -399,6 +427,98 @@ const expectedColumns = {
       definition:
         "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_consensus_canvas_user",
+    },
+  ],
+  // 평가자 그룹 테이블
+  evaluator_groups: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "name", definition: "VARCHAR(100) NOT NULL" },
+    { name: "description", definition: "VARCHAR(255)" },
+    { name: "created_by", definition: "INT" },
+    {
+      name: "creation_date",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
+      constraintName: "fk_evaluator_groups_creator",
+    },
+  ],
+  // 그룹-평가자 다대다 테이블
+  evaluator_group_members: [
+    { name: "group_id", definition: "INT NOT NULL" },
+    { name: "user_id", definition: "INT NOT NULL" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (group_id, user_id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (group_id) REFERENCES evaluator_groups(id) ON DELETE CASCADE",
+      constraintName: "fk_group_members_group",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      constraintName: "fk_group_members_user",
+    },
+  ],
+  // 프로젝트 테이블
+  projects: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "name", definition: "VARCHAR(100) NOT NULL" },
+    { name: "description", definition: "VARCHAR(255)" },
+    { name: "created_by", definition: "INT" },
+    {
+      name: "creation_date",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY name_unique (name)",
+      constraintName: "name_unique",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
+      constraintName: "fk_projects_creator",
+    },
+  ],
+  // 암종 테이블
+  cancer_types: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "code", definition: "VARCHAR(20) NOT NULL" },
+    { name: "name_ko", definition: "VARCHAR(50) NOT NULL" },
+    { name: "name_en", definition: "VARCHAR(50)" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY code_unique (code)",
+      constraintName: "code_unique",
     },
   ],
 };
@@ -581,6 +701,48 @@ const createTablesSQL = {
     PRIMARY KEY (\`id\`),
     FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
+  )`,
+  // 평가자 그룹 테이블
+  evaluator_groups: `CREATE TABLE IF NOT EXISTS \`evaluator_groups\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`name\` VARCHAR(100) NOT NULL,
+    \`description\` VARCHAR(255),
+    \`created_by\` INT,
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL
+  )`,
+  // 그룹-평가자 다대다 테이블
+  evaluator_group_members: `CREATE TABLE IF NOT EXISTS \`evaluator_group_members\` (
+    \`group_id\` INT NOT NULL,
+    \`user_id\` INT NOT NULL,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`group_id\`, \`user_id\`),
+    FOREIGN KEY (\`group_id\`) REFERENCES \`evaluator_groups\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+  )`,
+  // 프로젝트 테이블
+  projects: `CREATE TABLE IF NOT EXISTS \`projects\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`name\` VARCHAR(100) NOT NULL,
+    \`description\` VARCHAR(255),
+    \`created_by\` INT,
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`name_unique\` (\`name\`),
+    FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL
+  )`,
+  // 암종 테이블
+  cancer_types: `CREATE TABLE IF NOT EXISTS \`cancer_types\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`code\` VARCHAR(20) NOT NULL,
+    \`name_ko\` VARCHAR(50) NOT NULL,
+    \`name_en\` VARCHAR(50),
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`code_unique\` (\`code\`)
   )`,
 };
 
