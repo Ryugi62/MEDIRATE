@@ -1524,6 +1524,7 @@ td.assignment-mode {
   border: 1px solid var(--light-gray);
   border-radius: 4px;
   background-color: white;
+  color: #333;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1533,13 +1534,13 @@ td.assignment-mode {
 }
 
 .bulk-action-btn.bulk-action-main {
-  background-color: #333;
+  background-color: var(--blue);
   color: white;
-  border-color: #333;
+  border-color: var(--blue);
 }
 
 .bulk-action-btn.bulk-action-main:hover {
-  background-color: #555;
+  background-color: var(--blue-hover);
 }
 
 .bulk-action-dropdown {
@@ -1734,6 +1735,7 @@ td.assignment-mode {
 .modal-btn--cancel {
   background-color: white;
   border-color: var(--light-gray);
+  color: #333;
 }
 
 .modal-btn--cancel:hover {
@@ -1741,12 +1743,12 @@ td.assignment-mode {
 }
 
 .modal-btn--confirm {
-  background-color: #333;
+  background-color: var(--blue);
   color: white;
 }
 
 .modal-btn--confirm:hover:not(:disabled) {
-  background-color: #555;
+  background-color: var(--blue-hover);
 }
 
 .modal-btn--confirm:disabled {

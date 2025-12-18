@@ -575,6 +575,8 @@ export default {
   flex: 1;
   flex-direction: column;
   padding: 8px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .segment-component__header {
@@ -661,12 +663,14 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 0;
+  overflow: hidden;
 }
 
 canvas {
   border: 1px solid #ccc;
-  min-height: 550px;
-  background-color: #fff;
+  max-height: 100%;
+  background-color: white;
 }
 
 .segment-component__footer {
