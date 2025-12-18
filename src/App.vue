@@ -43,9 +43,9 @@ export default {
   --pink: #ed455d;
   --pink-hover: #dd355d;
   --pink-active: #cd255d;
-  --blue: #5a4ff3;
-  --blue-hover: #4a3ff3;
-  --blue-active: #3a2ff3;
+  --blue: #2196F3;
+  --blue-hover: #1976D2;
+  --blue-active: #1565C0;
 }
 
 * {

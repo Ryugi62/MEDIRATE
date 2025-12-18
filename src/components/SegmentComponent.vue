@@ -574,14 +574,16 @@ export default {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 10px;
+  padding: 8px;
 }
 
 .segment-component__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .segment-component__header__left {
@@ -589,6 +591,7 @@ export default {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .segment-component__header label {
@@ -614,7 +617,8 @@ export default {
 
 .icon-list i.disabled {
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.3;
+  color: #ccc !important;
 }
 
 .icon-explanation {
@@ -663,7 +667,7 @@ canvas {
   border: 1px solid #ccc;
   min-height: 550px;
   transition: border 0.3s;
-  background-color: #000;
+  background-color: #fff;
 }
 
 canvas:hover {
@@ -672,8 +676,8 @@ canvas:hover {
 
 .segment-component__footer {
   padding: 10px;
-  color: #fff;
-  background-color: #000;
+  color: #333;
+  background-color: #f5f5f5;
   margin-top: 10px;
   display: flex;
   justify-content: space-between;

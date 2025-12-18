@@ -42,7 +42,7 @@
       </div>
 
       <div class="bbox-component__actions">
-        <button @click="applyMitosis" :disabled="!is_ai_use">AI Apply</button>
+        <button @click="applyMitosis" :disabled="!is_ai_use">AI Confirm</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
@@ -148,7 +148,7 @@ export default {
     },
 
     handleHotkeys(event) {
-      if (event.ctrlKey && event.key === "w") {
+      if (event.ctrlKey && event.key === "c") {
         event.preventDefault(); // 브라우저 기본 동작 방지
         this.applyMitosis();
       } else if (event.ctrlKey && event.key === "s") {
@@ -777,14 +777,16 @@ export default {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 10px;
+  padding: 8px;
 }
 
 .bbox-component__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .bbox-component__header__left {
@@ -792,6 +794,7 @@ export default {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .bbox-component__header label {
@@ -817,7 +820,8 @@ export default {
 
 .icon-list i.disabled {
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.3;
+  color: #ccc !important;
 }
 
 .icon-explanation {
@@ -853,8 +857,8 @@ export default {
 
 /* B3: AI 아이콘 On/Off 상태 표시 */
 .icon-list i.ai-active {
-  color: #FFD700;
-  background-color: #333;
+  color: var(--blue);
+  background-color: transparent;
 }
 
 .icon-list i.ai-inactive {
@@ -863,7 +867,8 @@ export default {
 }
 
 .icon-list i.ai-active:hover {
-  background-color: #444;
+  color: var(--blue-hover);
+  background-color: transparent;
 }
 
 .bbox-component__actions {
@@ -888,7 +893,7 @@ canvas {
   border: 1px solid #ccc;
   min-height: 550px;
   transition: border 0.3s;
-  background-color: #000;
+  background-color: #fff;
 }
 
 canvas:hover {
@@ -897,9 +902,9 @@ canvas:hover {
 
 .bbox-component__footer {
   padding: 5px;
-  color: #fff;
+  color: #333;
   text-align: center;
-  background-color: #000;
+  background-color: #f5f5f5;
   margin-top: 10px;
 }
 

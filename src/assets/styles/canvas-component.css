@@ -1,0 +1,177 @@
+/**
+ * 캔버스 컴포넌트 공통 스타일
+ * BBoxComponent, SegmentComponent, ConsensusComponent에서 공통으로 사용
+ */
+
+/* ===== 레이아웃 ===== */
+.canvas-component {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.canvas-component__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.canvas-component__header__left {
+  gap: 8px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.canvas-component__header label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.canvas-component__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.canvas-component__body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.canvas-component__footer {
+  padding: 5px;
+  color: var(--white);
+  text-align: center;
+  background-color: var(--canvas-bg);
+  margin-top: 10px;
+}
+
+/* ===== 아이콘 리스트 ===== */
+.icon-list {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-list i {
+  cursor: pointer;
+  padding: 12px;
+  font-size: 18px;
+  transition: all 0.3s;
+  position: relative;
+  border-radius: 8px;
+}
+
+.icon-list i.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.icon-list i.active {
+  color: var(--blue);
+}
+
+.icon-list i:hover {
+  color: var(--blue-hover);
+}
+
+/* AI 아이콘 상태 */
+.icon-list i.ai-active {
+  color: var(--blue);
+}
+
+.icon-list i.ai-inactive {
+  color: var(--gray);
+}
+
+.icon-list i.ai-active:hover {
+  color: var(--blue-hover);
+}
+
+/* 아이콘 설명 툴팁 */
+.icon-explanation {
+  visibility: hidden;
+  background-color: var(--black);
+  color: var(--white);
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 10px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  width: 120px;
+  pointer-events: none;
+}
+
+.icon-list i:hover .icon-explanation {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ===== 캔버스 ===== */
+.canvas-component canvas {
+  border: 1px solid var(--light-gray);
+  min-height: 550px;
+  background-color: var(--canvas-bg);
+}
+
+/* ===== 타이머 섹션 ===== */
+.timer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.timer-display {
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--black);
+}
+
+.timer-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.timer-button {
+  background-color: var(--blue);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-button:disabled {
+  background-color: var(--gray);
+  cursor: not-allowed;
+}
+
+.timer-button:not(:disabled):hover {
+  background-color: var(--blue-hover);
+}
+
+/* ===== 안내 섹션 ===== */
+.canvas-component__instructions {
+  padding: 8px;
+  background-color: var(--hover-bg);
+  border-radius: 4px;
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: center;
+}

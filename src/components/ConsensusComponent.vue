@@ -29,8 +29,8 @@
 
       <div class="legend">
         <span class="legend-item pending">미응답</span>
-        <span class="legend-item agree">동의 (FP)</span>
-        <span class="legend-item disagree">비동의 (TP)</span>
+        <span class="legend-item agree">동의 (논 마이토시스)</span>
+        <span class="legend-item disagree">비동의 (마이토시스)</span>
       </div>
 
       <div class="consensus-component__actions">
@@ -63,8 +63,8 @@
 
     <div class="consensus-component__instructions">
       <strong>조작법:</strong>
-      왼클릭 = 동의 (FP 확정) |
-      우클릭 = 비동의 (TP로 변경) |
+      왼클릭 = 동의 (논 마이토시스) |
+      우클릭 = 비동의 (마이토시스) |
       Space = 전체 동의 |
       Shift+Space = 전체 비동의
     </div>
@@ -666,8 +666,9 @@ export default {
 }
 
 .action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
+  background-color: #ccc !important;
 }
 
 .agree-btn {
@@ -716,7 +717,7 @@ canvas {
   max-width: 100%;
   max-height: 100%;
   transition: border 0.3s;
-  background-color: #000;
+  background-color: #fff;
 }
 
 canvas:hover {
@@ -725,8 +726,8 @@ canvas:hover {
 
 .consensus-component__footer {
   padding: 6px 10px;
-  color: #fff;
-  background-color: #000;
+  color: #333;
+  background-color: #f5f5f5;
   margin-top: 6px;
   display: flex;
   justify-content: space-between;

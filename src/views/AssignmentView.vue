@@ -1,7 +1,7 @@
 <template>
-  <!-- 검수 작업 제목 -->
+  <!-- 평가 수행 제목 -->
   <div class="assignment-header">
-    <h1 class="header-title">검수 작업</h1>
+    <h1 class="header-title">평가 수행</h1>
 
     <div class="header-controls">
       <!-- 모드 필터 -->
@@ -380,7 +380,7 @@ export default {
       return "진행중";
     },
 
-    // 새 탭으로 검수 작업 열기
+    // 새 탭으로 평가 수행 열기
     redirect(assignment) {
       const route = assignment.isConsensus
         ? { name: "consensusDetail", params: { id: assignment.consensusId } }
@@ -684,10 +684,10 @@ tbody > tr:hover {
 
 /* 합의 과제 행 스타일 */
 .consensus-row {
-  background-color: #fff8e1;
+  background-color: transparent;
 }
 
 .consensus-row:hover {
-  background-color: #ffecb3 !important;
+  background-color: #f5f5f5;
 }
 </style>

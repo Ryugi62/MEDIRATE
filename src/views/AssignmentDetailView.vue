@@ -146,7 +146,7 @@
 
     <div class="shortcut-help" v-if="isBBoxMode || isSegmentMode">
       <span><kbd>Ctrl</kbd>+<kbd>A</kbd> AI 탐지 표시</span>
-      <span><kbd>Ctrl</kbd>+<kbd>W</kbd> AI 적용</span>
+      <span><kbd>Ctrl</kbd>+<kbd>C</kbd> AI Confirm</span>
       <span><kbd>Ctrl</kbd>+<kbd>Q</kbd> 박스 추가</span>
       <span><kbd>Ctrl</kbd>+<kbd>E</kbd> 선택 삭제</span>
       <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 전체 삭제</span>
@@ -577,13 +577,19 @@ export default {
 .assignment-metadata {
   display: flex;
   align-items: center;
-  padding-left: 16px;
-  gap: 12px;
+  padding-left: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .metadata-assignment-title {
   margin: 0;
   font-size: 16px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
 }
 
 .metadata-student-name,
@@ -611,8 +617,8 @@ export default {
 
 .assignment-content {
   display: flex;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 8px 12px;
   flex: 1;
   min-height: 0;
   overflow: hidden;

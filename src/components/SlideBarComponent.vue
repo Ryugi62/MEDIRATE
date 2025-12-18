@@ -30,7 +30,7 @@ export default {
     return {
       links: [
         {
-          name: "검수 작업",
+          name: "평가 수행",
           paths: ["/assignment", "/assignment/:id"],
           isAdmin: false,
         },
