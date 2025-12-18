@@ -21,13 +21,6 @@
 
       <!-- 필터 그룹 -->
       <div class="filter-group">
-        <select v-model="selectedProject" class="project-filter" @change="current = 1">
-          <option value="all">전체 프로젝트</option>
-          <option v-for="project in projects" :key="project.key" :value="project.key">
-            {{ project.label }}
-          </option>
-        </select>
-
         <select v-model="selectedMode" class="mode-filter" @change="current = 1">
           <option value="all">전체 모드</option>
           <option value="TextBox">TextBox</option>
@@ -35,12 +28,35 @@
           <option value="Consensus">Consensus (합의)</option>
         </select>
 
-        <select v-model="selectedCancerType" class="cancer-filter" @change="current = 1">
-          <option value="all">전체 암종</option>
-          <option v-for="cancer in cancerTypes" :key="cancer.key" :value="cancer.key">
-            {{ cancer.label }}
-          </option>
-        </select>
+        <!-- 태그 필터 (자동완성 input) -->
+        <div class="tag-filter-wrapper">
+          <div class="tag-filter-input-container">
+            <span v-if="selectedTag !== 'all'" class="selected-tag-badge">
+              #{{ selectedTag }}
+              <i class="fa-solid fa-xmark" @click="clearTagFilter"></i>
+            </span>
+            <input
+              v-else
+              type="text"
+              v-model="tagFilterInput"
+              class="tag-filter-input"
+              placeholder="태그 검색..."
+              @focus="showTagSuggestions = true"
+              @blur="hideTagSuggestions"
+              @input="onTagFilterInput"
+            />
+          </div>
+          <div v-if="showTagSuggestions && filteredTagSuggestions.length > 0" class="tag-suggestions-dropdown">
+            <div
+              v-for="tag in filteredTagSuggestions"
+              :key="tag.name"
+              class="tag-suggestion-item"
+              @mousedown.prevent="selectTagFilter(tag.name)"
+            >
+              #{{ tag.name }} <span class="tag-count">({{ tag.count }})</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 슬라이더 그룹 -->
@@ -256,12 +272,11 @@ export default {
       sliderValue: 1,
       score_value: 50,
       selectedMode: "all", // all, TextBox, BBox, Consensus
-      selectedCancerType: "all", // 암종 필터
-      selectedProject: "all", // 프로젝트 필터
-      // DB에서 가져온 암종 목록
-      cancerTypeList: [],
-      // DB에서 가져온 프로젝트 목록
-      projectList: [],
+      selectedTag: "all", // 태그 필터
+      tagFilterInput: "", // 태그 필터 검색어
+      showTagSuggestions: false, // 태그 제안 드롭다운 표시 여부
+      // 모든 태그 목록 (사용 빈도순)
+      allTags: [],
       // 일괄 할당 관련
       selectedConsensusIds: [],
       showBulkAssignModal: false,
@@ -281,43 +296,30 @@ export default {
         this.selectedConsensusIds.includes(item.consensusId)
       );
     },
-    // DB에서 가져온 암종 목록 (code 기준으로 정렬)
-    cancerTypes() {
-      return this.cancerTypeList.map((ct) => ({
-        key: ct.code,
-        label: ct.name_ko || ct.code.toUpperCase(),
-      }));
+    // 태그 필터 자동완성 제안
+    filteredTagSuggestions() {
+      if (!this.tagFilterInput) {
+        return this.allTags.slice(0, 10); // 입력 없으면 상위 10개
+      }
+      const query = this.tagFilterInput.toLowerCase().replace(/^#/, "");
+      return this.allTags
+        .filter((tag) => tag.name.toLowerCase().includes(query))
+        .slice(0, 10);
     },
-    // DB에서 가져온 프로젝트 목록
-    projects() {
-      return this.projectList.map((p) => ({
-        key: p.id,
-        label: p.name,
-      }));
-    },
-    // 모드, 프로젝트, 암종 필터가 적용된 데이터
+    // 모드, 태그 필터가 적용된 데이터
     filteredData() {
       let result = this.data;
-
-      // 프로젝트 필터
-      if (this.selectedProject !== "all") {
-        result = result.filter((item) => item.projectId === this.selectedProject);
-      }
 
       // 모드 필터
       if (this.selectedMode !== "all") {
         result = result.filter((item) => item.mode === this.selectedMode);
       }
 
-      // 암종 필터
-      if (this.selectedCancerType !== "all") {
+      // 태그 필터
+      if (this.selectedTag !== "all") {
         result = result.filter((item) => {
-          // DB의 cancer_type_id가 있으면 사용, 없으면 제목에서 추출
-          if (item.cancerTypeCode) {
-            return item.cancerTypeCode === this.selectedCancerType;
-          }
-          const cancerType = this.extractCancerType(item.title);
-          return cancerType === this.selectedCancerType;
+          if (!item.tags || item.tags.length === 0) return false;
+          return item.tags.some((t) => t.name === this.selectedTag);
         });
       }
 
@@ -401,22 +403,17 @@ export default {
     };
 
     try {
-      // 일반 대시보드, 합의 과제, 암종 목록, 프로젝트 목록을 병렬로 가져오기
-      const [dashboardRes, consensusRes, cancerTypesRes, projectsRes] = await Promise.all([
+      // 일반 대시보드와 합의 과제를 병렬로 가져오기
+      const [dashboardRes, consensusRes] = await Promise.all([
         this.$axios.get("/api/dashboard", { headers }),
         this.$axios.get("/api/consensus", { headers }),
-        this.$axios.get("/api/projects/cancer-types", { headers }),
-        this.$axios.get("/api/projects", { headers }),
       ]);
-
-      // 암종 및 프로젝트 목록 저장
-      this.cancerTypeList = cancerTypesRes.data || [];
-      this.projectList = projectsRes.data || [];
 
       // 일반 대시보드 데이터에 mode 필드 추가
       const regularData = dashboardRes.data.map((item) => ({
         ...item,
         mode: item.assignmentMode || "BBox",
+        tags: item.tags || [],
         isConsensus: false,
       }));
 
@@ -431,13 +428,25 @@ export default {
         evaluatorCount: c.evaluator_count || 0,
         answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
         unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
-        projectId: c.project_id,
-        cancerTypeCode: c.cancer_type_code,
+        tags: c.tags || [],
         isConsensus: true,
       }));
 
       // 두 목록 합치기
       this.originalData = [...regularData, ...consensusData];
+
+      // 모든 태그 수집 (사용 횟수 포함)
+      const tagCount = {};
+      this.originalData.forEach((item) => {
+        if (item.tags) {
+          item.tags.forEach((tag) => {
+            tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
+          });
+        }
+      });
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
       this.data = [...this.originalData];
       this.total = this.data.length;
       this.lastPage = Math.ceil(this.total / this.itemsPerPage);
@@ -648,14 +657,6 @@ export default {
       this.$store.commit("setDashboardCurrentPage", page);
     },
 
-    // 과제 제목에서 암종 타입 추출
-    extractCancerType(title) {
-      if (!title) return null;
-      // 형식: 0-blad-mitof-01E-101 → blad 추출
-      const match = title.match(/^[0-9a-z]*-([a-z_-]+)-(?:mitof|model)/i);
-      return match ? match[1].toLowerCase() : null;
-    },
-
     async showMetrics() {
       if (this.data.length === 0) {
         alert("검색된 과제가 없습니다.");
@@ -753,6 +754,33 @@ export default {
       // 데이터 새로고침
       this.$router.go(0);
     },
+
+    // 태그 필터 입력 처리
+    onTagFilterInput() {
+      this.showTagSuggestions = true;
+    },
+
+    // 태그 필터 선택
+    selectTagFilter(tagName) {
+      this.selectedTag = tagName;
+      this.tagFilterInput = "";
+      this.showTagSuggestions = false;
+      this.current = 1;
+    },
+
+    // 태그 필터 초기화
+    clearTagFilter() {
+      this.selectedTag = "all";
+      this.tagFilterInput = "";
+      this.current = 1;
+    },
+
+    // 태그 제안 드롭다운 숨기기 (딜레이 적용)
+    hideTagSuggestions() {
+      setTimeout(() => {
+        this.showTagSuggestions = false;
+      }, 150);
+    },
   },
 };
 </script>
@@ -788,9 +816,7 @@ export default {
   gap: 8px;
 }
 
-.project-filter,
-.mode-filter,
-.cancer-filter {
+.mode-filter {
   padding: 6px 10px;
   border: 1px solid var(--light-gray);
   border-radius: 4px;
@@ -800,11 +826,89 @@ export default {
   min-width: 100px;
 }
 
-.project-filter:focus,
-.mode-filter:focus,
-.cancer-filter:focus {
+.mode-filter:focus {
   outline: none;
   border-color: var(--blue);
+}
+
+/* 태그 필터 (자동완성) */
+.tag-filter-wrapper {
+  position: relative;
+}
+
+.tag-filter-input-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: white;
+  min-width: 140px;
+  height: 32px;
+}
+
+.tag-filter-input {
+  border: none;
+  outline: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  width: 100%;
+  background: transparent;
+}
+
+.tag-filter-input::placeholder {
+  color: #999;
+}
+
+.selected-tag-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 2px 4px;
+  background-color: var(--blue);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.selected-tag-badge i {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.selected-tag-badge i:hover {
+  opacity: 1;
+}
+
+.tag-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.tag-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tag-suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.tag-suggestion-item .tag-count {
+  color: #999;
+  font-size: 11px;
 }
 
 /* 슬라이더 그룹 */
@@ -1085,36 +1189,6 @@ th:nth-child(8) {
   font-weight: bold;
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.9);
-}
-
-/* 모드 필터 스타일 */
-.mode-filter {
-  padding: 8px 12px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  background-color: white;
-}
-
-.mode-filter:focus {
-  outline: none;
-  border-color: var(--blue);
-}
-
-/* 암종 필터 스타일 */
-.cancer-filter {
-  padding: 8px 12px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  background-color: white;
-}
-
-.cancer-filter:focus {
-  outline: none;
-  border-color: var(--blue);
 }
 
 td.assignment-mode {

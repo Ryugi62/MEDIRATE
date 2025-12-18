@@ -29,8 +29,6 @@ router.get("/", authenticateToken, async (req, res) => {
         ca.score_threshold,
         ca.assignment_type,
         ca.creation_date,
-        ca.project_id,
-        ct.code AS cancer_type_code,
         (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
         (SELECT COUNT(DISTINCT cr.fp_square_id)
          FROM consensus_responses cr
@@ -42,12 +40,23 @@ router.get("/", authenticateToken, async (req, res) => {
       FROM consensus_assignments ca
       JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
       LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
-      LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
       WHERE cua.user_id = ? AND ca.deleted_at IS NULL
       ORDER BY ca.creation_date DESC
     `;
 
     const [assignments] = await db.query(query, [userId, userId, userId]);
+
+    // 각 과제의 태그 조회
+    for (const assignment of assignments) {
+      const [tags] = await db.query(
+        `SELECT t.id, t.name, t.color
+         FROM tags t
+         JOIN consensus_assignment_tags cat ON t.id = cat.tag_id
+         WHERE cat.consensus_assignment_id = ? AND t.deleted_at IS NULL`,
+        [assignment.id]
+      );
+      assignment.tags = tags;
+    }
 
     res.json(assignments);
   } catch (error) {

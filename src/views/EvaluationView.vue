@@ -127,6 +127,45 @@
             </div>
           </div>
 
+          <!-- A3: 해시태그 입력 -->
+          <div class="tag-input-group">
+            <label class="tag-label">태그:</label>
+            <div class="tag-input-container">
+              <div class="selected-tags">
+                <span
+                  v-for="tag in assignmentDetails.tags"
+                  :key="tag.id || tag.name"
+                  class="tag-badge"
+                  :style="{ backgroundColor: tag.color || '#666' }"
+                >
+                  #{{ tag.name }}
+                  <i class="fa-solid fa-xmark" @click="removeTag(tag)"></i>
+                </span>
+                <input
+                  type="text"
+                  v-model="tagInput"
+                  @input="searchTags"
+                  @keydown.enter.prevent="addTagFromInput"
+                  @keydown.tab.prevent="addTagFromInput"
+                  @keydown.backspace="handleBackspace"
+                  placeholder="태그 입력 (예: brst, pilot-01)"
+                  class="tag-text-input"
+                />
+              </div>
+              <div v-if="tagSuggestions.length > 0" class="tag-suggestions">
+                <div
+                  v-for="suggestion in tagSuggestions"
+                  :key="suggestion.id"
+                  class="tag-suggestion-item"
+                  @click="addTag(suggestion)"
+                >
+                  <span class="suggestion-name">#{{ suggestion.name }}</span>
+                  <span class="suggestion-count">{{ suggestion.usage_count || 0 }}회 사용</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div
             v-for="(field, fieldName) in assignmentFields"
             :key="fieldName"
@@ -258,6 +297,9 @@ export default {
       maxUserCount: 5,
       searchInput: "",
       folderList: [],
+      // 태그 관련
+      tagInput: "", // 태그 입력 필드
+      tagSuggestions: [], // 자동완성 목록
       assignmentDetails: {
         title: "",
         deadline: "",
@@ -269,6 +311,7 @@ export default {
         is_score: true,
         is_ai_use: true,
         is_timer: true,
+        tags: [], // 태그 배열 [{id, name, color}, ...]
       },
       activeQuestionId: null,
       assignmentFields: {
@@ -303,8 +346,10 @@ export default {
   },
 
   async mounted() {
-    await this.fetchUserList();
-    await this.fetchFolderList();
+    await Promise.all([
+      this.fetchUserList(),
+      this.fetchFolderList(),
+    ]);
     if (this.isEditMode) {
       await this.fetchAssignmentData();
     }
@@ -434,6 +479,7 @@ export default {
           this.assignmentDetails.mode === "TextBox"
             ? this.assignmentDetails.gradingScale
             : [],
+        tags: this.assignmentDetails.tags.map((t) => t.name), // 태그 이름 배열
       };
 
       console.log("[DEBUG] saveAssignment - mode:", this.assignmentDetails.mode);
@@ -564,6 +610,68 @@ export default {
         });
     },
 
+    // 태그 검색 (자동완성)
+    async searchTags() {
+      if (!this.tagInput.trim()) {
+        this.tagSuggestions = [];
+        return;
+      }
+      try {
+        const response = await this.$axios.get("/api/tags", {
+          params: { q: this.tagInput.trim() },
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        });
+        // 이미 추가된 태그 제외
+        const addedNames = new Set(this.assignmentDetails.tags.map((t) => t.name));
+        this.tagSuggestions = response.data.filter((t) => !addedNames.has(t.name));
+      } catch (error) {
+        console.error("태그 검색 중 오류 발생:", error);
+        this.tagSuggestions = [];
+      }
+    },
+
+    // 태그 추가 (자동완성에서 선택)
+    addTag(tag) {
+      if (!this.assignmentDetails.tags.some((t) => t.name === tag.name)) {
+        this.assignmentDetails.tags.push(tag);
+      }
+      this.tagInput = "";
+      this.tagSuggestions = [];
+    },
+
+    // 태그 추가 (직접 입력)
+    addTagFromInput() {
+      const name = this.tagInput.trim().toLowerCase().replace(/^#/, "");
+      if (!name) return;
+      if (this.assignmentDetails.tags.some((t) => t.name === name)) {
+        this.tagInput = "";
+        this.tagSuggestions = [];
+        return;
+      }
+      this.assignmentDetails.tags.push({ name, color: "#666666" });
+      this.tagInput = "";
+      this.tagSuggestions = [];
+    },
+
+    // 태그 제거
+    removeTag(tag) {
+      const index = this.assignmentDetails.tags.findIndex(
+        (t) => t.name === tag.name
+      );
+      if (index !== -1) {
+        this.assignmentDetails.tags.splice(index, 1);
+      }
+    },
+
+    // Backspace로 마지막 태그 삭제
+    handleBackspace() {
+      if (this.tagInput === "" && this.assignmentDetails.tags.length > 0) {
+        this.assignmentDetails.tags.pop();
+      }
+    },
+
     async fetchAssignmentData() {
       try {
         const response = await this.$axios.get(
@@ -594,6 +702,7 @@ export default {
           response.data.is_score === 1 ? true : false;
         this.assignmentDetails.is_ai_use =
           response.data.is_ai_use === 1 ? true : false;
+        this.assignmentDetails.tags = response.data.tags || [];
       } catch (error) {
         console.error("과제 정보를 가져오는 중 오류 발생:", error);
       }
@@ -1030,6 +1139,108 @@ hr {
 .mode-option:hover:not(.active) i,
 .option-item:hover:not(.active) i {
   color: var(--blue);
+}
+
+/* A3: 해시태그 입력 */
+.tag-input-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tag-label {
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  padding-top: 8px;
+}
+
+.tag-input-container {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  background-color: white;
+  min-height: 34px;
+  align-items: center;
+}
+
+.selected-tags:focus-within {
+  border-color: var(--blue);
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: white;
+  white-space: nowrap;
+}
+
+.tag-badge i {
+  cursor: pointer;
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.tag-badge i:hover {
+  opacity: 1;
+}
+
+.tag-text-input {
+  border: none;
+  outline: none;
+  padding: 4px;
+  font-size: 13px;
+  min-width: 120px;
+  flex: 1;
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--light-gray);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tag-suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tag-suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.suggestion-name {
+  color: var(--blue);
+}
+
+.suggestion-count {
+  color: #999;
+  font-size: 11px;
 }
 
 /* 과제 필드 */

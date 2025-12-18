@@ -475,7 +475,72 @@ const expectedColumns = {
       constraintName: "fk_group_members_user",
     },
   ],
-  // 프로젝트 테이블
+  // 태그 테이블 (해시태그 방식)
+  tags: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "name", definition: "VARCHAR(50) NOT NULL" },
+    { name: "color", definition: "VARCHAR(7) DEFAULT '#666666'" },
+    {
+      name: "created_at",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY name_unique (name)",
+      constraintName: "tags_name_unique",
+    },
+  ],
+  // 과제-태그 연결 테이블
+  assignment_tags: [
+    { name: "assignment_id", definition: "INT NOT NULL" },
+    { name: "tag_id", definition: "INT NOT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (assignment_id, tag_id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_assignment_tags_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE",
+      constraintName: "fk_assignment_tags_tag",
+    },
+  ],
+  // 합의과제-태그 연결 테이블
+  consensus_assignment_tags: [
+    { name: "consensus_assignment_id", definition: "INT NOT NULL" },
+    { name: "tag_id", definition: "INT NOT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (consensus_assignment_id, tag_id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (consensus_assignment_id) REFERENCES consensus_assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_tags_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE",
+      constraintName: "fk_consensus_tags_tag",
+    },
+  ],
+  // (deprecated) 프로젝트 테이블 - 기존 호환용
   projects: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
     { name: "name", definition: "VARCHAR(100) NOT NULL" },
@@ -503,7 +568,7 @@ const expectedColumns = {
       constraintName: "fk_projects_creator",
     },
   ],
-  // 암종 테이블
+  // (deprecated) 암종 테이블 - 기존 호환용
   cancer_types: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
     { name: "code", definition: "VARCHAR(20) NOT NULL" },
@@ -722,7 +787,33 @@ const createTablesSQL = {
     FOREIGN KEY (\`group_id\`) REFERENCES \`evaluator_groups\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
   )`,
-  // 프로젝트 테이블
+  // 태그 테이블 (해시태그 방식)
+  tags: `CREATE TABLE IF NOT EXISTS \`tags\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`name\` VARCHAR(50) NOT NULL,
+    \`color\` VARCHAR(7) DEFAULT '#666666',
+    \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`tags_name_unique\` (\`name\`)
+  )`,
+  // 과제-태그 연결 테이블
+  assignment_tags: `CREATE TABLE IF NOT EXISTS \`assignment_tags\` (
+    \`assignment_id\` INT NOT NULL,
+    \`tag_id\` INT NOT NULL,
+    PRIMARY KEY (\`assignment_id\`, \`tag_id\`),
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`tag_id\`) REFERENCES \`tags\`(\`id\`) ON DELETE CASCADE
+  )`,
+  // 합의과제-태그 연결 테이블
+  consensus_assignment_tags: `CREATE TABLE IF NOT EXISTS \`consensus_assignment_tags\` (
+    \`consensus_assignment_id\` INT NOT NULL,
+    \`tag_id\` INT NOT NULL,
+    PRIMARY KEY (\`consensus_assignment_id\`, \`tag_id\`),
+    FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`tag_id\`) REFERENCES \`tags\`(\`id\`) ON DELETE CASCADE
+  )`,
+  // (deprecated) 프로젝트 테이블
   projects: `CREATE TABLE IF NOT EXISTS \`projects\` (
     \`id\` INT AUTO_INCREMENT,
     \`name\` VARCHAR(100) NOT NULL,

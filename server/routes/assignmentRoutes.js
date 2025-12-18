@@ -26,6 +26,7 @@ router.post("/", authenticateToken, async (req, res) => {
     mode,
     is_score,
     is_ai_use,
+    tags, // 태그 이름 배열 ["brst", "pilot-01", ...]
   } = req.body;
 
   try {
@@ -65,6 +66,11 @@ router.post("/", authenticateToken, async (req, res) => {
     );
 
     await createCanvasForUsers(assignmentId, users);
+
+    // 태그 처리
+    if (tags && tags.length > 0) {
+      await saveAssignmentTags(assignmentId, tags);
+    }
 
     res
       .status(201)
@@ -382,6 +388,15 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
+    // 태그 조회
+    const [tags] = await db.query(
+      `SELECT t.id, t.name, t.color
+       FROM tags t
+       JOIN assignment_tags at ON t.id = at.tag_id
+       WHERE at.assignment_id = ? AND t.deleted_at IS NULL`,
+      [assignmentId]
+    );
+
     const transformedAssignmentDetails = {
       id: assignment.id,
       title: assignment.title,
@@ -391,6 +406,7 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
       deadline: assignment.deadline,
       selectedAssignmentId: assignment.selectedAssignmentId,
       selectedAssignmentType: assignment.selectedAssignmentType,
+      tags: tags, // 태그 배열 [{id, name, color}, ...]
       questions: questions.map((q) => ({ id: q.id, img: q.image })),
       gradingScale: assignment.selectedAssignmentId
         ? assignment.selectedAssignmentId.split(",").map((item) => item.trim())
@@ -507,6 +523,7 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     mode,
     is_score,
     is_ai_use,
+    tags, // 태그 이름 배열
   } = req.body;
 
   try {
@@ -520,6 +537,11 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       is_score,
       is_ai_use,
     });
+
+    // 태그 업데이트
+    if (tags !== undefined) {
+      await saveAssignmentTags(assignmentId, tags || []);
+    }
 
     await updateQuestions(assignmentId, questions);
 
@@ -676,6 +698,45 @@ const updateAssignment = async (params) => {
   ]);
 
   console.log("[DEBUG] updateAssignment - query result:", JSON.stringify(result, null, 2));
+};
+
+// 과제 태그 저장 함수
+const saveAssignmentTags = async (assignmentId, tagNames) => {
+  // 기존 태그 연결 삭제
+  await db.query(`DELETE FROM assignment_tags WHERE assignment_id = ?`, [
+    assignmentId,
+  ]);
+
+  if (!tagNames || tagNames.length === 0) return;
+
+  // 태그 생성/조회 및 연결
+  for (const name of tagNames) {
+    const tagName = name.trim().toLowerCase().replace(/^#/, "");
+    if (!tagName) continue;
+
+    // 태그 존재 확인 또는 생성
+    let tagId;
+    const [existing] = await db.query(
+      `SELECT id FROM tags WHERE name = ? AND deleted_at IS NULL`,
+      [tagName]
+    );
+
+    if (existing.length > 0) {
+      tagId = existing[0].id;
+    } else {
+      const [insertResult] = await db.query(
+        `INSERT INTO tags (name) VALUES (?)`,
+        [tagName]
+      );
+      tagId = insertResult.insertId;
+    }
+
+    // 연결 생성
+    await db.query(
+      `INSERT INTO assignment_tags (assignment_id, tag_id) VALUES (?, ?)`,
+      [assignmentId, tagId]
+    );
+  }
 };
 
 // 과제 삭제 (Soft Delete + RESTRICT 검증)
