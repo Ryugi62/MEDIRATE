@@ -721,10 +721,10 @@ td {
 }
 
 .isInspected {
-  background-color: black;
+  background-color: #a8d4ff;
 }
 .isInspected:hover {
-  background-color: #333;
+  background-color: #8bc4ff;
 }
 
 /* BBox 개수 셀에 대한 스타일 추가 */
@@ -738,7 +738,9 @@ td:nth-child(2) {
   }
 }
 
-tr.isInspected > *,
+tr.isInspected > * {
+  color: #333;
+}
 tr.active > * {
   color: white;
 }
