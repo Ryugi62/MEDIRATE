@@ -921,11 +921,19 @@ async function initializeDb() {
           }
 
           if (!constraintExists) {
-            const alterSQL = `ALTER TABLE \`${table}\` ADD ${constraintDefinition}`;
-            await pool.execute(alterSQL);
-            console.log(
-              `Added constraint '${constraintName}' to table '${table}'.`
-            );
+            try {
+              const alterSQL = `ALTER TABLE \`${table}\` ADD ${constraintDefinition}`;
+              await pool.execute(alterSQL);
+              console.log(
+                `Added constraint '${constraintName}' to table '${table}'.`
+              );
+            } catch (err) {
+              if (err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_DUP_KEY' || err.code === 'ER_FK_DUP_NAME') {
+                console.log(`Constraint '${constraintName}' already exists on table '${table}'.`);
+              } else {
+                throw err;
+              }
+            }
           }
         } else if (!existingColumnNames.includes(col.name)) {
           // 열 추가
