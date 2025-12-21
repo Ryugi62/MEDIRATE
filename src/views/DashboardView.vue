@@ -216,6 +216,11 @@
     </table>
   </div>
 
+  <!-- 평가자 그룹 관리 섹션 (관리자만 표시) -->
+  <div v-if="isAdmin" class="group-manager-section">
+    <EvaluatorGroupManager />
+  </div>
+
   <!-- 일괄 할당 모달 (Consensus용) -->
   <BulkAssignModal
     v-if="showBulkAssignModal"
@@ -316,12 +321,14 @@
 
 <script>
 import BulkAssignModal from "@/components/BulkAssignModal.vue";
+import EvaluatorGroupManager from "@/components/EvaluatorGroupManager.vue";
 
 export default {
   name: "DashboardView",
 
   components: {
     BulkAssignModal,
+    EvaluatorGroupManager,
   },
 
   data() {
@@ -357,6 +364,11 @@ export default {
   },
 
   computed: {
+    // 관리자 여부
+    isAdmin() {
+      const user = this.$store.getters.getUser;
+      return user && user.role === "admin";
+    },
     // 현재 페이지의 모든 과제가 선택되었는지
     isAllPageSelected() {
       if (this.data.length === 0) return false;
@@ -1754,5 +1766,10 @@ td.assignment-mode {
 .modal-btn--confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 평가자 그룹 관리 섹션 */
+.group-manager-section {
+  margin: 20px 16px;
 }
 </style>

@@ -29,23 +29,62 @@ export default {
 <style>
 /* 색 정의 */
 :root {
+  /* 기본 색상 */
   --white: #ffffff;
   --black: #25313c;
   --black-hover: #15213c;
   --black-active: #05113c;
   --gray: #6d7d8b;
-  --light-gray: #bbc8d4;
-  --ultra-light-gray: #bbc8d4;
-  --green: #00c04d;
-  --green-hover: #00b03d;
-  --green-active: #00a02d;
-  --yellow: #ffbb00;
-  --pink: #ed455d;
-  --pink-hover: #dd355d;
-  --pink-active: #cd255d;
+  --light-gray: #e0e0e0;
+  --ultra-light-gray: #f5f5f5;
+
+  /* 브랜드 색상 */
   --blue: #2196F3;
   --blue-hover: #1976D2;
   --blue-active: #1565C0;
+  --green: #28a745;
+  --green-hover: #218838;
+  --green-active: #1e7e34;
+  --yellow: #ffc107;
+  --orange: #ff9800;
+  --pink: #e91e63;
+  --pink-hover: #c2185b;
+  --pink-active: #ad1457;
+
+  /* 시맨틱 색상 - 상태별 */
+  --primary-color: #2196F3;
+  --primary-hover: #1976D2;
+  --primary-active: #1565C0;
+
+  --success-color: #28a745;
+  --success-hover: #218838;
+  --success-bg: #e8f5e9;
+
+  --danger-color: #dc3545;
+  --danger-hover: #c82333;
+  --danger-bg: #ffebee;
+
+  --warning-color: #ffc107;
+  --warning-hover: #e0a800;
+  --warning-bg: #fff8e1;
+
+  --info-color: #17a2b8;
+  --info-hover: #138496;
+  --info-bg: #e3f2fd;
+
+  /* 텍스트 색상 */
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #adb5bd;
+
+  /* 배경 색상 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+
+  /* 테두리 색상 */
+  --border-color: #dee2e6;
+  --border-light: #e9ecef;
 }
 
 * {
