@@ -40,6 +40,51 @@ const expectedColumns = {
       constraintName: "users_role_check",
     },
   ],
+  // projects와 cancer_types를 assignments보다 먼저 정의 (FK 참조 대상)
+  projects: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "name", definition: "VARCHAR(100) NOT NULL" },
+    { name: "description", definition: "VARCHAR(255)" },
+    { name: "created_by", definition: "INT" },
+    {
+      name: "creation_date",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY name_unique (name)",
+      constraintName: "name_unique",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
+      constraintName: "fk_projects_creator",
+    },
+  ],
+  cancer_types: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "code", definition: "VARCHAR(20) NOT NULL" },
+    { name: "name_ko", definition: "VARCHAR(50) NOT NULL" },
+    { name: "name_en", definition: "VARCHAR(50)" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY code_unique (code)",
+      constraintName: "code_unique",
+    },
+  ],
   assignments: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
     { name: "title", definition: "VARCHAR(255) NOT NULL" },
@@ -540,56 +585,11 @@ const expectedColumns = {
       constraintName: "fk_consensus_tags_tag",
     },
   ],
-  // (deprecated) 프로젝트 테이블 - 기존 호환용
-  projects: [
-    { name: "id", definition: "INT AUTO_INCREMENT" },
-    { name: "name", definition: "VARCHAR(100) NOT NULL" },
-    { name: "description", definition: "VARCHAR(255)" },
-    { name: "created_by", definition: "INT" },
-    {
-      name: "creation_date",
-      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-    },
-    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
-    {
-      name: "PRIMARY KEY",
-      definition: "PRIMARY KEY (id)",
-      constraintName: "PRIMARY",
-    },
-    {
-      name: "UNIQUE",
-      definition: "UNIQUE KEY name_unique (name)",
-      constraintName: "name_unique",
-    },
-    {
-      name: "FOREIGN KEY",
-      definition:
-        "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
-      constraintName: "fk_projects_creator",
-    },
-  ],
-  // (deprecated) 암종 테이블 - 기존 호환용
-  cancer_types: [
-    { name: "id", definition: "INT AUTO_INCREMENT" },
-    { name: "code", definition: "VARCHAR(20) NOT NULL" },
-    { name: "name_ko", definition: "VARCHAR(50) NOT NULL" },
-    { name: "name_en", definition: "VARCHAR(50)" },
-    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
-    {
-      name: "PRIMARY KEY",
-      definition: "PRIMARY KEY (id)",
-      constraintName: "PRIMARY",
-    },
-    {
-      name: "UNIQUE",
-      definition: "UNIQUE KEY code_unique (code)",
-      constraintName: "code_unique",
-    },
-  ],
 };
 
 // 초기 테이블 생성 SQL
 // Soft Delete 및 FK 정책 적용
+// NOTE: 테이블 순서가 중요! FK 참조 대상 테이블이 먼저 정의되어야 함
 const createTablesSQL = {
   users: `CREATE TABLE IF NOT EXISTS \`users\` (
     \`id\` INT AUTO_INCREMENT,
@@ -601,6 +601,27 @@ const createTablesSQL = {
     \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (\`id\`),
     CONSTRAINT \`users_role_check\` CHECK (\`role\` IN ('user', 'admin'))
+  )`,
+  // projects와 cancer_types를 assignments보다 먼저 생성 (FK 참조 대상)
+  projects: `CREATE TABLE IF NOT EXISTS \`projects\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`name\` VARCHAR(100) NOT NULL,
+    \`description\` VARCHAR(255),
+    \`created_by\` INT,
+    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`name_unique\` (\`name\`),
+    FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL
+  )`,
+  cancer_types: `CREATE TABLE IF NOT EXISTS \`cancer_types\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`code\` VARCHAR(20) NOT NULL,
+    \`name_ko\` VARCHAR(50) NOT NULL,
+    \`name_en\` VARCHAR(50),
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`code_unique\` (\`code\`)
   )`,
   assignments: `CREATE TABLE IF NOT EXISTS \`assignments\` (
     \`id\` INT AUTO_INCREMENT,
@@ -812,28 +833,6 @@ const createTablesSQL = {
     PRIMARY KEY (\`consensus_assignment_id\`, \`tag_id\`),
     FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`tag_id\`) REFERENCES \`tags\`(\`id\`) ON DELETE CASCADE
-  )`,
-  // (deprecated) 프로젝트 테이블
-  projects: `CREATE TABLE IF NOT EXISTS \`projects\` (
-    \`id\` INT AUTO_INCREMENT,
-    \`name\` VARCHAR(100) NOT NULL,
-    \`description\` VARCHAR(255),
-    \`created_by\` INT,
-    \`creation_date\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
-    PRIMARY KEY (\`id\`),
-    UNIQUE KEY \`name_unique\` (\`name\`),
-    FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL
-  )`,
-  // 암종 테이블
-  cancer_types: `CREATE TABLE IF NOT EXISTS \`cancer_types\` (
-    \`id\` INT AUTO_INCREMENT,
-    \`code\` VARCHAR(20) NOT NULL,
-    \`name_ko\` VARCHAR(50) NOT NULL,
-    \`name_en\` VARCHAR(50),
-    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
-    PRIMARY KEY (\`id\`),
-    UNIQUE KEY \`code_unique\` (\`code\`)
   )`,
 };
 
