@@ -1068,9 +1068,9 @@ export default {
         this.assignmentDetails.is_ai_use =
           response.data.is_ai_use === 1 ? true : false;
         this.assignmentDetails.tags = response.data.tags || [];
-        // 프로젝트/암종 정보 로드
-        this.selectedProjectId = response.data.project_id || null;
-        this.selectedCancerId = response.data.cancer_type_id || null;
+        // 프로젝트/암종 정보 로드 (숫자 타입으로 변환하여 select 바인딩 호환성 보장)
+        this.selectedProjectId = response.data.project_id ? Number(response.data.project_id) : null;
+        this.selectedCancerId = response.data.cancer_type_id ? Number(response.data.cancer_type_id) : null;
       } catch (error) {
         console.error("과제 정보를 가져오는 중 오류 발생:", error);
       }
