@@ -141,21 +141,31 @@
           <div class="project-select-group">
             <div class="select-field">
               <label class="select-label">프로젝트:</label>
-              <select v-model="selectedProjectId" class="project-select" @change="selectedCancerId = null">
-                <option :value="null">프로젝트 선택...</option>
-                <option v-for="project in projectList" :key="project.id" :value="project.id">
-                  {{ project.name }}
-                </option>
-              </select>
+              <div class="select-with-add">
+                <select v-model="selectedProjectId" class="project-select" @change="selectedCancerId = null">
+                  <option :value="null">프로젝트 선택...</option>
+                  <option v-for="project in projectList" :key="project.id" :value="project.id">
+                    {{ project.name }}
+                  </option>
+                </select>
+                <button type="button" class="add-inline-btn" @click="showNewProjectModal = true" title="새 프로젝트 추가">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
             </div>
             <div class="select-field">
               <label class="select-label">암종:</label>
-              <select v-model="selectedCancerId" class="cancer-select" :disabled="!selectedProjectId">
-                <option :value="null">암종 선택...</option>
-                <option v-for="cancer in cancerList" :key="cancer.id" :value="cancer.id">
-                  {{ cancer.name }}
-                </option>
-              </select>
+              <div class="select-with-add">
+                <select v-model="selectedCancerId" class="cancer-select" :disabled="!selectedProjectId">
+                  <option :value="null">암종 선택...</option>
+                  <option v-for="cancer in cancerList" :key="cancer.id" :value="cancer.id">
+                    {{ cancer.name }}
+                  </option>
+                </select>
+                <button type="button" class="add-inline-btn" @click="showNewCancerModal = true" :disabled="!selectedProjectId" title="새 암종 추가">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -313,6 +323,72 @@
         </div>
       </div>
     </div>
+
+    <!-- 새 프로젝트 추가 모달 -->
+    <div v-if="showNewProjectModal" class="modal-overlay" @click.self="showNewProjectModal = false">
+      <div class="inline-modal">
+        <div class="modal-header">
+          <h4>새 프로젝트</h4>
+          <button class="close-btn" @click="showNewProjectModal = false">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>프로젝트 이름 *</label>
+            <input
+              type="text"
+              v-model="newProjectName"
+              placeholder="예: 유방암 연구, Pilot Study"
+              maxlength="100"
+              @keydown.enter="saveNewProject"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="showNewProjectModal = false">취소</button>
+          <button class="save-btn" @click="saveNewProject" :disabled="!newProjectName.trim() || savingProject">
+            <i v-if="savingProject" class="fas fa-spinner fa-spin"></i>
+            <span v-else>저장</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 새 암종 추가 모달 -->
+    <div v-if="showNewCancerModal" class="modal-overlay" @click.self="showNewCancerModal = false">
+      <div class="inline-modal">
+        <div class="modal-header">
+          <h4>새 암종 추가</h4>
+          <button class="close-btn" @click="showNewCancerModal = false">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>프로젝트</label>
+            <input type="text" :value="selectedProjectName" disabled class="disabled-input" />
+          </div>
+          <div class="form-group">
+            <label>암종 이름 *</label>
+            <input
+              type="text"
+              v-model="newCancerName"
+              placeholder="예: 유방암, 폐암, 대장암"
+              maxlength="100"
+              @keydown.enter="saveNewCancer"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="showNewCancerModal = false">취소</button>
+          <button class="save-btn" @click="saveNewCancer" :disabled="!newCancerName.trim() || savingCancer">
+            <i v-if="savingCancer" class="fas fa-spinner fa-spin"></i>
+            <span v-else>저장</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -335,6 +411,13 @@ export default {
       projectList: [],
       selectedProjectId: null,
       selectedCancerId: null,
+      // 새 프로젝트/암종 추가 모달
+      showNewProjectModal: false,
+      showNewCancerModal: false,
+      newProjectName: "",
+      newCancerName: "",
+      savingProject: false,
+      savingCancer: false,
       // 태그 관련
       tagInput: "", // 태그 입력 필드
       tagSuggestions: [], // 자동완성 목록
@@ -426,6 +509,12 @@ export default {
       const project = this.projectList.find((p) => p.id === this.selectedProjectId);
       return project?.cancer_types || [];
     },
+    // 선택된 프로젝트 이름
+    selectedProjectName() {
+      if (!this.selectedProjectId) return "";
+      const project = this.projectList.find((p) => p.id === this.selectedProjectId);
+      return project?.name || "";
+    },
   },
   methods: {
     // 프로젝트 목록 로드
@@ -438,6 +527,59 @@ export default {
         this.projectList = response.data;
       } catch (error) {
         console.error("프로젝트 목록 로딩 오류:", error);
+      }
+    },
+
+    // 새 프로젝트 저장
+    async saveNewProject() {
+      if (!this.newProjectName.trim()) return;
+      this.savingProject = true;
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+        const response = await this.$axios.post(
+          "/api/projects",
+          { name: this.newProjectName.trim() },
+          { headers }
+        );
+        // 프로젝트 목록 새로고침 후 새 프로젝트 선택
+        await this.fetchProjectList();
+        this.selectedProjectId = response.data.id;
+        this.selectedCancerId = null;
+        this.showNewProjectModal = false;
+        this.newProjectName = "";
+      } catch (error) {
+        console.error("프로젝트 저장 오류:", error);
+        alert("프로젝트 저장 중 오류가 발생했습니다.");
+      } finally {
+        this.savingProject = false;
+      }
+    },
+
+    // 새 암종 저장
+    async saveNewCancer() {
+      if (!this.newCancerName.trim() || !this.selectedProjectId) return;
+      this.savingCancer = true;
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+        const response = await this.$axios.post(
+          `/api/projects/${this.selectedProjectId}/cancer-types`,
+          { name: this.newCancerName.trim() },
+          { headers }
+        );
+        // 프로젝트 목록 새로고침 후 새 암종 선택
+        await this.fetchProjectList();
+        this.selectedCancerId = response.data.id;
+        this.showNewCancerModal = false;
+        this.newCancerName = "";
+      } catch (error) {
+        console.error("암종 저장 오류:", error);
+        alert("암종 저장 중 오류가 발생했습니다.");
+      } finally {
+        this.savingCancer = false;
       }
     },
     fetchFolderList() {
@@ -1221,6 +1363,174 @@ hr {
 
 .project-select-group select:disabled {
   background-color: #f0f0f0;
+  cursor: not-allowed;
+}
+
+/* 선택 + 추가 버튼 래퍼 */
+.select-with-add {
+  display: flex;
+  gap: 4px;
+}
+
+.select-with-add select {
+  flex: 1;
+}
+
+.add-inline-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--blue);
+  border-radius: 4px;
+  background-color: var(--blue);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.add-inline-btn:hover:not(:disabled) {
+  background-color: var(--blue-hover);
+}
+
+.add-inline-btn:disabled {
+  background-color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 인라인 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.inline-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 360px;
+  max-width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.inline-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.inline-modal .modal-header h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.inline-modal .close-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+}
+
+.inline-modal .close-btn:hover {
+  color: #333;
+}
+
+.inline-modal .modal-body {
+  padding: 16px;
+}
+
+.inline-modal .form-group {
+  margin-bottom: 14px;
+}
+
+.inline-modal .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.inline-modal .form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.inline-modal .form-group input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.inline-modal .form-group input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.inline-modal .disabled-input {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.inline-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--light-gray);
+}
+
+.inline-modal .cancel-btn {
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.inline-modal .cancel-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.inline-modal .save-btn {
+  padding: 8px 16px;
+  background-color: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-modal .save-btn:hover:not(:disabled) {
+  background-color: var(--blue-hover);
+}
+
+.inline-modal .save-btn:disabled {
+  background-color: #ccc;
   cursor: not-allowed;
 }
 

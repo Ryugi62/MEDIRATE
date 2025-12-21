@@ -226,9 +226,12 @@
     </table>
   </div>
 
-  <!-- 평가자 그룹 관리 섹션 (관리자만 표시) -->
-  <div v-if="isAdmin" class="group-manager-section">
-    <EvaluatorGroupManager />
+  <!-- 관리자 전용 관리 섹션 -->
+  <div v-if="isAdmin" class="admin-manager-section">
+    <div class="manager-grid">
+      <EvaluatorGroupManager />
+      <ProjectManager @updated="loadPaginatedData" />
+    </div>
   </div>
 
   <!-- 일괄 할당 모달 -->
@@ -336,6 +339,7 @@
 import BulkAssignModal from "@/components/BulkAssignModal.vue";
 import EvaluatorGroupManager from "@/components/EvaluatorGroupManager.vue";
 import ProjectTreeFilter from "@/components/ProjectTreeFilter.vue";
+import ProjectManager from "@/components/ProjectManager.vue";
 
 export default {
   name: "DashboardView",
@@ -344,6 +348,7 @@ export default {
     BulkAssignModal,
     EvaluatorGroupManager,
     ProjectTreeFilter,
+    ProjectManager,
   },
 
   data() {
@@ -1819,8 +1824,14 @@ td.assignment-mode {
   cursor: not-allowed;
 }
 
-/* 평가자 그룹 관리 섹션 */
-.group-manager-section {
+/* 관리자 관리 섹션 */
+.admin-manager-section {
   margin: 20px 16px;
+}
+
+.manager-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 16px;
 }
 </style>
