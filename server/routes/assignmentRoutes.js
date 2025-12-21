@@ -571,7 +571,9 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
         a.selection_type AS selectedAssignmentId,
         a.assignment_mode AS mode,
         a.is_score,
-        a.is_ai_use
+        a.is_ai_use,
+        a.project_id,
+        a.cancer_type_id
       FROM assignments a
       WHERE a.id = ? AND a.deleted_at IS NULL;
     `;
@@ -616,6 +618,8 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
       deadline: assignment.deadline,
       selectedAssignmentId: assignment.selectedAssignmentId,
       selectedAssignmentType: assignment.selectedAssignmentType,
+      project_id: assignment.project_id,
+      cancer_type_id: assignment.cancer_type_id,
       tags: tags, // 태그 배열 [{id, name, color}, ...]
       questions: questions.map((q) => ({ id: q.id, img: q.image })),
       gradingScale: assignment.selectedAssignmentId

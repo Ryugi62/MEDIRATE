@@ -56,17 +56,6 @@
         </div>
       </div>
 
-      <!-- 필터 그룹 -->
-      <div class="filter-group">
-        <select v-model="selectedMode" class="mode-filter">
-          <option value="all">전체 모드</option>
-          <option value="TextBox">TextBox</option>
-          <option value="BBox">BBox</option>
-          <option value="Segment">Segment</option>
-          <option value="Consensus">Consensus (합의)</option>
-        </select>
-      </div>
-
       <!-- 슬라이더 그룹 -->
       <div class="slider-group">
         <div class="slider-item">
@@ -1062,27 +1051,6 @@ export default {
   font-size: 20px;
   font-weight: 600;
   white-space: nowrap;
-}
-
-/* 필터 그룹 */
-.filter-group {
-  display: flex;
-  gap: 8px;
-}
-
-.mode-filter {
-  padding: 6px 10px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  background-color: white;
-  min-width: 100px;
-}
-
-.mode-filter:focus {
-  outline: none;
-  border-color: var(--blue);
 }
 
 /* 슬라이더 그룹 */

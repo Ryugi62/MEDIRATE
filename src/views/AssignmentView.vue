@@ -17,15 +17,6 @@
     <h1 class="header-title">평가 수행</h1>
 
     <div class="header-controls">
-      <!-- 모드 필터 -->
-      <select v-model="selectedMode" class="mode-filter">
-        <option value="all">전체 모드</option>
-        <option value="TextBox">TextBox</option>
-        <option value="BBox">BBox</option>
-        <option value="Segment">Segment</option>
-        <option value="Consensus">Consensus (합의)</option>
-      </select>
-
       <!-- 과제 리스트에서 제목으로 검색 -->
       <div
         class="assignment-search-input"
@@ -729,20 +720,6 @@ tbody > tr:hover {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.mode-filter {
-  padding: 6px 10px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  background-color: white;
-}
-
-.mode-filter:focus {
-  outline: none;
-  border-color: var(--blue);
 }
 
 /* 합의 과제 행 스타일 */
