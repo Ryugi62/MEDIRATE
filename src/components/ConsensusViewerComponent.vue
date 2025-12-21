@@ -253,9 +253,6 @@ export default {
 
       this.redrawCanvas();
 
-      // 확대경 기능
-      this.activeEnlarge(event, x, y);
-
       // 마우스 위치에 가장 가까운 FP 하이라이트
       const closestFp = this.getClosestFp(x, y);
       if (closestFp) {
@@ -358,62 +355,6 @@ export default {
           );
         });
       }
-    },
-
-    activeEnlarge(event, mouseX, mouseY) {
-      const canvas = this.$refs.canvas;
-      const ctx = canvas.getContext("2d");
-      const zoomWidth = 200;
-      const zoomHeight = 200;
-      const zoomLevel = 2.5;
-
-      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
-        canvas.width,
-        canvas.height
-      );
-      const mouseXOnImage = (mouseX - imgX) / scale;
-      const mouseYOnImage = (mouseY - imgY) / scale;
-
-      // 이미지 영역 밖에서는 줌 표시 안함
-      if (
-        !this.backgroundImage ||
-        mouseXOnImage < 0 ||
-        mouseYOnImage < 0 ||
-        mouseXOnImage > this.originalWidth ||
-        mouseYOnImage > this.originalHeight
-      ) {
-        return;
-      }
-
-      const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
-      const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
-      const sourceWidth = zoomWidth / zoomLevel;
-      const sourceHeight = zoomHeight / zoomLevel;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(canvas.width - zoomWidth - 10, 10, zoomWidth, zoomHeight);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.drawImage(
-        this.backgroundImage,
-        Math.max(0, sourceX),
-        Math.max(0, sourceY),
-        sourceWidth,
-        sourceHeight,
-        canvas.width - zoomWidth - 10,
-        10,
-        zoomWidth,
-        zoomHeight
-      );
-
-      ctx.restore();
-
-      // 줌 박스 테두리
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(canvas.width - zoomWidth - 10, 10, zoomWidth, zoomHeight);
     },
   },
 };

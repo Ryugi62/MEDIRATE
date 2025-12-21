@@ -2,50 +2,44 @@
 <!-- Consensus 결과 분석을 위한 뷰어 (DashboardDetailView와 유사) -->
 
 <template>
-  <div v-if="consensusData" class="consensus-analysis">
+  <div v-if="consensusData" class="dashboard">
     <div v-if="isExporting" class="exporting-message">
       {{ exportingMessage }}
     </div>
     <h1 class="title">Consensus 분석</h1>
-    <div class="analysis-content">
+    <div class="dashboard-content">
       <div class="table-box">
         <div class="table-header">
           <span class="table-title">{{ consensusData.title }}</span>
-          <div class="metadata">
-            <span class="metadata-item">
-              마감일: {{ formatDate(consensusData.deadline) }}
-            </span>
-            <span class="metadata-item">
-              평가자: {{ evaluatorCount }}명
-            </span>
-            <span class="metadata-item">
-              임계값: {{ consensusData.threshold || 2 }}
-            </span>
-          </div>
-          <div class="action-buttons">
-            <button class="export-button" @click="exportToExcel">내보내기</button>
-            <button class="evaluate-button" @click="goToEvaluation">평가하기</button>
-          </div>
+          <span class="metadata-info">
+            마감일: {{ formatDate(consensusData.deadline) }} |
+            평가자: {{ evaluatorCount }}명 |
+            임계값: {{ consensusData.threshold || 2 }}
+          </span>
+          <span class="completed-status">
+            <strong>{{ completedCount }}/{{ questionList.length }}</strong> 완료
+          </span>
+          <button class="export-button" @click="exportToExcel">내보내기</button>
+          <button class="evaluate-button" @click="goToEvaluation">평가하기</button>
         </div>
         <div class="table-body">
           <div class="table-section">
-            <table class="analysis-table">
+            <table class="assignment-table">
               <thead class="table-head">
                 <tr>
-                  <th class="col-num">번호</th>
-                  <th class="col-image">이미지</th>
-                  <th class="col-fp">FP</th>
+                  <th>번호</th>
+                  <th>이미지</th>
+                  <th>FP</th>
                   <th
-                    v-for="evaluator in evaluators"
+                    v-for="(evaluator, idx) in evaluators"
                     :key="evaluator.id"
-                    class="col-evaluator"
-                    :style="getStyleForEvaluator(evaluator)"
+                    :style="getStyleForEvaluator(idx)"
                   >
                     {{ evaluator.realname }}
                   </th>
-                  <th class="col-agree">동의</th>
-                  <th class="col-gs">GS</th>
-                  <th class="col-status">상태</th>
+                  <th>동의율</th>
+                  <th>GS</th>
+                  <th>상태</th>
                 </tr>
               </thead>
               <tbody>
@@ -55,39 +49,28 @@
                   :class="{ active: idx === activeIndex }"
                   @click="onRowClick(question, idx)"
                 >
-                  <td class="col-num">{{ idx + 1 }}</td>
-                  <td class="col-image">
+                  <td>{{ idx + 1 }}</td>
+                  <td class="image-cell">
                     <img :src="getImageThumbnail(question.image)" alt="이미지" />
-                    <span class="image-name">{{ getFileName(question.image) }}</span>
                   </td>
-                  <td class="col-fp">{{ question.fpCount }}</td>
+                  <td>{{ question.fpCount }}</td>
                   <td
                     v-for="evaluator in evaluators"
                     :key="evaluator.id"
-                    class="col-evaluator"
                     :class="getEvaluatorCellClass(question.image, evaluator.id)"
                   >
                     {{ getEvaluatorResponseSummary(question.image, evaluator.id) }}
                   </td>
-                  <td class="col-agree">
-                    <span class="agree-rate">
-                      {{ getAgreeRate(question.image) }}%
-                    </span>
-                  </td>
-                  <td class="col-gs">
+                  <td>{{ getAgreeRate(question.image) }}%</td>
+                  <td>
                     <span v-if="question.goldStandardCount > 0" class="gs-badge">
                       {{ question.goldStandardCount }}
                     </span>
                     <span v-else>-</span>
                   </td>
-                  <td class="col-status">
-                    <span
-                      :class="{
-                        complete: question.isComplete,
-                        partial: !question.isComplete && question.hasAnyResponse,
-                      }"
-                    >
-                      {{ question.isComplete ? "완료" : question.hasAnyResponse ? "진행중" : "미시작" }}
+                  <td>
+                    <span :class="getStatusClass(question)">
+                      {{ getStatusText(question) }}
                     </span>
                   </td>
                 </tr>
@@ -105,7 +88,7 @@
               </tfoot>
             </table>
           </div>
-          <div class="viewer-box">
+          <div class="image-box">
             <ConsensusViewerComponent
               :src="activeImageUrl"
               :fpSquares="currentImageFpSquares"
@@ -113,19 +96,15 @@
               :evaluators="evaluators"
               :threshold="consensusData.threshold || 2"
             />
-            <div class="image-info">
-              <strong>{{ activeImageName }}</strong>
-              <span class="fp-info">FP: {{ currentImageFpSquares.length }}</span>
-            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="legend-section">
-      <span class="legend-item agree">동의 (논 마이토시스)</span>
-      <span class="legend-item disagree">비동의 (마이토시스)</span>
+    <div class="legend-bar">
+      <span class="legend-item agree">동의</span>
+      <span class="legend-item disagree">비동의</span>
       <span class="legend-item pending">미응답</span>
-      <span class="legend-item gs">Gold Standard</span>
+      <span class="legend-item gs">GS</span>
     </div>
   </div>
   <div v-else class="loading-message">
@@ -151,7 +130,6 @@ export default {
       consensusData: null,
       activeIndex: 0,
       activeImageUrl: "",
-      activeImageName: "",
       isExporting: false,
       exportingMessage: "내보내기 중...",
       colorList: [
@@ -208,7 +186,6 @@ export default {
           imageMap[fp.question_image].goldStandardCount++;
         }
 
-        // 완료 상태 체크
         const responses = this.consensusData.evaluatorResponses?.[fp.id];
         if (responses) {
           const responseCount = Object.keys(responses).length;
@@ -301,7 +278,6 @@ export default {
 
         this.consensusData = response.data;
 
-        // 첫 번째 이미지로 설정
         if (this.questionList.length > 0) {
           this.setActiveImage(0);
         }
@@ -316,7 +292,6 @@ export default {
       if (question && this.consensusData) {
         const assignmentType = this.consensusData.assignment_type;
         this.activeImageUrl = `/api/assets/${assignmentType}/${question.image}`;
-        this.activeImageName = question.image;
       }
     },
 
@@ -332,18 +307,13 @@ export default {
       return "https://via.placeholder.com/25";
     },
 
-    getFileName(path) {
-      return path.split("/").pop();
-    },
-
     formatDate(dateString) {
       if (!dateString) return "-";
       const date = new Date(dateString);
       return date.toLocaleDateString();
     },
 
-    getStyleForEvaluator(evaluator) {
-      const idx = this.evaluators.indexOf(evaluator);
+    getStyleForEvaluator(idx) {
       const color = this.colorList[idx % this.colorList.length];
       return {
         backgroundColor: color.backgroundColor,
@@ -402,11 +372,11 @@ export default {
       });
 
       if (pending === fpSquares.length) {
-        return "pending";
+        return "cell-pending";
       } else if (pending > 0) {
-        return "partial";
+        return "cell-partial";
       }
-      return "complete";
+      return "cell-complete";
     },
 
     getAgreeRate(questionImage) {
@@ -460,6 +430,18 @@ export default {
       return `${agree}/${disagree}`;
     },
 
+    getStatusClass(question) {
+      if (question.isComplete) return "status-complete";
+      if (question.hasAnyResponse) return "status-partial";
+      return "status-pending";
+    },
+
+    getStatusText(question) {
+      if (question.isComplete) return "완료";
+      if (question.hasAnyResponse) return "진행";
+      return "대기";
+    },
+
     goToEvaluation() {
       this.$router.push({
         name: "consensusDetail",
@@ -472,13 +454,24 @@ export default {
         event.preventDefault();
         if (this.activeIndex < this.questionList.length - 1) {
           this.setActiveImage(this.activeIndex + 1);
+          this.scrollToActiveRow();
         }
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
         if (this.activeIndex > 0) {
           this.setActiveImage(this.activeIndex - 1);
+          this.scrollToActiveRow();
         }
       }
+    },
+
+    scrollToActiveRow() {
+      this.$nextTick(() => {
+        const activeRow = this.$el.querySelector("tbody tr.active");
+        if (activeRow) {
+          activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      });
     },
 
     async exportToExcel() {
@@ -489,7 +482,6 @@ export default {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Consensus Analysis");
 
-        // 헤더 생성
         const headers = [
           "번호",
           "이미지",
@@ -501,7 +493,6 @@ export default {
         ];
         worksheet.addRow(headers);
 
-        // 데이터 추가
         this.questionList.forEach((question, idx) => {
           const row = [
             idx + 1,
@@ -512,12 +503,13 @@ export default {
             ),
             `${this.getAgreeRate(question.image)}%`,
             question.goldStandardCount || "-",
-            question.isComplete ? "완료" : question.hasAnyResponse ? "진행중" : "미시작",
+            this.getStatusText(question),
           ];
           worksheet.addRow(row);
         });
 
-        // 파일 저장
+        worksheet.getRow(1).font = { bold: true };
+
         const buffer = await workbook.xlsx.writeBuffer();
         const fileName = `consensus_analysis_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
         saveAs(new Blob([buffer]), fileName);
@@ -533,86 +525,85 @@ export default {
 </script>
 
 <style scoped>
-.consensus-analysis {
-  padding: 20px;
-  background-color: var(--background-color, #f5f5f5);
-  min-height: 100vh;
+.dashboard {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .title {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 20px;
-  color: var(--text-color, #333);
+  font-size: 18px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+  font-weight: 500;
+  margin: 0;
+  border-bottom: 1px solid var(--light-gray, #e0e0e0);
+  flex-shrink: 0;
 }
 
-.exporting-message {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 20px 40px;
-  border-radius: 8px;
-  z-index: 1000;
-}
-
-.analysis-content {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.dashboard-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .table-box {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 200px);
+  overflow: hidden;
 }
 
 .table-header {
+  height: 45px;
   display: flex;
+  padding-left: 16px;
+  padding-right: 16px;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  background-color: var(--primary-color, #007bff);
-  color: white;
-  flex-wrap: wrap;
   gap: 10px;
+  border-bottom: 1px solid var(--light-gray, #e0e0e0);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.table-title {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.metadata {
-  display: flex;
-  gap: 20px;
-}
-
-.metadata-item {
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.action-buttons button {
-  padding: 8px 16px;
+.table-header button {
+  font-size: 11px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s;
+}
+
+.table-title {
+  font-weight: bold;
+  font-size: 13px;
+  margin: 0;
+  padding: 0;
+  margin-right: auto;
+}
+
+.metadata-info {
+  font-size: 12px;
+  color: #666;
+}
+
+.completed-status {
+  font-size: 12px;
+}
+
+.completed-status > strong {
+  color: var(--blue, #007bff);
+  font-size: 16px;
 }
 
 .export-button {
-  background-color: #28a745;
+  background-color: var(--green, #28a745);
   color: white;
 }
 
@@ -621,177 +612,147 @@ export default {
 }
 
 .evaluate-button {
-  background-color: white;
-  color: var(--primary-color, #007bff);
+  background-color: var(--blue, #007bff);
+  color: white;
 }
 
 .evaluate-button:hover {
-  background-color: #f0f0f0;
+  background-color: #0056b3;
 }
 
 .table-body {
   display: flex;
+  gap: 12px;
+  padding: 8px 16px;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .table-section {
-  flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: auto;
+  flex-shrink: 0;
   max-width: 60%;
 }
 
-.analysis-table {
+.assignment-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
 }
 
-.analysis-table th,
-.analysis-table td {
-  padding: 8px 12px;
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 4px 6px;
   text-align: center;
-  border-bottom: 1px solid #e0e0e0;
+  min-width: 30px;
+  font-size: 11px;
 }
 
-.analysis-table thead th {
-  background-color: #f8f9fa;
-  font-weight: bold;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+tr.active {
+  color: var(--white, #fff);
+  background-color: var(--blue, #007bff);
 }
 
-.analysis-table tbody tr {
+tbody tr {
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.analysis-table tbody tr:hover {
-  background-color: #f0f7ff;
+tbody tr:hover:not(.active) {
+  background-color: #f5f5f5;
 }
 
-.analysis-table tbody tr.active {
-  background-color: #e3f2fd;
-}
-
-.col-num {
-  width: 50px;
-}
-
-.col-image {
-  text-align: left;
-  min-width: 150px;
-}
-
-.col-image img {
-  width: 30px;
-  height: 30px;
+.image-cell img {
+  width: 20px;
+  height: 20px;
   object-fit: cover;
-  border-radius: 4px;
-  vertical-align: middle;
-  margin-right: 8px;
 }
 
-.image-name {
-  font-size: 12px;
-  color: #666;
+.image-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.col-fp,
-.col-agree,
-.col-gs,
-.col-status {
-  width: 60px;
+.table-head,
+.table-footer {
+  position: sticky;
+  background-color: var(--white, #fff);
 }
 
-.col-evaluator {
-  width: 80px;
+.table-head {
+  top: 0;
+}
+
+.table-footer {
+  bottom: 0;
+}
+
+.table-footer th {
+  border: 0;
+  border-top: 2px solid #ddd;
+}
+
+.cell-pending {
+  opacity: 0.4;
+}
+
+.cell-partial {
+  opacity: 0.7;
+}
+
+.cell-complete {
   font-weight: bold;
-}
-
-.col-evaluator.pending {
-  opacity: 0.5;
-}
-
-.col-evaluator.partial {
-  opacity: 0.8;
-}
-
-.agree-rate {
-  font-weight: bold;
-  color: #28a745;
 }
 
 .gs-badge {
   background-color: #ffc107;
   color: #333;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   font-weight: bold;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-.col-status span.complete {
-  color: #28a745;
+.status-complete {
+  color: var(--green, #28a745);
   font-weight: bold;
 }
 
-.col-status span.partial {
+.status-partial {
   color: #ffc107;
 }
 
-.table-footer th {
-  background-color: #f8f9fa;
-  font-weight: bold;
-  border-top: 2px solid #dee2e6;
+.status-pending {
+  color: #999;
 }
 
-.viewer-box {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background-color: #fafafa;
-  border-left: 1px solid #e0e0e0;
-  min-width: 40%;
-}
-
-.image-info {
-  margin-top: 10px;
-  text-align: center;
-  color: #333;
-}
-
-.image-info .fp-info {
-  margin-left: 10px;
-  color: #666;
-  font-size: 14px;
-}
-
-.legend-section {
+.legend-bar {
+  height: 30px;
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 20px;
-  padding: 16px;
-  background-color: white;
-  border-top: 1px solid #e0e0e0;
-  margin-top: 10px;
-  border-radius: 8px;
+  border-top: 1px solid var(--light-gray, #e0e0e0);
+  background-color: #fafafa;
+  flex-shrink: 0;
 }
 
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .legend-item::before {
   content: "";
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
 }
 
@@ -811,12 +772,25 @@ export default {
   background-color: #ffc107;
 }
 
+.exporting-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  z-index: 1000;
+  font-size: 14px;
+}
+
 .loading-message {
+  height: calc(100vh - 71px);
   display: flex;
-  justify-content: center;
   align-items: center;
-  height: 100vh;
-  font-size: 18px;
+  justify-content: center;
+  font-size: 14px;
   color: #666;
 }
 </style>
