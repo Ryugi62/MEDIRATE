@@ -604,14 +604,23 @@ export default {
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;
 
+      // 이미지 영역 밖(검은 영역)에서는 줌을 표시하지 않음
+      if (
+        !this.backgroundImage ||
+        mouseXOnImage < 0 ||
+        mouseYOnImage < 0 ||
+        mouseXOnImage > this.originalWidth ||
+        mouseYOnImage > this.originalHeight
+      ) {
+        return;
+      }
+
       const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
       const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
       const sourceWidth = zoomWidth / zoomLevel;
       const sourceHeight = zoomHeight / zoomLevel;
 
       this.redrawSquares();
-
-      if (!this.backgroundImage) return;
 
       ctx.save();
       ctx.beginPath();
