@@ -2,17 +2,53 @@
   <div class="project-tree-filter" :class="{ collapsed: isCollapsed }">
     <div class="tree-header" @click="toggleCollapse">
       <i :class="['fas', isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down']"></i>
-      <span>프로젝트 필터</span>
+      <span>필터</span>
       <span v-if="hasActiveFilter" class="filter-badge">{{ activeFilterCount }}</span>
     </div>
 
     <div v-if="!isCollapsed" class="tree-content">
+      <!-- 태그 필터 섹션 -->
+      <div v-if="allTags && allTags.length > 0" class="tag-filter-section">
+        <div class="section-header">
+          <i class="fas fa-tags"></i>
+          <span>태그</span>
+        </div>
+        <div class="tag-list">
+          <div
+            class="tag-item"
+            :class="{ active: selectedTag === 'all' }"
+            @click="selectTag('all')"
+          >
+            <span>전체</span>
+          </div>
+          <div
+            v-for="tag in displayedTags"
+            :key="tag.name"
+            class="tag-item"
+            :class="{ active: selectedTag === tag.name }"
+            @click="selectTag(tag.name)"
+          >
+            <span>#{{ tag.name }}</span>
+            <span class="tag-count">{{ tag.count }}</span>
+          </div>
+          <div v-if="allTags.length > 5 && !showAllTags" class="tag-item more-tags" @click="showAllTags = true">
+            <span>+{{ allTags.length - 5 }}개 더보기</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 프로젝트 필터 섹션 -->
+      <div class="section-header project-section-header">
+        <i class="fas fa-folder-tree"></i>
+        <span>프로젝트</span>
+      </div>
+
       <div v-if="loading" class="tree-loading">
         <i class="fas fa-spinner fa-spin"></i> 로딩 중...
       </div>
 
       <div v-else-if="treeData.length === 0" class="tree-empty">
-        필터링 데이터가 없습니다
+        프로젝트 데이터가 없습니다
       </div>
 
       <div v-else class="tree-list">
@@ -109,6 +145,15 @@ export default {
       type: String,
       default: null,
     },
+    // 태그 관련
+    selectedTag: {
+      type: String,
+      default: "all",
+    },
+    allTags: {
+      type: Array,
+      default: () => [],
+    },
   },
 
   data() {
@@ -118,22 +163,30 @@ export default {
       treeData: [],
       expandedProjects: {},
       expandedCancers: {},
+      showAllTags: false,
     };
   },
 
   computed: {
     hasActiveFilter() {
-      return this.selectedProject !== null || this.selectedCancer !== null || this.selectedMode !== null;
+      return this.selectedProject !== null || this.selectedCancer !== null || this.selectedMode !== null || this.selectedTag !== "all";
     },
     activeFilterCount() {
       let count = 0;
       if (this.selectedProject !== null) count++;
       if (this.selectedCancer !== null) count++;
       if (this.selectedMode !== null) count++;
+      if (this.selectedTag !== "all") count++;
       return count;
     },
     totalCount() {
       return this.treeData.reduce((sum, p) => sum + p.count, 0);
+    },
+    displayedTags() {
+      if (this.showAllTags) {
+        return this.allTags;
+      }
+      return this.allTags.slice(0, 5);
     },
   },
 
@@ -207,7 +260,13 @@ export default {
         projectId: null,
         cancerId: null,
         mode: null,
+        tag: "all",
       });
+      this.showAllTags = false;
+    },
+
+    selectTag(tagName) {
+      this.$emit("tag-change", tagName);
     },
 
     isProjectActive(project) {
@@ -387,6 +446,74 @@ export default {
 
 .clear-filter-btn:hover {
   background: #5a6268;
+}
+
+/* 태그 필터 섹션 */
+.tag-filter-section {
+  padding: 0 8px 8px;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 8px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.section-header i {
+  color: #6c757d;
+}
+
+.project-section-header {
+  padding: 8px 12px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-item {
+  padding: 4px 8px;
+  background: #e9ecef;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.tag-item:hover {
+  background: #dee2e6;
+}
+
+.tag-item.active {
+  background: #007bff;
+  color: white;
+}
+
+.tag-item .tag-count {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.tag-item.more-tags {
+  background: transparent;
+  color: #6c757d;
+  border: 1px dashed #adb5bd;
+}
+
+.tag-item.more-tags:hover {
+  background: #f8f9fa;
+  color: #495057;
 }
 
 /* 접힌 상태 */

@@ -7,7 +7,10 @@
       :selected-project="filterProjectId"
       :selected-cancer="filterCancerId"
       :selected-mode="filterMode"
+      :selected-tag="selectedTag"
+      :all-tags="allTags"
       @filter-change="onTreeFilterChange"
+      @tag-change="onTagFilterChange"
     />
 
     <div class="dashboard-main">
@@ -62,36 +65,6 @@
           <option value="Segment">Segment</option>
           <option value="Consensus">Consensus (합의)</option>
         </select>
-
-        <!-- 태그 필터 (자동완성 input) -->
-        <div class="tag-filter-wrapper">
-          <div class="tag-filter-input-container">
-            <span v-if="selectedTag !== 'all'" class="selected-tag-badge">
-              #{{ selectedTag }}
-              <i class="fa-solid fa-xmark" @click="clearTagFilter"></i>
-            </span>
-            <input
-              v-else
-              type="text"
-              v-model="tagFilterInput"
-              class="tag-filter-input"
-              placeholder="태그 검색..."
-              @focus="showTagSuggestions = true"
-              @blur="hideTagSuggestions"
-              @input="onTagFilterInput"
-            />
-          </div>
-          <div v-if="showTagSuggestions && filteredTagSuggestions.length > 0" class="tag-suggestions-dropdown">
-            <div
-              v-for="tag in filteredTagSuggestions"
-              :key="tag.name"
-              class="tag-suggestion-item"
-              @mousedown.prevent="selectTagFilter(tag.name)"
-            >
-              #{{ tag.name }} <span class="tag-count">({{ tag.count }})</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- 슬라이더 그룹 -->
@@ -373,8 +346,6 @@ export default {
       filterProjectId: null,
       filterCancerId: null,
       filterMode: null,
-      tagFilterInput: "", // 태그 필터 검색어
-      showTagSuggestions: false,
       allTags: [], // 서버에서 받은 태그 목록
       // 일괄 작업 관련
       selectedItems: [],
@@ -413,16 +384,6 @@ export default {
       return this.selectedItems
         .filter((item) => !item.isConsensus)
         .map((item) => item.id);
-    },
-    // 태그 필터 자동완성 제안
-    filteredTagSuggestions() {
-      if (!this.tagFilterInput) {
-        return this.allTags.slice(0, 10);
-      }
-      const query = this.tagFilterInput.toLowerCase().replace(/^#/, "");
-      return this.allTags
-        .filter((tag) => tag.name.toLowerCase().includes(query))
-        .slice(0, 10);
     },
     // 서버 페이지네이션 - 현재 페이지 데이터 그대로 사용
     paginatedData() {
@@ -496,12 +457,6 @@ export default {
 
     // 모드 필터 변경 시 데이터 다시 로드
     selectedMode() {
-      this.current = 1;
-      this.loadPaginatedData();
-    },
-
-    // 태그 필터 변경 시 데이터 다시 로드
-    selectedTag() {
       this.current = 1;
       this.loadPaginatedData();
     },
@@ -633,11 +588,24 @@ export default {
     },
 
     // 프로젝트/암종 필터 변경
-    onTreeFilterChange({ projectId, cancerId, mode }) {
+    onTreeFilterChange({ projectId, cancerId, mode, tag }) {
       this.filterProjectId = projectId;
       this.filterCancerId = cancerId;
       this.filterMode = mode;
+
+      // 태그 초기화 (필터 초기화 시)
+      if (tag !== undefined) {
+        this.selectedTag = tag;
+      }
+
       this.current = 1; // 페이지 초기화
+      this.loadPaginatedData();
+    },
+
+    // 태그 필터 변경 처리
+    onTagFilterChange(tagName) {
+      this.selectedTag = tagName;
+      this.current = 1;
       this.loadPaginatedData();
     },
 
@@ -1053,32 +1021,6 @@ export default {
       }
     },
 
-    // 태그 필터 입력 처리
-    onTagFilterInput() {
-      this.showTagSuggestions = true;
-    },
-
-    // 태그 필터 선택
-    selectTagFilter(tagName) {
-      this.selectedTag = tagName;
-      this.tagFilterInput = "";
-      this.showTagSuggestions = false;
-      // current = 1과 loadPaginatedData는 watch에서 처리됨
-    },
-
-    // 태그 필터 초기화
-    clearTagFilter() {
-      this.selectedTag = "all";
-      this.tagFilterInput = "";
-      // current = 1과 loadPaginatedData는 watch에서 처리됨
-    },
-
-    // 태그 제안 드롭다운 숨기기 (딜레이 적용)
-    hideTagSuggestions() {
-      setTimeout(() => {
-        this.showTagSuggestions = false;
-      }, 150);
-    },
   },
 };
 </script>
@@ -1141,86 +1083,6 @@ export default {
 .mode-filter:focus {
   outline: none;
   border-color: var(--blue);
-}
-
-/* 태그 필터 (자동완성) */
-.tag-filter-wrapper {
-  position: relative;
-}
-
-.tag-filter-input-container {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  background-color: white;
-  min-width: 140px;
-  height: 32px;
-}
-
-.tag-filter-input {
-  border: none;
-  outline: none;
-  padding: 6px 10px;
-  font-size: 13px;
-  width: 100%;
-  background: transparent;
-}
-
-.tag-filter-input::placeholder {
-  color: #999;
-}
-
-.selected-tag-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  margin: 2px 4px;
-  background-color: var(--blue);
-  color: white;
-  border-radius: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.selected-tag-badge i {
-  cursor: pointer;
-  opacity: 0.8;
-}
-
-.selected-tag-badge i:hover {
-  opacity: 1;
-}
-
-.tag-suggestions-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  max-height: 200px;
-  overflow-y: auto;
-  margin-top: 2px;
-}
-
-.tag-suggestion-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.tag-suggestion-item:hover {
-  background-color: #f5f5f5;
-}
-
-.tag-suggestion-item .tag-count {
-  color: #999;
-  font-size: 11px;
 }
 
 /* 슬라이더 그룹 */
