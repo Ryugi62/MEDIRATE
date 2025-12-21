@@ -154,6 +154,11 @@ export default {
       type: Array,
       default: () => [],
     },
+    // 사용자별 필터링 (AssignmentView에서 사용)
+    forUser: {
+      type: Boolean,
+      default: false,
+    },
   },
 
   data() {
@@ -201,7 +206,8 @@ export default {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getUser.token}`,
         };
-        const response = await this.$axios.get("/api/projects/tree", { headers });
+        const params = this.forUser ? { forUser: "true" } : {};
+        const response = await this.$axios.get("/api/projects/tree", { headers, params });
         this.treeData = response.data;
       } catch (error) {
         console.error("트리 데이터 로딩 오류:", error);
@@ -224,9 +230,11 @@ export default {
     },
 
     toggleProject(project) {
-      // 프로젝트 선택
+      // 프로젝트 선택 (id가 null이면 "unclassified"로 전달)
+      const projectId = project.id === null ? "unclassified" : project.id;
+      console.log("[ProjectTreeFilter] toggleProject:", projectId, project.name);
       this.$emit("filter-change", {
-        projectId: project.id,
+        projectId: projectId,
         cancerId: null,
         mode: null,
       });
@@ -235,10 +243,12 @@ export default {
     },
 
     toggleCancer(project, cancer) {
-      // 암종 선택
+      // 암종 선택 (id가 null이면 "unclassified"로 전달)
+      const projectId = project.id === null ? "unclassified" : project.id;
+      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
       this.$emit("filter-change", {
-        projectId: project.id,
-        cancerId: cancer.id,
+        projectId: projectId,
+        cancerId: cancerId,
         mode: null,
       });
       // 확장도 함께
@@ -247,10 +257,12 @@ export default {
     },
 
     selectMode(project, cancer, mode) {
-      // 모드까지 선택
+      // 모드까지 선택 (id가 null이면 "unclassified"로 전달)
+      const projectId = project.id === null ? "unclassified" : project.id;
+      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
       this.$emit("filter-change", {
-        projectId: project.id,
-        cancerId: cancer.id,
+        projectId: projectId,
+        cancerId: cancerId,
         mode: mode.name,
       });
     },
@@ -270,15 +282,20 @@ export default {
     },
 
     isProjectActive(project) {
-      return this.selectedProject === project.id && this.selectedCancer === null;
+      const projectId = project.id === null ? "unclassified" : project.id;
+      return this.selectedProject === projectId && this.selectedCancer === null;
     },
 
     isCancerActive(project, cancer) {
-      return this.selectedProject === project.id && this.selectedCancer === cancer.id && this.selectedMode === null;
+      const projectId = project.id === null ? "unclassified" : project.id;
+      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
+      return this.selectedProject === projectId && this.selectedCancer === cancerId && this.selectedMode === null;
     },
 
     isModeActive(project, cancer, mode) {
-      return this.selectedProject === project.id && this.selectedCancer === cancer.id && this.selectedMode === mode.name;
+      const projectId = project.id === null ? "unclassified" : project.id;
+      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
+      return this.selectedProject === projectId && this.selectedCancer === cancerId && this.selectedMode === mode.name;
     },
 
     getModeIcon(mode) {

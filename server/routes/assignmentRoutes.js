@@ -237,14 +237,22 @@ router.get("/paginated", authenticateToken, async (req, res) => {
 
     // 프로젝트 필터
     if (projectId && projectId !== "null") {
-      whereConditions.push("a.project_id = ?");
-      params.push(parseInt(projectId));
+      if (projectId === "unclassified") {
+        whereConditions.push("a.project_id IS NULL");
+      } else {
+        whereConditions.push("a.project_id = ?");
+        params.push(parseInt(projectId));
+      }
     }
 
     // 암종 필터
     if (cancerId && cancerId !== "null") {
-      whereConditions.push("a.cancer_type_id = ?");
-      params.push(parseInt(cancerId));
+      if (cancerId === "unclassified") {
+        whereConditions.push("a.cancer_type_id IS NULL");
+      } else {
+        whereConditions.push("a.cancer_type_id = ?");
+        params.push(parseInt(cancerId));
+      }
     }
 
     const whereClause = whereConditions.join(" AND ");

@@ -578,6 +578,7 @@ export default {
 
     // 프로젝트/암종 필터 변경
     onTreeFilterChange({ projectId, cancerId, mode, tag }) {
+      console.log("[DashboardView] onTreeFilterChange:", { projectId, cancerId, mode, tag });
       this.filterProjectId = projectId;
       this.filterCancerId = cancerId;
       this.filterMode = mode;

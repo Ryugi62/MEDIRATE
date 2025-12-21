@@ -1,12 +1,13 @@
 <template>
   <div class="assignment-view-container">
-    <!-- 프로젝트 트리 필터 -->
+    <!-- 프로젝트 트리 필터 (사용자에게 할당된 과제만 표시) -->
     <ProjectTreeFilter
       :selected-project="filterProjectId"
       :selected-cancer="filterCancerId"
       :selected-mode="filterMode"
       :selected-tag="selectedTag"
       :all-tags="allTags"
+      :for-user="true"
       @filter-change="onTreeFilterChange"
       @tag-change="onTagFilterChange"
     />

@@ -200,29 +200,60 @@ router.delete("/cancer-types/:cancerTypeId", authenticateToken, async (req, res)
 // GET /api/projects/tree - 계층형 프로젝트 트리 데이터
 router.get("/tree", authenticateToken, async (req, res) => {
   try {
-    // 프로젝트별 과제 수 및 암종/모드 정보 조회
-    const [assignments] = await db.query(
-      `SELECT
+    const { forUser } = req.query;
+    const userId = req.user.id;
+
+    // forUser=true면 해당 사용자에게 할당된 과제만 조회
+    let assignmentQuery, consensusQuery;
+    let assignmentParams = [], consensusParams = [];
+
+    if (forUser === "true") {
+      assignmentQuery = `SELECT
+        a.id, a.title, a.project_id, a.cancer_type_id, a.assignment_mode,
+        p.name as project_name,
+        ct.code as cancer_code, ct.name_ko as cancer_name
+       FROM assignments a
+       JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
+       LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
+       WHERE a.deleted_at IS NULL AND au.user_id = ?`;
+      assignmentParams = [userId];
+
+      consensusQuery = `SELECT
+        ca.id, ca.title, ca.project_id, ca.cancer_type_id, 'Consensus' as assignment_mode,
+        p.name as project_name,
+        ct.code as cancer_code, ct.name_ko as cancer_name
+       FROM consensus_assignments ca
+       JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
+       LEFT JOIN projects p ON ca.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
+       WHERE ca.deleted_at IS NULL AND cua.user_id = ?`;
+      consensusParams = [userId];
+    } else {
+      assignmentQuery = `SELECT
         a.id, a.title, a.project_id, a.cancer_type_id, a.assignment_mode,
         p.name as project_name,
         ct.code as cancer_code, ct.name_ko as cancer_name
        FROM assignments a
        LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
        LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
-       WHERE a.deleted_at IS NULL`
-    );
+       WHERE a.deleted_at IS NULL`;
 
-    // 합의 과제 조회
-    const [consensusAssignments] = await db.query(
-      `SELECT
+      consensusQuery = `SELECT
         ca.id, ca.title, ca.project_id, ca.cancer_type_id, 'Consensus' as assignment_mode,
         p.name as project_name,
         ct.code as cancer_code, ct.name_ko as cancer_name
        FROM consensus_assignments ca
        LEFT JOIN projects p ON ca.project_id = p.id AND p.deleted_at IS NULL
        LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
-       WHERE ca.deleted_at IS NULL`
-    );
+       WHERE ca.deleted_at IS NULL`;
+    }
+
+    // 프로젝트별 과제 수 및 암종/모드 정보 조회
+    const [assignments] = await db.query(assignmentQuery, assignmentParams);
+
+    // 합의 과제 조회
+    const [consensusAssignments] = await db.query(consensusQuery, consensusParams);
 
     // 모든 과제 합치기
     const allAssignments = [...assignments, ...consensusAssignments];
@@ -297,7 +328,7 @@ router.get("/tree", authenticateToken, async (req, res) => {
 // ========================================
 // 초기 암종 데이터 시드
 // ========================================
-router.post("/seed-cancer-types", authenticateToken, async (req, res) => {
+router.post("/seed-cancer-types", authenticateToken, async (_req, res) => {
   const defaultCancerTypes = [
     { code: "blad", name_ko: "방광암", name_en: "Bladder Cancer" },
     { code: "brst", name_ko: "유방암", name_en: "Breast Cancer" },
@@ -330,6 +361,102 @@ router.post("/seed-cancer-types", authenticateToken, async (req, res) => {
     res.json({ message: `${inserted}개의 암종 데이터가 초기화되었습니다.` });
   } catch (error) {
     handleError(res, "암종 데이터 시드 중 오류 발생", error);
+  }
+});
+
+// ========================================
+// 자동 매칭 API
+// ========================================
+
+// POST /api/projects/auto-match - 과제 제목 기반 프로젝트/암종 자동 매칭
+router.post("/auto-match", authenticateToken, async (_req, res) => {
+  try {
+    // 1. 프로젝트 목록 조회
+    const [projects] = await db.query(
+      `SELECT id, name FROM projects WHERE deleted_at IS NULL`
+    );
+
+    // 2. 암종 목록 조회
+    const [cancerTypes] = await db.query(
+      `SELECT id, code, name_ko FROM cancer_types WHERE deleted_at IS NULL`
+    );
+
+    // 3. project_id가 NULL인 과제 조회
+    const [assignmentsWithoutProject] = await db.query(
+      `SELECT id, title FROM assignments WHERE project_id IS NULL AND deleted_at IS NULL`
+    );
+
+    // 4. cancer_type_id가 NULL인 과제 조회
+    const [assignmentsWithoutCancer] = await db.query(
+      `SELECT id, title FROM assignments WHERE cancer_type_id IS NULL AND deleted_at IS NULL`
+    );
+
+    let projectMatched = 0;
+    let cancerMatched = 0;
+
+    // 5. 프로젝트 자동 매칭 (제목이 프로젝트명으로 시작하는 경우)
+    for (const assignment of assignmentsWithoutProject) {
+      const title = assignment.title.toLowerCase();
+
+      for (const project of projects) {
+        const projectName = project.name.toLowerCase();
+
+        // 제목이 프로젝트명으로 시작하거나 프로젝트명을 포함하는 경우
+        if (title.startsWith(projectName) || title.includes(projectName + "-") || title.includes(projectName + "_")) {
+          await db.query(
+            `UPDATE assignments SET project_id = ? WHERE id = ?`,
+            [project.id, assignment.id]
+          );
+          projectMatched++;
+          break;
+        }
+      }
+    }
+
+    // 6. 암종 자동 매칭 (제목에 암종 코드가 포함된 경우)
+    for (const assignment of assignmentsWithoutCancer) {
+      const title = assignment.title.toLowerCase();
+
+      for (const cancer of cancerTypes) {
+        const cancerCode = cancer.code.toLowerCase();
+
+        // 제목에 암종 코드가 포함된 경우
+        if (title.includes(cancerCode)) {
+          await db.query(
+            `UPDATE assignments SET cancer_type_id = ? WHERE id = ?`,
+            [cancer.id, assignment.id]
+          );
+          cancerMatched++;
+          break;
+        }
+      }
+    }
+
+    res.json({
+      message: "자동 매칭 완료",
+      projectMatched,
+      cancerMatched,
+      totalWithoutProject: assignmentsWithoutProject.length,
+      totalWithoutCancer: assignmentsWithoutCancer.length,
+    });
+  } catch (error) {
+    handleError(res, "자동 매칭 중 오류 발생", error);
+  }
+});
+
+// GET /api/projects/unmatched-count - 미매칭 과제 수 조회
+router.get("/unmatched-count", authenticateToken, async (_req, res) => {
+  try {
+    const [[{ withoutProject }]] = await db.query(
+      `SELECT COUNT(*) as withoutProject FROM assignments WHERE project_id IS NULL AND deleted_at IS NULL`
+    );
+    const [[{ withoutCancer }]] = await db.query(
+      `SELECT COUNT(*) as withoutCancer FROM assignments WHERE cancer_type_id IS NULL AND deleted_at IS NULL`
+    );
+
+    res.json({ withoutProject, withoutCancer });
+  } catch (error) {
+    handleError(res, "미매칭 과제 수 조회 중 오류 발생", error);
   }
 });
 
