@@ -100,6 +100,37 @@
         </div>
       </div>
     </div>
+    <!-- Metrics 패널 -->
+    <div v-if="metrics" class="metrics-panel">
+      <div class="metrics-item">
+        <span class="metrics-label">총 FP</span>
+        <span class="metrics-value">{{ metrics.totalFP }}</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">합의율</span>
+        <span class="metrics-value highlight">{{ metrics.consensusRate }}%</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">GS 비율</span>
+        <span class="metrics-value highlight-gold">{{ metrics.goldStandardRate }}%</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">평균 동의</span>
+        <span class="metrics-value">{{ metrics.averageAgreeCount }}</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">FP 확정</span>
+        <span class="metrics-value success">{{ metrics.confirmedFP }}</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">TP 변경</span>
+        <span class="metrics-value danger">{{ metrics.changedToTP }}</span>
+      </div>
+      <div class="metrics-item">
+        <span class="metrics-label">미결정</span>
+        <span class="metrics-value warning">{{ metrics.undecided }}</span>
+      </div>
+    </div>
     <div class="legend-bar">
       <span class="legend-item agree">동의</span>
       <span class="legend-item disagree">비동의</span>
@@ -128,6 +159,7 @@ export default {
   data() {
     return {
       consensusData: null,
+      metrics: null,
       activeIndex: 0,
       activeImageUrl: "",
       isExporting: false,
@@ -267,16 +299,18 @@ export default {
     async loadConsensusData() {
       try {
         const consensusId = this.$route.params.id;
-        const response = await this.$axios.get(
-          `/api/consensus/${consensusId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-            },
-          }
-        );
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
 
-        this.consensusData = response.data;
+        // 데이터와 metrics 병렬 로드
+        const [dataResponse, metricsResponse] = await Promise.all([
+          this.$axios.get(`/api/consensus/${consensusId}`, { headers }),
+          this.$axios.get(`/api/consensus/${consensusId}/metrics`, { headers }),
+        ]);
+
+        this.consensusData = dataResponse.data;
+        this.metrics = metricsResponse.data;
 
         if (this.questionList.length > 0) {
           this.setActiveImage(0);
@@ -479,9 +513,55 @@ export default {
       this.exportingMessage = "Excel 파일 생성 중...";
 
       try {
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet("Consensus Analysis");
+        // 백엔드에서 export 데이터 가져오기
+        const consensusId = this.$route.params.id;
+        const response = await this.$axios.get(
+          `/api/consensus/${consensusId}/export`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
 
+        const { resultData, timeData, statisticsData, users } = response.data;
+
+        const workbook = new ExcelJS.Workbook();
+
+        // 1. 결과 Sheet
+        const resultSheet = workbook.addWorksheet("결과");
+        if (resultData.length > 0) {
+          resultSheet.addRow(Object.keys(resultData[0]));
+          resultData.forEach((row) => {
+            resultSheet.addRow(Object.values(row));
+          });
+          resultSheet.getRow(1).font = { bold: true };
+        }
+
+        // 2. 시간 Sheet
+        const timeSheet = workbook.addWorksheet("시간");
+        if (timeData.length > 0) {
+          timeSheet.addRow(Object.keys(timeData[0]));
+          timeData.forEach((row) => {
+            timeSheet.addRow(Object.values(row));
+          });
+          timeSheet.getRow(1).font = { bold: true };
+        }
+
+        // 3. 통계 Sheet
+        const statsSheet = workbook.addWorksheet("통계");
+        statsSheet.addRow(["항목", "값"]);
+        Object.entries(statisticsData).forEach(([key, value]) => {
+          let displayValue = value;
+          if (key === "합의율" || key === "GS_비율") {
+            displayValue = `${value}%`;
+          }
+          statsSheet.addRow([key.replace(/_/g, " "), displayValue]);
+        });
+        statsSheet.getRow(1).font = { bold: true };
+
+        // 4. 이미지별 요약 Sheet (기존 로직 유지)
+        const summarySheet = workbook.addWorksheet("이미지별 요약");
         const headers = [
           "번호",
           "이미지",
@@ -491,7 +571,7 @@ export default {
           "GS",
           "상태",
         ];
-        worksheet.addRow(headers);
+        summarySheet.addRow(headers);
 
         this.questionList.forEach((question, idx) => {
           const row = [
@@ -505,10 +585,9 @@ export default {
             question.goldStandardCount || "-",
             this.getStatusText(question),
           ];
-          worksheet.addRow(row);
+          summarySheet.addRow(row);
         });
-
-        worksheet.getRow(1).font = { bold: true };
+        summarySheet.getRow(1).font = { bold: true };
 
         const buffer = await workbook.xlsx.writeBuffer();
         const fileName = `consensus_analysis_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
@@ -792,5 +871,55 @@ tbody tr:hover:not(.active) {
   justify-content: center;
   font-size: 14px;
   color: #666;
+}
+
+/* Metrics Panel 스타일 */
+.metrics-panel {
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  border-top: 1px solid var(--light-gray, #e0e0e0);
+  background-color: #f8f9fa;
+  flex-shrink: 0;
+  padding: 0 16px;
+}
+
+.metrics-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metrics-label {
+  font-size: 11px;
+  color: #666;
+}
+
+.metrics-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+}
+
+.metrics-value.highlight {
+  color: var(--blue, #007bff);
+}
+
+.metrics-value.highlight-gold {
+  color: #ffc107;
+}
+
+.metrics-value.success {
+  color: var(--green, #28a745);
+}
+
+.metrics-value.danger {
+  color: #dc3545;
+}
+
+.metrics-value.warning {
+  color: #fd7e14;
 }
 </style>

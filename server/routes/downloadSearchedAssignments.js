@@ -235,7 +235,8 @@ router.post(
               : 0; // 과제에 할당되지 않은 평가자는 0 설정
           });
 
-          if (assignmentData.assignmentMode === "BBox") {
+          // BBox와 Segment 모드 모두 동일한 로직 사용
+          if (assignmentData.assignmentMode === "BBox" || assignmentData.assignmentMode === "Segment") {
             const adjustedSquares = await getAdjustedSquares(users, question);
             const relevantAiData = aiData.filter(
               (ai) =>
@@ -838,25 +839,38 @@ async function getAIData(assignmentId) {
 
     try {
       const jsonContent = await fs.readFile(jsonPath, "utf8");
-      const bbox = JSON.parse(jsonContent).annotation.map((annotation) => {
-        const [x, y] = annotation.bbox;
+      const parsed = JSON.parse(jsonContent);
+
+      // annotation 필드가 없거나 배열이 아닌 경우 건너뜀
+      if (!parsed.annotation || !Array.isArray(parsed.annotation)) {
+        continue;
+      }
+
+      const bbox = parsed.annotation.map((annotation) => {
+        // polygon 형태도 지원 (Segment 모드용)
+        let x, y;
+        if (annotation.bbox) {
+          [x, y] = annotation.bbox;
+        } else if (annotation.polygon && annotation.polygon.length > 0) {
+          // polygon의 첫 번째 점 사용 (Segment 모드)
+          [x, y] = annotation.polygon[0];
+        } else {
+          return null;
+        }
+
         const score = annotation.score ? annotation.score : 0.6;
         return {
           x: x + 12.5,
           y: y + 12.5,
           questionIndex: question.id,
           score: score,
-          isAI: true, // AI 사각형임을 명시
+          isAI: true,
         };
-      });
+      }).filter(Boolean); // null 제거
+
       AI_BBOX.push(...bbox);
     } catch (error) {
-      // 파일을 읽을 수 없거나 오류가 발생하면 콘솔에 로그를 남기고 빈 배열을 반환
-      console.error(
-        `Error reading AI JSON for question ${question.id}:`,
-        error
-      );
-      // 파일이 없거나 읽을 수 없는 경우, 빈 배열을 그대로 반환
+      // 파일이 없거나 읽을 수 없는 경우 건너뜀
       continue;
     }
   }

@@ -395,6 +395,124 @@ router.put("/:consensusId/canvas", authenticateToken, async (req, res) => {
 });
 
 // ========================================
+// GET /api/consensus/:id/metrics - Metrics 조회
+// ========================================
+router.get("/:consensusId/metrics", authenticateToken, async (req, res) => {
+  const { consensusId } = req.params;
+
+  try {
+    // 1. 평가자 수 조회
+    const [evaluatorsResult] = await db.query(
+      `SELECT COUNT(*) as count FROM consensus_user_assignments
+       WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+      [consensusId]
+    );
+    const evaluatorCount = evaluatorsResult[0].count;
+
+    // 2. FP 사각형 및 응답 통계 조회
+    const [fpStats] = await db.query(
+      `SELECT
+         cfp.id,
+         cfp.ai_score,
+         (SELECT COUNT(*) FROM consensus_responses cr
+          WHERE cr.fp_square_id = cfp.id AND cr.response = 'agree' AND cr.deleted_at IS NULL) as agree_count,
+         (SELECT COUNT(*) FROM consensus_responses cr
+          WHERE cr.fp_square_id = cfp.id AND cr.response = 'disagree' AND cr.deleted_at IS NULL) as disagree_count
+       FROM consensus_fp_squares cfp
+       WHERE cfp.consensus_assignment_id = ? AND cfp.deleted_at IS NULL`,
+      [consensusId]
+    );
+
+    const totalFP = fpStats.length;
+    if (totalFP === 0) {
+      return res.json({
+        totalFP: 0,
+        consensusRate: 0,
+        goldStandardRate: 0,
+        averageAgreeCount: 0,
+        confirmedFP: 0,
+        changedToTP: 0,
+        undecided: 0,
+        evaluatorStats: [],
+      });
+    }
+
+    // Gold Standard 임계값 (2/3 이상 동의)
+    const gsThreshold = Math.ceil(evaluatorCount * 2 / 3);
+
+    // 통계 계산
+    let consensusCount = 0; // 동의 > 비동의인 FP
+    let goldStandardCount = 0; // 2/3 이상 동의
+    let totalAgree = 0;
+    let confirmedFP = 0; // 동의 > 비동의
+    let changedToTP = 0; // 비동의 > 동의
+    let undecided = 0; // 동점
+
+    fpStats.forEach((fp) => {
+      totalAgree += fp.agree_count;
+
+      if (fp.agree_count > fp.disagree_count) {
+        consensusCount++;
+        confirmedFP++;
+      } else if (fp.disagree_count > fp.agree_count) {
+        changedToTP++;
+      } else {
+        undecided++;
+      }
+
+      if (fp.agree_count >= gsThreshold) {
+        goldStandardCount++;
+      }
+    });
+
+    // 3. 평가자별 통계
+    const [evaluatorStats] = await db.query(
+      `SELECT
+         u.id,
+         u.realname,
+         u.username,
+         COUNT(CASE WHEN cr.response = 'agree' THEN 1 END) as agree_count,
+         COUNT(CASE WHEN cr.response = 'disagree' THEN 1 END) as disagree_count,
+         COUNT(cr.id) as total_responses
+       FROM consensus_user_assignments cua
+       JOIN users u ON cua.user_id = u.id AND u.deleted_at IS NULL
+       LEFT JOIN consensus_responses cr ON cr.user_id = u.id AND cr.deleted_at IS NULL
+       LEFT JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
+         AND cfp.consensus_assignment_id = ? AND cfp.deleted_at IS NULL
+       WHERE cua.consensus_assignment_id = ? AND cua.deleted_at IS NULL
+       GROUP BY u.id, u.realname, u.username`,
+      [consensusId, consensusId]
+    );
+
+    // 평가자별 동의율 계산
+    const evaluatorStatsWithRate = evaluatorStats.map((e) => ({
+      ...e,
+      agreeRate: e.total_responses > 0
+        ? Math.round((e.agree_count / e.total_responses) * 100)
+        : 0,
+      completionRate: totalFP > 0
+        ? Math.round((e.total_responses / totalFP) * 100)
+        : 0,
+    }));
+
+    res.json({
+      totalFP,
+      evaluatorCount,
+      gsThreshold,
+      consensusRate: Math.round((consensusCount / totalFP) * 100), // 합의율 (%)
+      goldStandardRate: Math.round((goldStandardCount / totalFP) * 100), // GS 비율 (%)
+      averageAgreeCount: (totalAgree / totalFP).toFixed(2), // 평균 동의 수
+      confirmedFP, // FP 확정 (동의 > 비동의)
+      changedToTP, // TP로 변경 (비동의 > 동의)
+      undecided, // 미결정 (동점)
+      evaluatorStats: evaluatorStatsWithRate,
+    });
+  } catch (error) {
+    handleError(res, "Metrics 조회 중 오류 발생", error);
+  }
+});
+
+// ========================================
 // GET /api/consensus/:id/export - 결과 엑셀 내보내기
 // ========================================
 router.get("/:consensusId/export", authenticateToken, async (req, res) => {
@@ -502,11 +620,53 @@ router.get("/:consensusId/export", authenticateToken, async (req, res) => {
       };
     });
 
+    // 통계 데이터 생성
+    const totalFP = fpSquares.length;
+    const gsThreshold = Math.ceil(users.length * 2 / 3);
+    let confirmedFP = 0;
+    let changedToTP = 0;
+    let undecided = 0;
+    let goldStandardCount = 0;
+    let totalAgree = 0;
+
+    resultData.forEach((row) => {
+      const agreeCount = row["동의"];
+      const disagreeCount = row["비동의"];
+      totalAgree += agreeCount;
+
+      if (agreeCount > disagreeCount) {
+        confirmedFP++;
+      } else if (disagreeCount > agreeCount) {
+        changedToTP++;
+      } else {
+        undecided++;
+      }
+
+      if (agreeCount >= gsThreshold) {
+        goldStandardCount++;
+      }
+    });
+
+    const statisticsData = {
+      과제ID: consensusId,
+      과제명: assignment[0].title,
+      총_FP: totalFP,
+      평가자수: users.length,
+      GS_임계값: gsThreshold,
+      합의율: totalFP > 0 ? Math.round((confirmedFP / totalFP) * 100) : 0,
+      GS_비율: totalFP > 0 ? Math.round((goldStandardCount / totalFP) * 100) : 0,
+      평균_동의수: totalFP > 0 ? (totalAgree / totalFP).toFixed(2) : 0,
+      FP_확정: confirmedFP,
+      TP_변경: changedToTP,
+      미결정: undecided,
+    };
+
     res.json({
       assignment: assignment[0],
       users,
       resultData,
       timeData,
+      statisticsData,
     });
   } catch (error) {
     handleError(res, "내보내기 데이터 생성 중 오류 발생", error);
