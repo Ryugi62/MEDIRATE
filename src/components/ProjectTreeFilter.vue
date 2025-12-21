@@ -1,0 +1,402 @@
+<template>
+  <div class="project-tree-filter" :class="{ collapsed: isCollapsed }">
+    <div class="tree-header" @click="toggleCollapse">
+      <i :class="['fas', isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down']"></i>
+      <span>프로젝트 필터</span>
+      <span v-if="hasActiveFilter" class="filter-badge">{{ activeFilterCount }}</span>
+    </div>
+
+    <div v-if="!isCollapsed" class="tree-content">
+      <div v-if="loading" class="tree-loading">
+        <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+      </div>
+
+      <div v-else-if="treeData.length === 0" class="tree-empty">
+        필터링 데이터가 없습니다
+      </div>
+
+      <div v-else class="tree-list">
+        <!-- 전체 선택 -->
+        <div class="tree-item all-item" :class="{ active: !hasActiveFilter }" @click="clearFilter">
+          <i class="fas fa-layer-group"></i>
+          <span>전체</span>
+          <span class="item-count">{{ totalCount }}</span>
+        </div>
+
+        <!-- 프로젝트 레벨 -->
+        <div v-for="project in treeData" :key="project.key" class="tree-node project-node">
+          <div
+            class="tree-item project-item"
+            :class="{ active: isProjectActive(project), expanded: expandedProjects[project.key] }"
+            @click="toggleProject(project)"
+          >
+            <i
+              class="expand-icon fas"
+              :class="expandedProjects[project.key] ? 'fa-chevron-down' : 'fa-chevron-right'"
+              @click.stop="toggleProjectExpand(project.key)"
+            ></i>
+            <i class="fas fa-folder"></i>
+            <span class="item-name">{{ project.name }}</span>
+            <span class="item-count">{{ project.count }}</span>
+          </div>
+
+          <!-- 암종 레벨 -->
+          <div v-if="expandedProjects[project.key]" class="children cancer-list">
+            <div
+              v-for="cancer in project.children"
+              :key="cancer.key"
+              class="tree-node cancer-node"
+            >
+              <div
+                class="tree-item cancer-item"
+                :class="{ active: isCancerActive(project, cancer), expanded: expandedCancers[`${project.key}_${cancer.key}`] }"
+                @click="toggleCancer(project, cancer)"
+              >
+                <i
+                  class="expand-icon fas"
+                  :class="expandedCancers[`${project.key}_${cancer.key}`] ? 'fa-chevron-down' : 'fa-chevron-right'"
+                  @click.stop="toggleCancerExpand(project.key, cancer.key)"
+                ></i>
+                <i class="fas fa-dna"></i>
+                <span class="item-name">{{ cancer.name }}</span>
+                <span class="item-count">{{ cancer.count }}</span>
+              </div>
+
+              <!-- 모드 레벨 -->
+              <div v-if="expandedCancers[`${project.key}_${cancer.key}`]" class="children mode-list">
+                <div
+                  v-for="mode in cancer.children"
+                  :key="mode.key"
+                  class="tree-item mode-item"
+                  :class="{ active: isModeActive(project, cancer, mode) }"
+                  @click="selectMode(project, cancer, mode)"
+                >
+                  <i :class="getModeIcon(mode.name)"></i>
+                  <span class="item-name">{{ mode.name }}</span>
+                  <span class="item-count">{{ mode.count }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 필터 초기화 버튼 -->
+      <div v-if="hasActiveFilter" class="tree-actions">
+        <button class="clear-filter-btn" @click="clearFilter">
+          <i class="fas fa-times"></i> 필터 초기화
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "ProjectTreeFilter",
+
+  props: {
+    // 현재 선택된 필터
+    selectedProject: {
+      type: [Number, String],
+      default: null,
+    },
+    selectedCancer: {
+      type: [Number, String],
+      default: null,
+    },
+    selectedMode: {
+      type: String,
+      default: null,
+    },
+  },
+
+  data() {
+    return {
+      isCollapsed: false,
+      loading: false,
+      treeData: [],
+      expandedProjects: {},
+      expandedCancers: {},
+    };
+  },
+
+  computed: {
+    hasActiveFilter() {
+      return this.selectedProject !== null || this.selectedCancer !== null || this.selectedMode !== null;
+    },
+    activeFilterCount() {
+      let count = 0;
+      if (this.selectedProject !== null) count++;
+      if (this.selectedCancer !== null) count++;
+      if (this.selectedMode !== null) count++;
+      return count;
+    },
+    totalCount() {
+      return this.treeData.reduce((sum, p) => sum + p.count, 0);
+    },
+  },
+
+  async mounted() {
+    await this.loadTreeData();
+  },
+
+  methods: {
+    async loadTreeData() {
+      this.loading = true;
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
+        };
+        const response = await this.$axios.get("/api/projects/tree", { headers });
+        this.treeData = response.data;
+      } catch (error) {
+        console.error("트리 데이터 로딩 오류:", error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    toggleCollapse() {
+      this.isCollapsed = !this.isCollapsed;
+    },
+
+    toggleProjectExpand(projectKey) {
+      this.expandedProjects[projectKey] = !this.expandedProjects[projectKey];
+    },
+
+    toggleCancerExpand(projectKey, cancerKey) {
+      const key = `${projectKey}_${cancerKey}`;
+      this.expandedCancers[key] = !this.expandedCancers[key];
+    },
+
+    toggleProject(project) {
+      // 프로젝트 선택
+      this.$emit("filter-change", {
+        projectId: project.id,
+        cancerId: null,
+        mode: null,
+      });
+      // 확장도 함께
+      this.expandedProjects[project.key] = true;
+    },
+
+    toggleCancer(project, cancer) {
+      // 암종 선택
+      this.$emit("filter-change", {
+        projectId: project.id,
+        cancerId: cancer.id,
+        mode: null,
+      });
+      // 확장도 함께
+      const key = `${project.key}_${cancer.key}`;
+      this.expandedCancers[key] = true;
+    },
+
+    selectMode(project, cancer, mode) {
+      // 모드까지 선택
+      this.$emit("filter-change", {
+        projectId: project.id,
+        cancerId: cancer.id,
+        mode: mode.name,
+      });
+    },
+
+    clearFilter() {
+      this.$emit("filter-change", {
+        projectId: null,
+        cancerId: null,
+        mode: null,
+      });
+    },
+
+    isProjectActive(project) {
+      return this.selectedProject === project.id && this.selectedCancer === null;
+    },
+
+    isCancerActive(project, cancer) {
+      return this.selectedProject === project.id && this.selectedCancer === cancer.id && this.selectedMode === null;
+    },
+
+    isModeActive(project, cancer, mode) {
+      return this.selectedProject === project.id && this.selectedCancer === cancer.id && this.selectedMode === mode.name;
+    },
+
+    getModeIcon(mode) {
+      switch (mode) {
+        case "BBox":
+          return "fas fa-vector-square";
+        case "Segment":
+          return "fas fa-draw-polygon";
+        case "TextBox":
+          return "fas fa-font";
+        case "Consensus":
+          return "fas fa-users";
+        default:
+          return "fas fa-file";
+      }
+    },
+  },
+};
+</script>
+
+<style scoped>
+.project-tree-filter {
+  background: #f8f9fa;
+  border-right: 1px solid #e0e0e0;
+  width: 240px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s;
+}
+
+.project-tree-filter.collapsed {
+  width: 40px;
+  min-width: 40px;
+}
+
+.tree-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tree-header:hover {
+  background: #dee2e6;
+}
+
+.filter-badge {
+  background: #007bff;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.tree-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.tree-loading,
+.tree-empty {
+  padding: 20px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.tree-list {
+  padding: 0 4px;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.tree-item:hover {
+  background: #e9ecef;
+}
+
+.tree-item.active {
+  background: #d4edff;
+  color: #0056b3;
+}
+
+.tree-item.all-item {
+  font-weight: 500;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #dee2e6;
+  border-radius: 0;
+  padding-bottom: 10px;
+}
+
+.expand-icon {
+  width: 12px;
+  font-size: 10px;
+  color: #6c757d;
+}
+
+.item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-count {
+  font-size: 11px;
+  color: #6c757d;
+  background: #e9ecef;
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.tree-item.active .item-count {
+  background: #007bff;
+  color: white;
+}
+
+.children {
+  margin-left: 16px;
+}
+
+.project-item i.fa-folder {
+  color: #ffc107;
+}
+
+.cancer-item i.fa-dna {
+  color: #28a745;
+}
+
+.mode-item i {
+  color: #6c757d;
+}
+
+.tree-actions {
+  padding: 8px 12px;
+  border-top: 1px solid #dee2e6;
+}
+
+.clear-filter-btn {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: #6c757d;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.clear-filter-btn:hover {
+  background: #5a6268;
+}
+
+/* 접힌 상태 */
+.collapsed .tree-header span,
+.collapsed .filter-badge {
+  display: none;
+}
+
+.collapsed .tree-header {
+  justify-content: center;
+  padding: 12px 8px;
+}
+</style>

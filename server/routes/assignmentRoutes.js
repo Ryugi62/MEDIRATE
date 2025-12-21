@@ -190,6 +190,8 @@ router.get("/paginated", authenticateToken, async (req, res) => {
       status = "all",
       sortBy = "id",
       sortDir = "desc",
+      projectId = null,
+      cancerId = null,
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -227,6 +229,18 @@ router.get("/paginated", authenticateToken, async (req, res) => {
       } else if (status === "완료") {
         whereConditions.push("a.deadline < CURRENT_DATE");
       }
+    }
+
+    // 프로젝트 필터
+    if (projectId && projectId !== "null") {
+      whereConditions.push("a.project_id = ?");
+      params.push(parseInt(projectId));
+    }
+
+    // 암종 필터
+    if (cancerId && cancerId !== "null") {
+      whereConditions.push("a.cancer_type_id = ?");
+      params.push(parseInt(cancerId));
     }
 
     const whereClause = whereConditions.join(" AND ");

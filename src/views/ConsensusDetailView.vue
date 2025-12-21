@@ -43,6 +43,15 @@
               <th>응답</th>
               <th>동의</th>
               <th>판정</th>
+              <!-- 개별 평가자 열 -->
+              <th
+                v-for="evaluator in currentConsensusDetails.evaluators"
+                :key="evaluator.id"
+                class="evaluator-col"
+                :title="evaluator.realname"
+              >
+                {{ getEvaluatorInitial(evaluator.realname) }}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -81,6 +90,19 @@
                   GS {{ question.goldStandardCount }}
                 </span>
                 <span v-else>-</span>
+              </td>
+              <!-- 개별 평가자 응답 상태 -->
+              <td
+                v-for="evaluator in currentConsensusDetails.evaluators"
+                :key="evaluator.id"
+                class="evaluator-response"
+              >
+                <span
+                  :class="getEvaluatorResponseClass(question.image, evaluator.id)"
+                  :title="getEvaluatorResponseTitle(question.image, evaluator.id, evaluator.realname)"
+                >
+                  {{ getEvaluatorResponseSymbol(question.image, evaluator.id) }}
+                </span>
               </td>
             </tr>
           </tbody>

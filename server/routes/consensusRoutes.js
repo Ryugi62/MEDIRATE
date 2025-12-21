@@ -125,6 +125,29 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       responseMap[r.fp_square_id] = r.response;
     });
 
+    // 4-1. 모든 평가자의 개별 응답 조회 (개별 결과 표시용)
+    const [allResponses] = await db.query(
+      `SELECT cr.fp_square_id, cr.user_id, cr.response, u.realname, u.username
+       FROM consensus_responses cr
+       JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
+       JOIN users u ON cr.user_id = u.id AND u.deleted_at IS NULL
+       WHERE cfp.consensus_assignment_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL`,
+      [consensusId]
+    );
+
+    // 각 FP별 평가자 응답 맵 생성
+    const evaluatorResponsesMap = {};
+    allResponses.forEach((r) => {
+      if (!evaluatorResponsesMap[r.fp_square_id]) {
+        evaluatorResponsesMap[r.fp_square_id] = {};
+      }
+      evaluatorResponsesMap[r.fp_square_id][r.user_id] = {
+        response: r.response,
+        realname: r.realname,
+        username: r.username,
+      };
+    });
+
     // 5. 캔버스 정보 조회
     const [canvasResult] = await db.query(
       `SELECT id, width, height, last_question_image, evaluation_time, start_time, end_time
@@ -175,6 +198,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       images,
       fpSquares: fpSquaresWithGS,
       responses: responseMap,
+      evaluatorResponses: evaluatorResponsesMap,
       canvasInfo,
     });
   } catch (error) {

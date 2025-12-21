@@ -1,6 +1,16 @@
 <template>
-  <!-- 평가 수행 제목 -->
-  <div class="assignment-header">
+  <div class="assignment-view-container">
+    <!-- 프로젝트 트리 필터 -->
+    <ProjectTreeFilter
+      :selected-project="filterProjectId"
+      :selected-cancer="filterCancerId"
+      :selected-mode="filterMode"
+      @filter-change="onTreeFilterChange"
+    />
+
+    <div class="assignment-main">
+      <!-- 평가 수행 제목 -->
+      <div class="assignment-header">
     <h1 class="header-title">평가 수행</h1>
 
     <div class="header-controls">
@@ -160,13 +170,24 @@
       </li>
     </ul>
   </nav>
+    </div>
+  </div>
 </template>
 
 <script>
+import ProjectTreeFilter from "@/components/ProjectTreeFilter.vue";
+
 export default {
   name: "AssignmentEvaluationView",
+  components: {
+    ProjectTreeFilter,
+  },
   data() {
     return {
+      // 트리 필터 상태
+      filterProjectId: null,
+      filterCancerId: null,
+      filterMode: null,
       assignments: [], // 현재 페이지 데이터
       current: this.$store.getters.getAssignmentCurrentPage || 1,
       perPage: 15,
@@ -345,6 +366,8 @@ export default {
             total: c.total_fp || 0,
             tags: c.tags || [],
             isConsensus: true,
+            project_id: c.project_id,
+            cancer_type_id: c.cancer_type_id,
           }));
 
           // 검색어 필터 (클라이언트)
@@ -360,6 +383,16 @@ export default {
               if (!a.tags || a.tags.length === 0) return false;
               return a.tags.some((t) => t.name === this.selectedTag);
             });
+          }
+
+          // 프로젝트 필터 (클라이언트)
+          if (this.filterProjectId !== null) {
+            consensusAssignments = consensusAssignments.filter((a) => a.project_id === this.filterProjectId);
+          }
+
+          // 암종 필터 (클라이언트)
+          if (this.filterCancerId !== null) {
+            consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === this.filterCancerId);
           }
 
           // 정렬 (클라이언트)
@@ -401,6 +434,8 @@ export default {
             status: "all",
             sortBy: this.sortColumn === "CreationDate" ? "createdAt" : this.sortColumn,
             sortDir: this.sortDirection,
+            projectId: this.filterProjectId,
+            cancerId: this.filterCancerId,
           };
 
           const response = await this.$axios.get("/api/assignments/paginated", { headers, params });
@@ -515,11 +550,40 @@ export default {
     updateAssignmentCurrentPage(page) {
       this.$store.commit("setAssignmentCurrentPage", page);
     },
+
+    // 트리 필터 변경 처리
+    onTreeFilterChange({ projectId, cancerId, mode }) {
+      this.filterProjectId = projectId;
+      this.filterCancerId = cancerId;
+      this.filterMode = mode;
+
+      // 트리에서 모드를 선택한 경우 모드 필터도 동기화
+      if (mode) {
+        this.selectedMode = mode;
+      }
+
+      this.current = 1;
+      this.loadPaginatedData();
+    },
   },
 };
 </script>
 
 <style scoped>
+.assignment-view-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.assignment-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .assignment-header {
   display: flex;
   justify-content: space-between;
