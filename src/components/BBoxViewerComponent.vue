@@ -338,20 +338,20 @@ export default {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
 
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = square.color || "#FF0000";
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.strokeRect(square.x - 15, square.y - 15, 30, 30);
         ctx.globalAlpha = 1;
       });
 
       this.aiSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.score < this.score_percent / 100) return;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 4;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
         ctx.globalAlpha = 1;
       });
 
@@ -449,12 +449,12 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 25;
+      const squareSize = 30;
 
       const cursorX = x - squareSize / 2;
       const cursorY = y - squareSize / 2;
 
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3;
       ctx.strokeStyle = "white";
       ctx.strokeRect(cursorX, cursorY, squareSize, squareSize);
     },

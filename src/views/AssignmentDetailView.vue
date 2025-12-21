@@ -86,7 +86,10 @@
                 isInspected: question.isInspected,
               }"
             >
-              <td class="row-number">{{ idx + 1 }}</td>
+              <td class="row-number">
+                {{ idx + 1 }}
+                <i v-if="question.isInspected" class="fas fa-check completed-check"></i>
+              </td>
               <td>
                 <img :src="question.image" alt="Question" />
               </td>
@@ -748,8 +751,18 @@ tr.active > * {
 .row-number {
   font-weight: bold;
   color: #666;
-  width: 35px;
-  min-width: 35px;
+  width: 45px;
+  min-width: 45px;
+}
+
+.completed-check {
+  color: #28a745;
+  margin-left: 3px;
+  font-size: 10px;
+}
+
+tr.active .completed-check {
+  color: white;
 }
 
 .shortcut-help {
