@@ -254,14 +254,19 @@ export default {
         );
         this.assignmentTitle = data.FileName;
         this.assignmentMode = data.assignmentMode;
-        this.data = data.assignment;
-        this.originalData = JSON.parse(JSON.stringify(data.assignment));
-        this.activeImageUrl = this.data[0].questions[0].questionImage;
-        this.activeQuestionIndex = this.data[0].questions[0].questionId;
-        this.flatSquares = this.data.map((person) => person.squares).flat();
+        this.data = data.assignment || [];
+        this.originalData = JSON.parse(JSON.stringify(this.data));
+
+        // data가 있고 questions가 있을 때만 초기값 설정
+        if (this.data.length > 0 && this.data[0].questions && this.data[0].questions.length > 0) {
+          this.activeImageUrl = this.data[0].questions[0].questionImage;
+          this.activeQuestionIndex = this.data[0].questions[0].questionId;
+        }
+
+        this.flatSquares = this.data.map((person) => person.squares || []).flat();
         this.userSquaresList = this.data.map((person, index) => ({
           beforeCanvas: person.beforeCanvas,
-          squares: person.squares,
+          squares: person.squares || [],
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
       } catch (error) {

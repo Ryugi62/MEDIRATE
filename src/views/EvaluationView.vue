@@ -151,6 +151,15 @@
                 <button type="button" class="add-inline-btn" @click="showNewProjectModal = true" title="새 프로젝트 추가">
                   <i class="fas fa-plus"></i>
                 </button>
+                <button
+                  type="button"
+                  class="delete-inline-btn"
+                  @click="confirmDeleteProject"
+                  :disabled="!selectedProjectId"
+                  title="선택한 프로젝트 삭제"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
             </div>
             <div class="select-field">
@@ -164,6 +173,15 @@
                 </select>
                 <button type="button" class="add-inline-btn" @click="showNewCancerModal = true" title="새 암종 추가">
                   <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  type="button"
+                  class="delete-inline-btn"
+                  @click="confirmDeleteCancer"
+                  :disabled="!selectedCancerId"
+                  title="선택한 암종 삭제"
+                >
+                  <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
@@ -387,6 +405,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
+      <div class="confirm-modal">
+        <h4>{{ deleteTarget.type === 'project' ? '프로젝트' : '암종' }} 삭제 확인</h4>
+        <p>
+          '<strong>{{ deleteTarget.name }}</strong>'을(를) 삭제하시겠습니까?
+        </p>
+        <p class="warning-text">이 작업은 되돌릴 수 없습니다.</p>
+        <div class="confirm-actions">
+          <button class="cancel-btn" @click="deleteTarget = null">취소</button>
+          <button class="delete-confirm-btn" @click="executeDelete" :disabled="deleting">
+            <i v-if="deleting" class="fas fa-spinner fa-spin"></i>
+            <span v-else>삭제</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -417,6 +453,9 @@ export default {
       newCancerName: "",
       savingProject: false,
       savingCancer: false,
+      // 삭제 관련
+      deleteTarget: null,
+      deleting: false,
       // 태그 관련
       tagInput: "", // 태그 입력 필드
       tagSuggestions: [], // 자동완성 목록
@@ -607,6 +646,69 @@ export default {
         this.savingCancer = false;
       }
     },
+
+    // 프로젝트 삭제 확인
+    confirmDeleteProject() {
+      if (!this.selectedProjectId) return;
+      const project = this.projectList.find(p => p.id === this.selectedProjectId);
+      if (project) {
+        this.deleteTarget = {
+          type: 'project',
+          id: this.selectedProjectId,
+          name: project.name
+        };
+      }
+    },
+
+    // 암종 삭제 확인
+    confirmDeleteCancer() {
+      if (!this.selectedCancerId) return;
+      const cancer = this.cancerList.find(c => c.id === this.selectedCancerId);
+      if (cancer) {
+        this.deleteTarget = {
+          type: 'cancer',
+          id: this.selectedCancerId,
+          name: cancer.name
+        };
+      }
+    },
+
+    // 삭제 실행
+    async executeDelete() {
+      if (!this.deleteTarget) return;
+      this.deleting = true;
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+
+        if (this.deleteTarget.type === 'project') {
+          await this.$axios.delete(`/api/projects/${this.deleteTarget.id}`, { headers });
+          // 삭제된 프로젝트가 선택되어 있었다면 선택 해제
+          if (this.selectedProjectId === this.deleteTarget.id) {
+            this.selectedProjectId = null;
+            this.selectedCancerId = null;
+          }
+          await this.fetchProjectList();
+        } else {
+          await this.$axios.delete(`/api/projects/cancer-types/${this.deleteTarget.id}`, { headers });
+          // 삭제된 암종이 선택되어 있었다면 선택 해제
+          if (this.selectedCancerId === this.deleteTarget.id) {
+            this.selectedCancerId = null;
+          }
+          await this.fetchCancerTypes();
+        }
+
+        this.deleteTarget = null;
+      } catch (error) {
+        console.error("삭제 오류:", error);
+        const errorMsg = error.response?.data?.message || "삭제 중 오류가 발생했습니다.";
+        alert(errorMsg);
+      } finally {
+        this.deleting = false;
+      }
+    },
+
     fetchFolderList() {
       this.$axios
         .get("/api/assets")
@@ -1424,6 +1526,87 @@ hr {
 .add-inline-btn:disabled {
   background-color: #ccc;
   border-color: #ccc;
+  cursor: not-allowed;
+}
+
+.delete-inline-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  background-color: #dc3545;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.delete-inline-btn:hover:not(:disabled) {
+  background-color: #c82333;
+  border-color: #c82333;
+}
+
+.delete-inline-btn:disabled {
+  background-color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 삭제 확인 모달 */
+.confirm-modal {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 350px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.confirm-modal h4 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-modal p {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.confirm-modal .warning-text {
+  color: #dc3545;
+  font-size: 12px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.delete-confirm-btn {
+  padding: 8px 20px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.delete-confirm-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.delete-confirm-btn:disabled {
+  background-color: #ccc;
   cursor: not-allowed;
 }
 
