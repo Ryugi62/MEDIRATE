@@ -460,8 +460,8 @@ export default {
         }
       });
 
-      // 마우스 호버 시 확대 영역
-      if (event) {
+      // 마우스 호버 시 확대 영역 (평가 시작 후에만)
+      if (event && this.isRunning) {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }

@@ -547,7 +547,7 @@ export default {
         ctx.globalAlpha = 1;
       });
 
-      if (event) {
+      if (event && this.isRunning) {
         this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }

@@ -406,7 +406,7 @@ export default {
         });
       }
 
-      if (event) {
+      if (event && this.isRunning) {
         this.activeEnlarge(event);
       }
     },
