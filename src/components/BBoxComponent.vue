@@ -29,16 +29,17 @@
       </span>
 
       <div class="icon-list">
-        <i v-for="icon in iconList" :key="icon.name" :class="[
-          'fas',
-          icon.name,
-          { active: icon.name === 'fa-robot' ? showAiBoxes : icon.active },
-          { 'ai-active': icon.name === 'fa-robot' && showAiBoxes },
-          { 'ai-inactive': icon.name === 'fa-robot' && !showAiBoxes },
-          { disabled: !isRunning },
-        ]" @click="handleIconClick(icon)" :aria-label="icon.explanation">
-          <span class="icon-explanation">({{ icon.explanation }})</span>
-        </i>
+        <div v-for="icon in iconList" :key="icon.name" class="icon-item"
+          :class="{
+            active: icon.name === 'fa-robot' ? showAiBoxes : icon.active,
+            'ai-active': icon.name === 'fa-robot' && showAiBoxes,
+            'ai-inactive': icon.name === 'fa-robot' && !showAiBoxes,
+            disabled: !isRunning,
+          }"
+          @click="handleIconClick(icon)" :aria-label="icon.explanation">
+          <i :class="['fas', icon.name]"></i>
+          <span class="icon-explanation">{{ icon.explanation }}</span>
+        </div>
       </div>
 
       <div class="bbox-component__actions">
@@ -523,25 +524,25 @@ export default {
         // AI 박스는 showAiBoxes가 true일 때만 표시
         if (square.isAI && !this.showAiBoxes) return;
 
-        // 박스 타입별 스타일 차별화
+        // 박스 타입별 스타일 차별화 (크기 및 선 굵기 확대)
         if (square.isTemporaryAI) {
           // AI 탐지 박스 (아직 Apply 안됨) - 노란색, 더 크게
           ctx.strokeStyle = "#FFD700";
-          ctx.lineWidth = 4;
+          ctx.lineWidth = 6;
           ctx.globalAlpha = 0.8;
-          ctx.strokeRect(square.x - 14.5, square.y - 14.5, 29, 29);
+          ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
         } else if (square.isAI) {
           // AI Apply 후 확정된 박스 - 형광 파란색
           ctx.strokeStyle = "#00BFFF";
-          ctx.lineWidth = 4;
+          ctx.lineWidth = 6;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+          ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
         } else {
           // 전문의 지정 박스 - 빨간색
           ctx.strokeStyle = "#FF0000";
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+          ctx.strokeRect(square.x - 15, square.y - 15, 30, 30);
         }
         ctx.globalAlpha = 1;
       });
@@ -575,9 +576,9 @@ export default {
       this.redrawSquares(event);
 
       if (closestSquare && this.eraserActive) {
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 12.5, closestSquare.y - 12.5, 25, 25);
+        ctx.strokeRect(closestSquare.x - 15, closestSquare.y - 15, 30, 30);
       }
     },
 
@@ -819,15 +820,13 @@ export default {
 .icon-list {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.icon-list i {
+.icon-item {
   cursor: pointer;
-  padding: 8px;
-  font-size: 18px;
+  padding: 6px 8px;
   transition: all 0.3s;
-  position: relative;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -836,7 +835,11 @@ export default {
   color: #888;
 }
 
-.icon-list i.disabled {
+.icon-item i {
+  font-size: 18px;
+}
+
+.icon-item.disabled {
   pointer-events: none;
   opacity: 0.3;
   color: #ccc !important;
@@ -844,41 +847,29 @@ export default {
 
 .icon-explanation {
   font-size: 10px;
-  color: #666;
+  color: inherit;
   white-space: nowrap;
-  font-style: normal;
 }
 
-.icon-list i.active {
+.icon-item.active {
   color: var(--primary-color, #007bff);
 }
 
-.icon-list i.active .icon-explanation {
-  color: var(--primary-color, #007bff);
-}
-
-.icon-list i:hover {
+.icon-item:hover {
   color: var(--hover-color, #0056b3);
 }
 
-.icon-list i:hover .icon-explanation {
-  color: var(--hover-color, #0056b3);
-}
-
-/* B3: AI 아이콘 On/Off 상태 표시 */
-.icon-list i.ai-active {
+/* AI 아이콘 On/Off 상태 표시 */
+.icon-item.ai-active {
   color: var(--blue);
-  background-color: transparent;
 }
 
-.icon-list i.ai-inactive {
+.icon-item.ai-inactive {
   color: #888;
-  background-color: transparent;
 }
 
-.icon-list i.ai-active:hover {
+.icon-item.ai-active:hover {
   color: var(--blue-hover);
-  background-color: transparent;
 }
 
 .bbox-component__actions {

@@ -30,20 +30,20 @@
       </span>
 
       <div class="icon-list">
-        <i
+        <div
           v-for="icon in iconList"
           :key="icon.name"
-          :class="[
-            'fas',
-            icon.name,
-            { active: icon.active },
-            { disabled: !isRunning },
-          ]"
+          class="icon-item"
+          :class="{
+            active: icon.active,
+            disabled: !isRunning,
+          }"
           @click="handleIconClick(icon)"
           :aria-label="icon.explanation"
         >
-          <span class="icon-explanation">({{ icon.explanation }})</span>
-        </i>
+          <i :class="['fas', icon.name]"></i>
+          <span class="icon-explanation">{{ icon.explanation }}</span>
+        </div>
       </div>
 
       <div class="segment-component__actions">
@@ -607,51 +607,42 @@ export default {
 .icon-list {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.icon-list i {
+.icon-item {
   cursor: pointer;
-  padding: 12px;
-  font-size: 18px;
+  padding: 6px 8px;
   transition: all 0.3s;
-  position: relative;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #888;
 }
 
-.icon-list i.disabled {
+.icon-item i {
+  font-size: 18px;
+}
+
+.icon-item.disabled {
   pointer-events: none;
   opacity: 0.3;
   color: #ccc !important;
 }
 
 .icon-explanation {
-  visibility: hidden;
-  background-color: black;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 5px 10px;
-  position: absolute;
-  z-index: 1;
-  bottom: 125%;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.3s;
-  width: 120px;
+  font-size: 10px;
+  color: inherit;
+  white-space: nowrap;
 }
 
-.icon-list i:hover .icon-explanation {
-  visibility: visible;
-  opacity: 1;
-}
-
-.icon-list i.active {
+.icon-item.active {
   color: var(--primary-color, #007bff);
 }
 
-.icon-list i:hover {
+.icon-item:hover {
   color: var(--hover-color, #0056b3);
 }
 
