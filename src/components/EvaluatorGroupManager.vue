@@ -215,7 +215,7 @@ export default {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
-        const response = await this.$axios.get("/api/users", { headers });
+        const response = await this.$axios.get("/api/auth/user-list/", { headers });
         this.users = response.data.filter((u) => u.role !== "admin");
       } catch (error) {
         console.error("사용자 목록 조회 오류:", error);
