@@ -84,10 +84,9 @@ export default createStore({
       localStorage.setItem("assignmentSortDirection", direction);
     },
     addOpenedAssignment(state, assignmentId) {
-      if (!state.openedAssignments.includes(assignmentId)) {
-        state.openedAssignments.push(assignmentId);
-        localStorage.setItem("openedAssignments", JSON.stringify(state.openedAssignments));
-      }
+      // 마지막 하나만 유지
+      state.openedAssignments = [assignmentId];
+      localStorage.setItem("openedAssignments", JSON.stringify(state.openedAssignments));
     },
     removeOpenedAssignment(state, assignmentId) {
       state.openedAssignments = state.openedAssignments.filter(id => id !== assignmentId);
