@@ -27,12 +27,14 @@ router.post("/", authenticateToken, async (req, res) => {
     is_score,
     is_ai_use,
     tags, // 태그 이름 배열 ["brst", "pilot-01", ...]
+    project_id,
+    cancer_type_id,
   } = req.body;
 
   try {
     const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use, project_id, cancer_type_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     const [assignmentResult] = await db.query(insertAssignmentQuery, [
       title,
@@ -42,6 +44,8 @@ router.post("/", authenticateToken, async (req, res) => {
       mode,
       is_score,
       is_ai_use,
+      project_id || null,
+      cancer_type_id || null,
     ]);
     const assignmentId = assignmentResult.insertId;
 
@@ -730,6 +734,8 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     is_score,
     is_ai_use,
     tags, // 태그 이름 배열
+    project_id,
+    cancer_type_id,
   } = req.body;
 
   try {
@@ -742,6 +748,8 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
       mode,
       is_score,
       is_ai_use,
+      project_id,
+      cancer_type_id,
     });
 
     // 태그 업데이트
@@ -881,6 +889,8 @@ const updateAssignment = async (params) => {
     mode,
     is_score,
     is_ai_use,
+    project_id,
+    cancer_type_id,
   } = params;
 
   console.log("[DEBUG] updateAssignment - mode received:", mode);
@@ -888,7 +898,7 @@ const updateAssignment = async (params) => {
 
   const updateQuery = `
     UPDATE assignments
-    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?
+    SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?, project_id = ?, cancer_type_id = ?
     WHERE id = ?;
   `;
 
@@ -900,6 +910,8 @@ const updateAssignment = async (params) => {
     mode,
     is_score,
     is_ai_use,
+    project_id || null,
+    cancer_type_id || null,
     assignmentId,
   ]);
 
