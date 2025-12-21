@@ -116,6 +116,16 @@ export default {
       required: false,
       default: 2,
     },
+    evaluators: {
+      type: Array,
+      required: false,
+      default: () => [],
+    },
+    evaluatorResponses: {
+      type: Object,
+      required: false,
+      default: () => ({}),
+    },
   },
 
   emits: ["commitConsensusChanges"],
@@ -423,6 +433,29 @@ export default {
           ctx.font = "bold 9px Arial";
           ctx.fillStyle = "#fff";
           ctx.fillText(badgeText, canvasX + 10, canvasY - 12);
+        }
+
+        // 개별 평가자 응답 마커 표시
+        if (this.evaluators.length > 0 && this.evaluatorResponses[fp.id]) {
+          const markerSize = 6;
+          const markerSpacing = 8;
+          const startX = canvasX - (this.evaluators.length * markerSpacing) / 2 + 4;
+          const startY = canvasY + 34; // AI 점수 아래에 표시
+
+          this.evaluators.forEach((evaluator, idx) => {
+            const evalResponse = this.evaluatorResponses[fp.id][evaluator.id];
+            let markerColor;
+            if (evalResponse) {
+              markerColor = evalResponse.response === "agree" ? "#28a745" : "#dc3545";
+            } else {
+              markerColor = "#999";
+            }
+
+            ctx.fillStyle = markerColor;
+            ctx.beginPath();
+            ctx.arc(startX + idx * markerSpacing, startY, markerSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+          });
         }
       });
 

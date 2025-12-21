@@ -118,6 +118,8 @@
         :evaluation_time="canvasInfo.evaluation_time || 0"
         :evaluatorCount="currentConsensusDetails.evaluatorCount || 3"
         :threshold="currentConsensusDetails.threshold || 2"
+        :evaluators="currentConsensusDetails.evaluators || []"
+        :evaluatorResponses="currentConsensusDetails.evaluatorResponses || {}"
         @commitConsensusChanges="commitConsensusChanges"
       />
     </div>
@@ -467,6 +469,71 @@ export default {
         this.onRowClick(this.questionList[currentIdx - 1], currentIdx - 1);
       }
     },
+
+    // 평가자 이름 이니셜 가져오기
+    getEvaluatorInitial(realname) {
+      if (!realname) return "?";
+      // 한글 이름인 경우 첫 글자, 영어인 경우 첫 글자 대문자
+      return realname.charAt(0).toUpperCase();
+    },
+
+    // 이미지의 특정 평가자 응답 상태 가져오기
+    getEvaluatorImageResponses(questionImage, evaluatorId) {
+      if (!this.currentConsensusDetails || !this.currentConsensusDetails.evaluatorResponses) {
+        return { total: 0, agree: 0, disagree: 0, pending: 0 };
+      }
+
+      const fpSquares = this.currentConsensusDetails.fpSquares.filter(
+        (fp) => fp.question_image === questionImage
+      );
+      const evaluatorResponses = this.currentConsensusDetails.evaluatorResponses;
+
+      let agree = 0;
+      let disagree = 0;
+      let pending = 0;
+
+      fpSquares.forEach((fp) => {
+        const responses = evaluatorResponses[fp.id];
+        if (responses && responses[evaluatorId]) {
+          if (responses[evaluatorId].response === "agree") {
+            agree++;
+          } else if (responses[evaluatorId].response === "disagree") {
+            disagree++;
+          }
+        } else {
+          pending++;
+        }
+      });
+
+      return { total: fpSquares.length, agree, disagree, pending };
+    },
+
+    // 평가자 응답 심볼 가져오기
+    getEvaluatorResponseSymbol(questionImage, evaluatorId) {
+      const stats = this.getEvaluatorImageResponses(questionImage, evaluatorId);
+      if (stats.total === 0) return "-";
+      if (stats.pending === stats.total) return "-";
+      return `${stats.agree}/${stats.total}`;
+    },
+
+    // 평가자 응답 클래스 가져오기
+    getEvaluatorResponseClass(questionImage, evaluatorId) {
+      const stats = this.getEvaluatorImageResponses(questionImage, evaluatorId);
+      if (stats.total === 0) return "evaluator-none";
+      if (stats.pending === stats.total) return "evaluator-pending";
+      if (stats.pending === 0) {
+        if (stats.agree === stats.total) return "evaluator-all-agree";
+        if (stats.disagree === stats.total) return "evaluator-all-disagree";
+        return "evaluator-mixed";
+      }
+      return "evaluator-partial";
+    },
+
+    // 평가자 응답 타이틀 가져오기
+    getEvaluatorResponseTitle(questionImage, evaluatorId, realname) {
+      const stats = this.getEvaluatorImageResponses(questionImage, evaluatorId);
+      return `${realname}: 동의 ${stats.agree}, 비동의 ${stats.disagree}, 미응답 ${stats.pending}`;
+    },
   },
 
   watch: {
@@ -753,5 +820,54 @@ th:nth-child(6) { width: 42px; } /* 판정 */
   height: calc(100vh - 71px);
   font-size: 16px;
   color: #666;
+}
+
+/* 평가자 열 스타일 */
+.evaluator-col {
+  width: 30px;
+  min-width: 30px;
+  font-size: 10px;
+  background-color: #f0f7ff;
+}
+
+.evaluator-response {
+  font-size: 9px;
+  text-align: center;
+}
+
+.evaluator-response span {
+  display: inline-block;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.evaluator-none {
+  color: #999;
+}
+
+.evaluator-pending {
+  color: #999;
+  background-color: #f5f5f5;
+}
+
+.evaluator-partial {
+  color: #ff8800;
+  background-color: #fff3e0;
+}
+
+.evaluator-all-agree {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+}
+
+.evaluator-all-disagree {
+  color: #c62828;
+  background-color: #ffebee;
+}
+
+.evaluator-mixed {
+  color: #1565c0;
+  background-color: #e3f2fd;
 }
 </style>
