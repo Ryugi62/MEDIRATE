@@ -96,7 +96,15 @@ router.get("/ai", authenticateToken, async (req, res) => {
       "utf8"
     );
 
-    const AI_BBOX = JSON.parse(jsonContent).annotation.map((annotation) => {
+    const parsed = JSON.parse(jsonContent);
+    const annotations = parsed.annotation;
+
+    // annotation이 없거나 배열이 아닌 경우 빈 배열 반환
+    if (!annotations || !Array.isArray(annotations)) {
+      return res.json([]);
+    }
+
+    const AI_BBOX = annotations.map((annotation) => {
       const [x, y] = annotation.bbox;
       const score = annotation.score ? annotation.score : 0.6;
       return { x, y, questionIndex: Number(questionIndex), score: score };
@@ -104,7 +112,9 @@ router.get("/ai", authenticateToken, async (req, res) => {
 
     res.json(AI_BBOX);
   } catch (error) {
-    handleError(res, "Error fetching AI assignment", error);
+    // 파일이 없거나 읽기 오류 시 빈 배열 반환
+    console.error("AI data fetch error:", error.message);
+    res.json([]);
   }
 });
 
