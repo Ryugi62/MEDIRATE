@@ -584,9 +584,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .segment-component__header__left {
@@ -675,13 +676,14 @@ canvas {
 }
 
 .segment-component__footer {
-  padding: 10px;
+  padding: 4px 10px;
   color: #333;
   background-color: #f5f5f5;
-  margin-top: 10px;
+  margin-top: 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .polygon-count {

@@ -796,9 +796,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .bbox-component__header__left {
@@ -823,11 +824,16 @@ export default {
 
 .icon-list i {
   cursor: pointer;
-  padding: 12px;
+  padding: 8px;
   font-size: 18px;
   transition: all 0.3s;
   position: relative;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #888;
 }
 
 .icon-list i.disabled {
@@ -837,33 +843,25 @@ export default {
 }
 
 .icon-explanation {
-  visibility: hidden;
-  background-color: black;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 5px 10px;
-  position: absolute;
-  z-index: 1;
-  bottom: 125%;
-  /* Position above the icon */
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.3s;
-  width: 120px;
-}
-
-.icon-list i:hover .icon-explanation {
-  visibility: visible;
-  opacity: 1;
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+  font-style: normal;
 }
 
 .icon-list i.active {
   color: var(--primary-color, #007bff);
 }
 
+.icon-list i.active .icon-explanation {
+  color: var(--primary-color, #007bff);
+}
+
 .icon-list i:hover {
+  color: var(--hover-color, #0056b3);
+}
+
+.icon-list i:hover .icon-explanation {
   color: var(--hover-color, #0056b3);
 }
 
@@ -910,11 +908,12 @@ canvas {
 }
 
 .bbox-component__footer {
-  padding: 5px;
+  padding: 4px;
   color: #333;
   text-align: center;
   background-color: #f5f5f5;
-  margin-top: 10px;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 /* 타이머 섹션 스타일 추가 */
