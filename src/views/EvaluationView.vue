@@ -979,7 +979,6 @@ hr {
 .user-item-toggle {
   display: flex;
   gap: 6px;
-  width: 100%;
   padding: 8px 10px;
   cursor: pointer;
   justify-content: space-between;
@@ -1079,7 +1078,7 @@ hr {
 
 /* 유저 수 카운트 */
 .user-count {
-  padding: 0 10px;
+  padding: 15px 10px 0;
   font-size: 12px;
 }
 
