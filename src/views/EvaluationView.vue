@@ -137,7 +137,29 @@
             </div>
           </div>
 
-          <!-- A3: 해시태그 입력 -->
+          <!-- A3: 프로젝트/암종 선택 -->
+          <div class="project-select-group">
+            <div class="select-field">
+              <label class="select-label">프로젝트:</label>
+              <select v-model="selectedProjectId" class="project-select" @change="selectedCancerId = null">
+                <option :value="null">프로젝트 선택...</option>
+                <option v-for="project in projectList" :key="project.id" :value="project.id">
+                  {{ project.name }}
+                </option>
+              </select>
+            </div>
+            <div class="select-field">
+              <label class="select-label">암종:</label>
+              <select v-model="selectedCancerId" class="cancer-select" :disabled="!selectedProjectId">
+                <option :value="null">암종 선택...</option>
+                <option v-for="cancer in cancerList" :key="cancer.id" :value="cancer.id">
+                  {{ cancer.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- A4: 해시태그 입력 -->
           <div class="tag-input-group">
             <label class="tag-label">태그:</label>
             <div class="tag-input-container">
@@ -309,6 +331,10 @@ export default {
       // 그룹 관련
       groups: [],
       selectedGroupId: "",
+      // 프로젝트/암종 관련
+      projectList: [],
+      selectedProjectId: null,
+      selectedCancerId: null,
       // 태그 관련
       tagInput: "", // 태그 입력 필드
       tagSuggestions: [], // 자동완성 목록
@@ -362,6 +388,7 @@ export default {
       this.fetchUserList(),
       this.fetchFolderList(),
       this.fetchGroups(),
+      this.fetchProjectList(),
     ]);
     if (this.isEditMode) {
       await this.fetchAssignmentData();
@@ -393,8 +420,26 @@ export default {
         );
       });
     },
+    // 선택된 프로젝트의 암종 목록
+    cancerList() {
+      if (!this.selectedProjectId) return [];
+      const project = this.projectList.find((p) => p.id === this.selectedProjectId);
+      return project?.cancer_types || [];
+    },
   },
   methods: {
+    // 프로젝트 목록 로드
+    async fetchProjectList() {
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+        const response = await this.$axios.get("/api/projects/tree", { headers });
+        this.projectList = response.data;
+      } catch (error) {
+        console.error("프로젝트 목록 로딩 오류:", error);
+      }
+    },
     fetchFolderList() {
       this.$axios
         .get("/api/assets")
@@ -493,6 +538,8 @@ export default {
             ? this.assignmentDetails.gradingScale
             : [],
         tags: this.assignmentDetails.tags.map((t) => t.name), // 태그 이름 배열
+        project_id: this.selectedProjectId,
+        cancer_type_id: this.selectedCancerId,
       };
 
       console.log("[DEBUG] saveAssignment - mode:", this.assignmentDetails.mode);
@@ -752,6 +799,9 @@ export default {
         this.assignmentDetails.is_ai_use =
           response.data.is_ai_use === 1 ? true : false;
         this.assignmentDetails.tags = response.data.tags || [];
+        // 프로젝트/암종 정보 로드
+        this.selectedProjectId = response.data.project_id || null;
+        this.selectedCancerId = response.data.cancer_type_id || null;
       } catch (error) {
         console.error("과제 정보를 가져오는 중 오류 발생:", error);
       }
@@ -1133,6 +1183,45 @@ hr {
   gap: 12px;
   flex-wrap: wrap;
   align-items: flex-start;
+}
+
+/* A3: 프로젝트/암종 선택 스타일 */
+.project-select-group {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 6px;
+  background-color: #fafafa;
+}
+
+.project-select-group .select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.project-select-group .select-label {
+  font-weight: bold;
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.project-select-group select {
+  padding: 6px 10px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: white;
+  cursor: pointer;
+}
+
+.project-select-group select:disabled {
+  background-color: #f0f0f0;
+  cursor: not-allowed;
 }
 
 /* A1: 평가 유형 그룹 스타일 */

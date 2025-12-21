@@ -1,11 +1,21 @@
 <!-- DashboardView.vue -->
 
 <template>
-  <div v-if="isExporting" class="exporting-message">
-    {{ exportingMessage }}
-  </div>
-  <!-- 대시보드 헤더 -->
-  <div class="dashboard-header">
+  <div class="dashboard-view-container">
+    <!-- 프로젝트 트리 필터 -->
+    <ProjectTreeFilter
+      :selected-project="filterProjectId"
+      :selected-cancer="filterCancerId"
+      :selected-mode="filterMode"
+      @filter-change="onTreeFilterChange"
+    />
+
+    <div class="dashboard-main">
+      <div v-if="isExporting" class="exporting-message">
+        {{ exportingMessage }}
+      </div>
+      <!-- 대시보드 헤더 -->
+      <div class="dashboard-header">
     <div class="header-row">
       <h1 class="header-title">대시 보드</h1>
 
@@ -318,11 +328,14 @@
       </li>
     </ul>
   </nav>
+    </div>
+  </div>
 </template>
 
 <script>
 import BulkAssignModal from "@/components/BulkAssignModal.vue";
 import EvaluatorGroupManager from "@/components/EvaluatorGroupManager.vue";
+import ProjectTreeFilter from "@/components/ProjectTreeFilter.vue";
 
 export default {
   name: "DashboardView",
@@ -330,6 +343,7 @@ export default {
   components: {
     BulkAssignModal,
     EvaluatorGroupManager,
+    ProjectTreeFilter,
   },
 
   data() {
@@ -350,6 +364,10 @@ export default {
       score_value: 50,
       selectedMode: "all", // all, TextBox, BBox, Consensus, Segment
       selectedTag: "all", // 태그 필터
+      // 프로젝트/암종 필터
+      filterProjectId: null,
+      filterCancerId: null,
+      filterMode: null,
       tagFilterInput: "", // 태그 필터 검색어
       showTagSuggestions: false,
       allTags: [], // 서버에서 받은 태그 목록
@@ -573,6 +591,8 @@ export default {
             tag: this.selectedTag,
             sortBy: this.sortColumn,
             sortDir: this.sortDirection,
+            projectId: this.filterProjectId,
+            cancerId: this.filterCancerId,
           };
 
           const response = await this.$axios.get("/api/dashboard/paginated", { headers, params });
@@ -605,6 +625,15 @@ export default {
       } else {
         this.$router.push({ name: "dashboardDetail", params: { id: item.id } });
       }
+    },
+
+    // 프로젝트/암종 필터 변경
+    onTreeFilterChange({ projectId, cancerId, mode }) {
+      this.filterProjectId = projectId;
+      this.filterCancerId = cancerId;
+      this.filterMode = mode;
+      this.current = 1; // 페이지 초기화
+      this.loadPaginatedData();
     },
 
     // 페이지 변경
@@ -1050,6 +1079,20 @@ export default {
 </script>
 
 <style scoped>
+/* 컨테이너 레이아웃 */
+.dashboard-view-container {
+  display: flex;
+  height: calc(100vh - 71px);
+  overflow: hidden;
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
 /* 전체 페이지 좌우 스크롤 방지 */
 :deep(.dashboard-view) {
   overflow-x: hidden;
