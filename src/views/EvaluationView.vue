@@ -156,13 +156,13 @@
             <div class="select-field">
               <label class="select-label">암종:</label>
               <div class="select-with-add">
-                <select v-model="selectedCancerId" class="cancer-select" :disabled="!selectedProjectId">
+                <select v-model="selectedCancerId" class="cancer-select">
                   <option :value="null">암종 선택...</option>
                   <option v-for="cancer in cancerList" :key="cancer.id" :value="cancer.id">
                     {{ cancer.name }}
                   </option>
                 </select>
-                <button type="button" class="add-inline-btn" @click="showNewCancerModal = true" :disabled="!selectedProjectId" title="새 암종 추가">
+                <button type="button" class="add-inline-btn" @click="showNewCancerModal = true" title="새 암종 추가">
                   <i class="fas fa-plus"></i>
                 </button>
               </div>
@@ -189,7 +189,8 @@
                   @keydown.enter.prevent="addTagFromInput"
                   @keydown.tab.prevent="addTagFromInput"
                   @keydown.backspace="handleBackspace"
-                  placeholder="태그 입력 (예: brst, pilot-01)"
+                  @blur="addTagFromInput"
+                  placeholder="태그 입력 후 Enter (예: brst)"
                   class="tag-text-input"
                 />
               </div>
@@ -366,11 +367,7 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>프로젝트</label>
-            <input type="text" :value="selectedProjectName" disabled class="disabled-input" />
-          </div>
-          <div class="form-group">
-            <label>암종 이름 *</label>
+            <label>암종 이름 (한글) *</label>
             <input
               type="text"
               v-model="newCancerName"
@@ -379,6 +376,7 @@
               @keydown.enter="saveNewCancer"
             />
           </div>
+          <p class="hint-text">* 암종 코드는 자동으로 생성됩니다.</p>
         </div>
         <div class="modal-footer">
           <button class="cancel-btn" @click="showNewCancerModal = false">취소</button>
@@ -409,6 +407,7 @@ export default {
       selectedGroupId: "",
       // 프로젝트/암종 관련
       projectList: [],
+      cancerTypeList: [], // 전역 암종 목록
       selectedProjectId: null,
       selectedCancerId: null,
       // 새 프로젝트/암종 추가 모달
@@ -472,6 +471,7 @@ export default {
       this.fetchFolderList(),
       this.fetchGroups(),
       this.fetchProjectList(),
+      this.fetchCancerTypes(),
     ]);
     if (this.isEditMode) {
       await this.fetchAssignmentData();
@@ -503,11 +503,9 @@ export default {
         );
       });
     },
-    // 선택된 프로젝트의 암종 목록
+    // 암종 목록 (전역 암종 테이블 사용)
     cancerList() {
-      if (!this.selectedProjectId) return [];
-      const project = this.projectList.find((p) => p.id === this.selectedProjectId);
-      return project?.cancer_types || [];
+      return this.cancerTypeList;
     },
     // 선택된 프로젝트 이름
     selectedProjectName() {
@@ -523,10 +521,28 @@ export default {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
-        const response = await this.$axios.get("/api/projects/tree", { headers });
+        const response = await this.$axios.get("/api/projects", { headers });
         this.projectList = response.data;
       } catch (error) {
         console.error("프로젝트 목록 로딩 오류:", error);
+      }
+    },
+
+    // 암종 목록 로드
+    async fetchCancerTypes() {
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+        const response = await this.$axios.get("/api/projects/cancer-types", { headers });
+        // API 응답을 cancerList 형식에 맞게 변환
+        this.cancerTypeList = response.data.map(ct => ({
+          id: ct.id,
+          name: ct.name_ko || ct.code,
+          code: ct.code,
+        }));
+      } catch (error) {
+        console.error("암종 목록 로딩 오류:", error);
       }
     },
 
@@ -545,39 +561,48 @@ export default {
         );
         // 프로젝트 목록 새로고침 후 새 프로젝트 선택
         await this.fetchProjectList();
-        this.selectedProjectId = response.data.id;
+        // API는 projectId를 반환
+        this.selectedProjectId = response.data.projectId;
         this.selectedCancerId = null;
         this.showNewProjectModal = false;
         this.newProjectName = "";
       } catch (error) {
         console.error("프로젝트 저장 오류:", error);
-        alert("프로젝트 저장 중 오류가 발생했습니다.");
+        const errorMsg = error.response?.data?.message || "프로젝트 저장 중 오류가 발생했습니다.";
+        alert(errorMsg);
       } finally {
         this.savingProject = false;
       }
     },
 
-    // 새 암종 저장
+    // 새 암종 저장 (전역 암종 테이블 사용)
     async saveNewCancer() {
-      if (!this.newCancerName.trim() || !this.selectedProjectId) return;
+      if (!this.newCancerName.trim()) return;
       this.savingCancer = true;
       try {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
+        // 암종 코드는 이름을 기반으로 자동 생성
+        const code = this.newCancerName.trim().toLowerCase().replace(/[^a-z0-9]/g, "_").substring(0, 20);
         const response = await this.$axios.post(
-          `/api/projects/${this.selectedProjectId}/cancer-types`,
-          { name: this.newCancerName.trim() },
+          "/api/projects/cancer-types",
+          {
+            code: code,
+            name_ko: this.newCancerName.trim(),
+            name_en: ""
+          },
           { headers }
         );
-        // 프로젝트 목록 새로고침 후 새 암종 선택
-        await this.fetchProjectList();
-        this.selectedCancerId = response.data.id;
+        // 암종 목록 새로고침 후 새 암종 선택
+        await this.fetchCancerTypes();
+        this.selectedCancerId = response.data.cancerTypeId;
         this.showNewCancerModal = false;
         this.newCancerName = "";
       } catch (error) {
         console.error("암종 저장 오류:", error);
-        alert("암종 저장 중 오류가 발생했습니다.");
+        const errorMsg = error.response?.data?.message || "암종 저장 중 오류가 발생했습니다.";
+        alert(errorMsg);
       } finally {
         this.savingCancer = false;
       }
@@ -1532,6 +1557,13 @@ hr {
 .inline-modal .save-btn:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+.inline-modal .hint-text {
+  margin: 0;
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
 }
 
 /* A1: 평가 유형 그룹 스타일 */

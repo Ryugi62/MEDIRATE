@@ -2,104 +2,131 @@
 <!-- 프로젝트/암종 관리 컴포넌트 -->
 <template>
   <div class="project-manager">
-    <div class="manager-header">
-      <h3><i class="fas fa-folder-tree"></i> 프로젝트 관리</h3>
-      <button class="add-btn" @click="showCreateProjectForm">
-        <i class="fas fa-plus"></i> 새 프로젝트
+    <!-- 탭 헤더 -->
+    <div class="manager-tabs">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'projects' }"
+        @click="activeTab = 'projects'"
+      >
+        <i class="fas fa-folder"></i> 프로젝트
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'cancers' }"
+        @click="activeTab = 'cancers'"
+      >
+        <i class="fas fa-disease"></i> 암종
       </button>
     </div>
 
-    <div class="manager-body">
-      <!-- 로딩 -->
-      <div v-if="loading" class="loading">
-        <i class="fas fa-spinner fa-spin"></i> 로딩 중...
-      </div>
-
-      <!-- 빈 상태 -->
-      <div v-else-if="projects.length === 0" class="empty-state">
-        <i class="fas fa-folder-open"></i>
-        <p>등록된 프로젝트가 없습니다.</p>
-        <button class="create-btn" @click="showCreateProjectForm">
-          첫 번째 프로젝트 만들기
+    <!-- 프로젝트 탭 -->
+    <div v-if="activeTab === 'projects'" class="tab-content">
+      <div class="manager-header">
+        <h3><i class="fas fa-folder-tree"></i> 프로젝트 관리</h3>
+        <button class="add-btn" @click="showCreateProjectForm">
+          <i class="fas fa-plus"></i> 새 프로젝트
         </button>
       </div>
 
-      <!-- 프로젝트 목록 -->
-      <div v-else class="project-list">
-        <div
-          v-for="project in projects"
-          :key="project.id"
-          class="project-card"
-          :class="{ expanded: expandedProjectId === project.id }"
-        >
-          <div class="project-card-header" @click="toggleExpand(project.id)">
-            <div class="project-info">
-              <span class="project-name">{{ project.name }}</span>
-              <span class="cancer-count">{{ project.cancer_types?.length || 0 }}개 암종</span>
+      <div class="manager-body">
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+        </div>
+
+        <div v-else-if="projects.length === 0" class="empty-state">
+          <i class="fas fa-folder-open"></i>
+          <p>등록된 프로젝트가 없습니다.</p>
+          <button class="create-btn" @click="showCreateProjectForm">
+            첫 번째 프로젝트 만들기
+          </button>
+        </div>
+
+        <div v-else class="project-list">
+          <div
+            v-for="project in projects"
+            :key="project.id"
+            class="project-card"
+          >
+            <div class="project-card-header">
+              <div class="project-info">
+                <span class="project-name">{{ project.name }}</span>
+                <span class="project-meta">
+                  {{ project.assignment_count || 0 }}개 과제
+                </span>
+              </div>
+              <div class="project-actions">
+                <button
+                  class="action-btn edit-btn"
+                  @click="editProject(project)"
+                  title="수정"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  class="action-btn delete-btn"
+                  @click="confirmDeleteProject(project)"
+                  title="삭제"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             </div>
-            <div class="project-actions">
-              <button
-                class="action-btn add-cancer-btn"
-                @click.stop="showAddCancerForm(project)"
-                title="암종 추가"
-              >
-                <i class="fas fa-plus-circle"></i>
-              </button>
+            <div v-if="project.description" class="project-description">
+              {{ project.description }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 암종 탭 -->
+    <div v-if="activeTab === 'cancers'" class="tab-content">
+      <div class="manager-header">
+        <h3><i class="fas fa-disease"></i> 암종 관리</h3>
+        <button class="add-btn" @click="showAddCancerForm">
+          <i class="fas fa-plus"></i> 새 암종
+        </button>
+      </div>
+
+      <div class="manager-body">
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+        </div>
+
+        <div v-else-if="cancerTypes.length === 0" class="empty-state">
+          <i class="fas fa-disease"></i>
+          <p>등록된 암종이 없습니다.</p>
+          <button class="create-btn" @click="showAddCancerForm">
+            첫 번째 암종 만들기
+          </button>
+        </div>
+
+        <div v-else class="cancer-type-list">
+          <div
+            v-for="cancer in cancerTypes"
+            :key="cancer.id"
+            class="cancer-type-card"
+          >
+            <div class="cancer-type-info">
+              <span class="cancer-code">{{ cancer.code }}</span>
+              <span class="cancer-name">{{ cancer.name_ko }}</span>
+            </div>
+            <div class="cancer-type-actions">
               <button
                 class="action-btn edit-btn"
-                @click.stop="editProject(project)"
+                @click="editCancer(cancer)"
                 title="수정"
               >
                 <i class="fas fa-edit"></i>
               </button>
               <button
                 class="action-btn delete-btn"
-                @click.stop="confirmDeleteProject(project)"
+                @click="confirmDeleteCancer(cancer)"
                 title="삭제"
               >
                 <i class="fas fa-trash"></i>
               </button>
-              <i
-                :class="[
-                  'expand-icon',
-                  'fas',
-                  expandedProjectId === project.id ? 'fa-chevron-up' : 'fa-chevron-down',
-                ]"
-              ></i>
-            </div>
-          </div>
-
-          <div v-if="expandedProjectId === project.id" class="project-card-body">
-            <div v-if="project.description" class="project-description">
-              {{ project.description }}
-            </div>
-            <div class="cancer-list">
-              <div
-                v-for="cancer in project.cancer_types"
-                :key="cancer.id"
-                class="cancer-item"
-              >
-                <span class="cancer-name">{{ cancer.name }}</span>
-                <div class="cancer-actions">
-                  <button
-                    class="mini-btn edit-btn"
-                    @click="editCancer(project, cancer)"
-                    title="수정"
-                  >
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button
-                    class="mini-btn delete-btn"
-                    @click="confirmDeleteCancer(project, cancer)"
-                    title="삭제"
-                  >
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-              </div>
-              <div v-if="!project.cancer_types?.length" class="no-cancers">
-                등록된 암종이 없습니다.
-              </div>
             </div>
           </div>
         </div>
@@ -156,7 +183,7 @@
     <div v-if="showCancerForm" class="modal-overlay" @click.self="closeCancerForm">
       <div class="modal-container">
         <div class="modal-header">
-          <h4>{{ editingCancer ? '암종 수정' : '새 암종 추가' }}</h4>
+          <h4>{{ editingCancer ? '암종 수정' : '새 암종' }}</h4>
           <button class="close-btn" @click="closeCancerForm">
             <i class="fas fa-times"></i>
           </button>
@@ -164,21 +191,31 @@
 
         <div class="modal-body">
           <div class="form-group">
-            <label>프로젝트</label>
+            <label>암종 코드 *</label>
             <input
               type="text"
-              :value="selectedProject?.name"
-              disabled
-              class="disabled-input"
+              v-model="cancerFormData.code"
+              placeholder="예: brst, lung (영문 소문자)"
+              maxlength="20"
             />
           </div>
 
           <div class="form-group">
-            <label>암종 이름 *</label>
+            <label>암종 이름 (한글) *</label>
             <input
               type="text"
-              v-model="cancerFormData.name"
-              placeholder="예: 유방암, 폐암, 대장암"
+              v-model="cancerFormData.name_ko"
+              placeholder="예: 유방암, 폐암"
+              maxlength="100"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>암종 이름 (영문)</label>
+            <input
+              type="text"
+              v-model="cancerFormData.name_en"
+              placeholder="예: Breast Cancer"
               maxlength="100"
             />
           </div>
@@ -189,7 +226,7 @@
           <button
             class="save-btn"
             @click="saveCancer"
-            :disabled="!cancerFormData.name || saving"
+            :disabled="!cancerFormData.code || !cancerFormData.name_ko || saving"
           >
             <i v-if="saving" class="fas fa-spinner fa-spin"></i>
             <span v-else>{{ editingCancer ? '수정' : '저장' }}</span>
@@ -203,10 +240,7 @@
       <div class="confirm-modal">
         <h4>{{ deleteTarget.type === 'project' ? '프로젝트' : '암종' }} 삭제 확인</h4>
         <p>
-          '<strong>{{ deleteTarget.item.name }}</strong>'을(를) 삭제하시겠습니까?
-        </p>
-        <p v-if="deleteTarget.type === 'project'" class="warning-text">
-          프로젝트 삭제 시 하위 암종도 함께 삭제됩니다.
+          '<strong>{{ deleteTarget.item.name || deleteTarget.item.name_ko }}</strong>'을(를) 삭제하시겠습니까?
         </p>
         <p class="warning-text">이 작업은 되돌릴 수 없습니다.</p>
         <div class="confirm-actions">
@@ -227,7 +261,9 @@ export default {
 
   data() {
     return {
+      activeTab: "projects",
       projects: [],
+      cancerTypes: [],
       loading: false,
       saving: false,
       deleting: false,
@@ -235,41 +271,41 @@ export default {
       showCancerForm: false,
       editingProject: null,
       editingCancer: null,
-      selectedProject: null,
       deleteTarget: null,
-      expandedProjectId: null,
       projectFormData: {
         name: "",
         description: "",
       },
       cancerFormData: {
-        name: "",
+        code: "",
+        name_ko: "",
+        name_en: "",
       },
     };
   },
 
   async mounted() {
-    await this.fetchProjects();
+    await this.fetchData();
   },
 
   methods: {
-    async fetchProjects() {
+    async fetchData() {
       this.loading = true;
       try {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
-        const response = await this.$axios.get("/api/projects/tree", { headers });
-        this.projects = response.data;
+        const [projectsRes, cancersRes] = await Promise.all([
+          this.$axios.get("/api/projects", { headers }),
+          this.$axios.get("/api/projects/cancer-types", { headers }),
+        ]);
+        this.projects = projectsRes.data;
+        this.cancerTypes = cancersRes.data;
       } catch (error) {
-        console.error("프로젝트 목록 조회 오류:", error);
+        console.error("데이터 조회 오류:", error);
       } finally {
         this.loading = false;
       }
-    },
-
-    toggleExpand(projectId) {
-      this.expandedProjectId = this.expandedProjectId === projectId ? null : projectId;
     },
 
     // 프로젝트 폼
@@ -310,36 +346,38 @@ export default {
           await this.$axios.post("/api/projects", this.projectFormData, { headers });
         }
 
-        await this.fetchProjects();
+        await this.fetchData();
         this.closeProjectForm();
         this.$emit("updated");
       } catch (error) {
         console.error("프로젝트 저장 오류:", error);
-        alert("프로젝트 저장 중 오류가 발생했습니다.");
+        const msg = error.response?.data?.message || "프로젝트 저장 중 오류가 발생했습니다.";
+        alert(msg);
       } finally {
         this.saving = false;
       }
     },
 
     // 암종 폼
-    showAddCancerForm(project) {
-      this.selectedProject = project;
+    showAddCancerForm() {
       this.editingCancer = null;
-      this.cancerFormData = { name: "" };
+      this.cancerFormData = { code: "", name_ko: "", name_en: "" };
       this.showCancerForm = true;
     },
 
-    editCancer(project, cancer) {
-      this.selectedProject = project;
+    editCancer(cancer) {
       this.editingCancer = cancer;
-      this.cancerFormData = { name: cancer.name };
+      this.cancerFormData = {
+        code: cancer.code,
+        name_ko: cancer.name_ko,
+        name_en: cancer.name_en || "",
+      };
       this.showCancerForm = true;
     },
 
     closeCancerForm() {
       this.showCancerForm = false;
       this.editingCancer = null;
-      this.selectedProject = null;
     },
 
     async saveCancer() {
@@ -351,24 +389,25 @@ export default {
 
         if (this.editingCancer) {
           await this.$axios.put(
-            `/api/projects/${this.selectedProject.id}/cancer-types/${this.editingCancer.id}`,
+            `/api/projects/cancer-types/${this.editingCancer.id}`,
             this.cancerFormData,
             { headers }
           );
         } else {
           await this.$axios.post(
-            `/api/projects/${this.selectedProject.id}/cancer-types`,
+            "/api/projects/cancer-types",
             this.cancerFormData,
             { headers }
           );
         }
 
-        await this.fetchProjects();
+        await this.fetchData();
         this.closeCancerForm();
         this.$emit("updated");
       } catch (error) {
         console.error("암종 저장 오류:", error);
-        alert("암종 저장 중 오류가 발생했습니다.");
+        const msg = error.response?.data?.message || "암종 저장 중 오류가 발생했습니다.";
+        alert(msg);
       } finally {
         this.saving = false;
       }
@@ -379,8 +418,8 @@ export default {
       this.deleteTarget = { type: "project", item: project };
     },
 
-    confirmDeleteCancer(project, cancer) {
-      this.deleteTarget = { type: "cancer", item: cancer, project };
+    confirmDeleteCancer(cancer) {
+      this.deleteTarget = { type: "cancer", item: cancer };
     },
 
     async executeDelete() {
@@ -397,17 +436,18 @@ export default {
           );
         } else {
           await this.$axios.delete(
-            `/api/projects/${this.deleteTarget.project.id}/cancer-types/${this.deleteTarget.item.id}`,
+            `/api/projects/cancer-types/${this.deleteTarget.item.id}`,
             { headers }
           );
         }
 
-        await this.fetchProjects();
+        await this.fetchData();
         this.deleteTarget = null;
         this.$emit("updated");
       } catch (error) {
         console.error("삭제 오류:", error);
-        alert("삭제 중 오류가 발생했습니다.");
+        const msg = error.response?.data?.message || "삭제 중 오류가 발생했습니다.";
+        alert(msg);
       } finally {
         this.deleting = false;
       }
@@ -422,6 +462,46 @@ export default {
   border: 1px solid var(--light-gray, #e0e0e0);
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* 탭 스타일 */
+.manager-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--light-gray, #e0e0e0);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: #f8f9fa;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:first-child {
+  border-right: 1px solid var(--light-gray, #e0e0e0);
+}
+
+.tab-btn:hover {
+  background: #e9ecef;
+}
+
+.tab-btn.active {
+  background: white;
+  color: var(--blue, #007bff);
+  border-bottom: 2px solid var(--blue, #007bff);
+}
+
+.tab-content {
+  padding: 0;
 }
 
 .manager-header {
@@ -595,62 +675,66 @@ export default {
   margin-left: 4px;
 }
 
-.project-card-body {
-  padding: 12px;
-  border-top: 1px solid var(--light-gray, #e0e0e0);
-  background-color: #fff;
-}
-
 .project-description {
   font-size: 12px;
   color: #666;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  padding: 8px 12px;
+  background-color: #fafafa;
+  border-top: 1px solid var(--light-gray, #e0e0e0);
 }
 
-.cancer-list {
+.project-meta {
+  font-size: 11px;
+  color: #888;
+  background-color: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* 암종 목록 스타일 */
+.cancer-type-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.cancer-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-}
-
-.cancer-name {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.cancer-actions {
-  display: flex;
   gap: 4px;
 }
 
-.mini-btn {
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
+.cancer-type-card {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  font-size: 10px;
+  padding: 8px 12px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #eee;
 }
 
-.no-cancers {
-  font-size: 12px;
-  color: #999;
-  text-align: center;
-  padding: 10px;
+.cancer-type-card:last-child {
+  border-bottom: none;
+}
+
+.cancer-type-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cancer-code {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  background-color: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.cancer-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cancer-type-actions {
+  display: flex;
+  gap: 4px;
 }
 
 /* 모달 */
