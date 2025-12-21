@@ -20,6 +20,16 @@
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
           </div>
         </div>
+        <!-- 그룹 선택 드롭다운 -->
+        <div class="group-select-box" v-if="groups.length > 0">
+          <label class="group-select-label">그룹 선택:</label>
+          <select v-model="selectedGroupId" @change="applyGroupSelection" class="group-select">
+            <option value="">그룹 선택...</option>
+            <option v-for="group in groups" :key="group.id" :value="group.id">
+              {{ group.name }} ({{ group.member_count }}명)
+            </option>
+          </select>
+        </div>
         <hr />
         <div class="user-list">
           <span class="user-count"
@@ -296,6 +306,9 @@ export default {
       maxUserCount: 5,
       searchInput: "",
       folderList: [],
+      // 그룹 관련
+      groups: [],
+      selectedGroupId: "",
       // 태그 관련
       tagInput: "", // 태그 입력 필드
       tagSuggestions: [], // 자동완성 목록
@@ -348,6 +361,7 @@ export default {
     await Promise.all([
       this.fetchUserList(),
       this.fetchFolderList(),
+      this.fetchGroups(),
     ]);
     if (this.isEditMode) {
       await this.fetchAssignmentData();
@@ -609,6 +623,42 @@ export default {
         });
     },
 
+    // 그룹 목록 조회
+    async fetchGroups() {
+      try {
+        const headers = {
+          Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+        };
+        const response = await this.$axios.get("/api/consensus/groups/list", { headers });
+        this.groups = response.data;
+      } catch (error) {
+        console.error("그룹 목록 조회 오류:", error);
+      }
+    },
+
+    // 그룹 선택 시 해당 그룹의 멤버를 평가자로 추가
+    applyGroupSelection() {
+      if (!this.selectedGroupId) return;
+
+      const group = this.groups.find(g => g.id === this.selectedGroupId);
+      if (!group || !group.members) return;
+
+      // 기존 선택 초기화 후 그룹 멤버 추가
+      this.addedUsers = [];
+
+      for (const member of group.members) {
+        // userList에서 해당 멤버 찾기
+        const user = this.userList.find(u => u.id === member.id);
+        if (user && this.addedUsers.length < this.maxUserCount) {
+          this.addedUsers.push(user);
+        }
+      }
+
+      if (group.members.length > this.maxUserCount) {
+        alert(`그룹에 ${group.members.length}명이 있지만, 최대 ${this.maxUserCount}명까지만 선택됩니다.`);
+      }
+    },
+
     // 태그 검색 (자동완성)
     async searchTags() {
       if (!this.tagInput.trim()) {
@@ -825,6 +875,33 @@ hr {
   font-size: 12px;
 }
 
+/* 그룹 선택 박스 */
+.group-select-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.group-select-label {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.group-select {
+  padding: 6px 8px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  background-color: white;
+}
+
+.group-select:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
 /* 유저 검색 입력 */
 .user-search-input {
   display: flex;
@@ -968,11 +1045,19 @@ hr {
 
 .user-name {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 .user-affiliation {
   font-size: 11px;
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 /* 이미 추가된 유저 아이템 박스 */

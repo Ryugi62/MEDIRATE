@@ -31,9 +31,9 @@
               <i class="fa-solid fa-tags"></i>
               태그 추가
             </div>
-            <div v-if="hasSelectedConsensus" class="bulk-menu-item" @click="showBulkAssignModal = true; showBulkMenu = false">
+            <div class="bulk-menu-item" @click="showBulkAssignModal = true; showBulkMenu = false">
               <i class="fa-solid fa-users-gear"></i>
-              할당자 변경 (Consensus)
+              평가자 변경
             </div>
             <div class="bulk-menu-item bulk-menu-item--danger" @click="confirmBulkDelete">
               <i class="fa-solid fa-trash"></i>
@@ -221,10 +221,11 @@
     <EvaluatorGroupManager />
   </div>
 
-  <!-- 일괄 할당 모달 (Consensus용) -->
+  <!-- 일괄 할당 모달 -->
   <BulkAssignModal
     v-if="showBulkAssignModal"
     :assignment-ids="selectedConsensusOnlyIds"
+    :regular-assignment-ids="selectedRegularOnlyIds"
     @close="showBulkAssignModal = false"
     @assigned="onBulkAssigned"
   />
@@ -383,6 +384,12 @@ export default {
       return this.selectedItems
         .filter((item) => item.isConsensus)
         .map((item) => item.consensusId);
+    },
+    // 선택된 일반 과제의 ID만 추출
+    selectedRegularOnlyIds() {
+      return this.selectedItems
+        .filter((item) => !item.isConsensus)
+        .map((item) => item.id);
     },
     // 태그 필터 자동완성 제안
     filteredTagSuggestions() {

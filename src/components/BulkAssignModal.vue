@@ -11,7 +11,15 @@
 
       <div class="modal-body">
         <p class="info-text">
-          {{ assignmentIds.length }}개의 Consensus 과제에 평가자를 할당합니다.
+          <template v-if="assignmentIds.length > 0 && regularAssignmentIds.length > 0">
+            Consensus {{ assignmentIds.length }}개 + 일반 과제 {{ regularAssignmentIds.length }}개에 평가자를 할당합니다.
+          </template>
+          <template v-else-if="assignmentIds.length > 0">
+            {{ assignmentIds.length }}개의 Consensus 과제에 평가자를 할당합니다.
+          </template>
+          <template v-else>
+            {{ regularAssignmentIds.length }}개의 과제에 평가자를 할당합니다.
+          </template>
         </p>
 
         <!-- 탭 전환 -->
@@ -161,6 +169,11 @@ export default {
     assignmentIds: {
       type: Array,
       required: true,
+      default: () => [],
+    },
+    regularAssignmentIds: {
+      type: Array,
+      default: () => [],
     },
   },
 
@@ -312,18 +325,59 @@ export default {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
 
-        await this.$axios.put(
-          "/api/consensus/bulk-assign",
-          {
-            assignment_ids: this.assignmentIds,
-            user_ids: this.selectedUserIds,
-          },
-          { headers }
-        );
+        let successCount = 0;
+        let errorCount = 0;
 
-        alert(
-          `${this.assignmentIds.length}개 과제에 ${this.selectedUserIds.length}명의 평가자가 할당되었습니다.`
-        );
+        // Consensus 과제 일괄 할당
+        if (this.assignmentIds.length > 0) {
+          try {
+            await this.$axios.put(
+              "/api/consensus/bulk-assign",
+              {
+                assignment_ids: this.assignmentIds,
+                user_ids: this.selectedUserIds,
+              },
+              { headers }
+            );
+            successCount += this.assignmentIds.length;
+          } catch (error) {
+            console.error("Consensus 일괄 할당 오류:", error);
+            errorCount += this.assignmentIds.length;
+          }
+        }
+
+        // 일반 과제 개별 할당 (각 과제마다 API 호출)
+        for (const assignmentId of this.regularAssignmentIds) {
+          try {
+            // 기존 과제 정보 조회
+            const assignmentRes = await this.$axios.get(
+              `/api/assignments/${assignmentId}/all`,
+              { headers }
+            );
+
+            // 평가자 목록 업데이트
+            await this.$axios.put(
+              `/api/assignments/edit/${assignmentId}`,
+              {
+                ...assignmentRes.data,
+                users: this.selectedUserIds,
+              },
+              { headers }
+            );
+            successCount++;
+          } catch (error) {
+            console.error(`과제 ${assignmentId} 할당 오류:`, error);
+            errorCount++;
+          }
+        }
+
+        const totalCount = this.assignmentIds.length + this.regularAssignmentIds.length;
+        if (errorCount === 0) {
+          alert(`${totalCount}개 과제에 ${this.selectedUserIds.length}명의 평가자가 할당되었습니다.`);
+        } else {
+          alert(`${successCount}개 과제 할당 성공, ${errorCount}개 과제 할당 실패`);
+        }
+
         this.$emit("assigned");
       } catch (error) {
         console.error("일괄 할당 오류:", error);
