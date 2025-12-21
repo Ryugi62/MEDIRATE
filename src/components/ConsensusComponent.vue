@@ -51,6 +51,7 @@
         @contextmenu.prevent="handleRightClick"
         @mousemove="handleCanvasMouseMove"
         @mouseleave="handleCanvasMouseLeave"
+        :class="{ 'canvas-disabled': !isRunning }"
       ></canvas>
     </div>
 
@@ -776,9 +777,15 @@ canvas {
   max-height: 100%;
   transition: border 0.3s;
   background-color: #fff;
+  cursor: crosshair;
 }
 
-canvas:hover {
+canvas.canvas-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+canvas:not(.canvas-disabled):hover {
   border: 1px solid var(--primary-color, #007bff);
 }
 

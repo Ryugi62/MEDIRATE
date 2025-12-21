@@ -51,7 +51,7 @@
     <div class="bbox-component__body">
       <canvas ref="canvas" @click="handleCanvasClick" @mousemove="handleCanvasMouseMove"
         @mouseleave="handleCanvasMouseLeave" @mouseenter="redrawSquares" @contextmenu.prevent
-        @contextmenu="redrawSquares"></canvas>
+        @contextmenu="redrawSquares" :class="{ 'canvas-disabled': !isRunning }"></canvas>
     </div>
     <div class="bbox-component__footer">
       <strong>{{ fileName }}</strong>
@@ -896,6 +896,12 @@ canvas {
   border: 1px solid #ccc;
   max-height: 100%;
   background-color: white;
+  cursor: crosshair;
+}
+
+canvas.canvas-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .bbox-component__footer {

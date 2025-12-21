@@ -600,7 +600,8 @@ export default {
     // 다른 페이지로 리다이렉트
     goToDetail(item) {
       if (item.isConsensus) {
-        this.$router.push({ name: "consensusDetail", params: { id: item.consensusId } });
+        // Consensus는 분석 페이지로 이동
+        this.$router.push({ name: "consensusAnalysis", params: { id: item.consensusId } });
       } else {
         this.$router.push({ name: "dashboardDetail", params: { id: item.id } });
       }

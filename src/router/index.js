@@ -12,6 +12,7 @@ import DashboardView from "../views/DashboardView.vue";
 import DashboardDetailView from "../views/DashboardDetailView.vue";
 import UserManagementView from "../views/UserManagementView.vue";
 import ConsensusDetailView from "../views/ConsensusDetailView.vue";
+import ConsensusAnalysisView from "../views/ConsensusAnalysisView.vue";
 
 const routes = [
   {
@@ -95,6 +96,12 @@ const routes = [
     path: "/consensus/:id",
     name: "consensusDetail",
     component: ConsensusDetailView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/consensus/:id/analysis",
+    name: "consensusAnalysis",
+    component: ConsensusAnalysisView,
     meta: { requiresAuth: true },
   },
   {
