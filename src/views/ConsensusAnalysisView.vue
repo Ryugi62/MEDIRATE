@@ -524,7 +524,7 @@ export default {
           }
         );
 
-        const { resultData, timeData, statisticsData, users } = response.data;
+        const { resultData, timeData, statisticsData } = response.data;
 
         const workbook = new ExcelJS.Workbook();
 

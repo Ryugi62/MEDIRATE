@@ -465,10 +465,9 @@ router.post("/metrics", authenticateToken, async (req, res) => {
 // 추가: Metrics용으로 평가자의 squares를 변환하는 함수
 async function getAdjustedSquaresForMetrics(
   users,
-  assignmentMode,
-  assignmentId
+  _assignmentMode, // 향후 모드별 분기 처리용으로 유지
+  _assignmentId // eslint-disable-line no-unused-vars
 ) {
-  const questions = await getQuestionsForAssignment(assignmentId);
   const adjustedSquares = [];
 
   for (const user of users) {
@@ -479,27 +478,6 @@ async function getAdjustedSquaresForMetrics(
   }
 
   return adjustedSquares;
-}
-
-async function getQuestionsForAssignment(assignmentId) {
-  const [questions] = await db.query(
-    `SELECT id as questionId, image as questionImage FROM questions WHERE assignment_id = ?`,
-    [assignmentId]
-  );
-
-  const adjustedQuestions = [];
-
-  for (const question of questions) {
-    const { width, height } = await getImageDimensions(question.questionImage);
-    adjustedQuestions.push({
-      questionId: question.questionId,
-      questionImage: question.questionImage,
-      originalWidth: width,
-      originalHeight: height,
-    });
-  }
-
-  return adjustedQuestions;
 }
 
 function calculateTP_FP_FN(evaluatorSquares, aiSquares, overlapCount) {
