@@ -168,7 +168,6 @@ export default {
   props: {
     assignmentIds: {
       type: Array,
-      required: true,
       default: () => [],
     },
     regularAssignmentIds: {
@@ -405,6 +404,7 @@ export default {
 }
 
 .modal-container {
+  position: relative;
   background: white;
   border-radius: 8px;
   width: 500px;
@@ -426,6 +426,7 @@ export default {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: #333;
 }
 
 .close-btn {
@@ -464,6 +465,7 @@ export default {
   padding: 10px;
   border: 1px solid #ddd;
   background: white;
+  color: #333;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -471,13 +473,14 @@ export default {
 }
 
 .tab-buttons button.active {
-  background: var(--blue);
-  color: white;
-  border-color: var(--blue);
+  background: var(--blue, #007bff);
+  color: #fff;
+  border-color: var(--blue, #007bff);
 }
 
 .tab-buttons button:hover:not(.active) {
   background: #f5f5f5;
+  color: #333;
 }
 
 .tab-content {
@@ -487,7 +490,7 @@ export default {
 .user-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   max-height: 250px;
   overflow-y: auto;
   border: 1px solid #eee;
@@ -520,23 +523,33 @@ export default {
 .user-item input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--blue);
+  flex-shrink: 0;
+  accent-color: var(--blue, #007bff);
+  cursor: pointer;
 }
 
 .user-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .user-name {
   font-size: 14px;
   font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-org {
   font-size: 12px;
   color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-list {
@@ -544,6 +557,8 @@ export default {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .group-item {
@@ -555,11 +570,11 @@ export default {
 }
 
 .group-item:hover {
-  border-color: var(--blue);
+  border-color: var(--blue, #007bff);
 }
 
 .group-item.selected {
-  border-color: var(--blue);
+  border-color: var(--blue, #007bff);
   background: #e3f2fd;
 }
 
@@ -573,6 +588,7 @@ export default {
 .group-name {
   font-weight: 600;
   font-size: 14px;
+  color: #333;
 }
 
 .group-count {
@@ -595,6 +611,10 @@ export default {
   text-align: center;
   color: #888;
   padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .create-group-btn {
@@ -615,8 +635,8 @@ export default {
 }
 
 .create-group-btn:hover {
-  border-color: var(--blue);
-  color: var(--blue);
+  border-color: var(--blue, #007bff);
+  color: var(--blue, #007bff);
 }
 
 .group-form-overlay {
@@ -625,31 +645,36 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  border-radius: 8px;
+  z-index: 10;
 }
 
 .group-form {
   width: 100%;
+  max-width: 400px;
 }
 
 .group-form h3 {
   margin: 0 0 16px 0;
   font-size: 16px;
+  color: #333;
 }
 
 .form-group {
   margin-bottom: 16px;
 }
 
-.form-group label {
+.form-group > label {
   display: block;
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 6px;
+  color: #333;
 }
 
 .form-group input[type="text"] {
@@ -659,11 +684,12 @@ export default {
   border-radius: 4px;
   font-size: 14px;
   box-sizing: border-box;
+  color: #333;
 }
 
 .form-group input[type="text"]:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--blue, #007bff);
 }
 
 .form-actions {
@@ -678,7 +704,11 @@ export default {
   background: #f9f9f9;
   border-radius: 4px;
   font-size: 13px;
-  color: #666;
+  color: #333;
+}
+
+.selected-summary strong {
+  color: #333;
 }
 
 .modal-footer {
@@ -693,6 +723,7 @@ export default {
   padding: 10px 20px;
   border: 1px solid #ddd;
   background: white;
+  color: #333;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -706,8 +737,8 @@ export default {
 .assign-btn {
   padding: 10px 20px;
   border: none;
-  background: var(--blue);
-  color: white;
+  background: var(--blue, #007bff);
+  color: #fff;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -715,12 +746,13 @@ export default {
 
 .save-btn:hover,
 .assign-btn:hover {
-  background: var(--blue-hover);
+  background: var(--blue-hover, #0056b3);
 }
 
 .save-btn:disabled,
 .assign-btn:disabled {
   background: #ccc;
+  color: #666;
   cursor: not-allowed;
 }
 </style>
