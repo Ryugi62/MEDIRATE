@@ -98,10 +98,19 @@
           v-for="assignment in visibleAssignments"
           :key="assignment.id"
           @click="redirect(assignment)"
-          :class="{ 'consensus-row': assignment.isConsensus }"
+          :class="{
+            'consensus-row': assignment.isConsensus,
+            'opened-row': isAssignmentOpened(assignment)
+          }"
         >
           <td v-for="column in columns" :key="column.key" :class="column.class">
-            {{ getValue(assignment, column.key) }}
+            <template v-if="column.key === 'id'">
+              <i v-if="isAssignmentOpened(assignment)" class="fas fa-external-link-alt opened-icon" title="열린 과제"></i>
+              {{ getValue(assignment, column.key) }}
+            </template>
+            <template v-else>
+              {{ getValue(assignment, column.key) }}
+            </template>
           </td>
         </tr>
       </tbody>
@@ -236,6 +245,10 @@ export default {
       const start = Math.max(1, this.current - 2);
       const end = Math.min(this.totalPages, start + 4);
       return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    },
+    // 열린 과제 목록
+    openedAssignments() {
+      return this.$store.getters.getOpenedAssignments;
     },
   },
 
@@ -421,11 +434,21 @@ export default {
       return "진행중";
     },
 
+    // 과제가 열렸는지 확인
+    isAssignmentOpened(assignment) {
+      const id = assignment.isConsensus ? `C${assignment.consensusId}` : String(assignment.id);
+      return this.openedAssignments.includes(id);
+    },
+
     // 새 탭으로 평가 수행 열기
     redirect(assignment) {
       const route = assignment.isConsensus
         ? { name: "consensusDetail", params: { id: assignment.consensusId } }
         : { name: "assignmentDetail", params: { id: assignment.id } };
+
+      // 열린 과제로 추가
+      const id = assignment.isConsensus ? `C${assignment.consensusId}` : String(assignment.id);
+      this.$store.commit("addOpenedAssignment", id);
 
       const url = this.$router.resolve(route).href;
       window.open(url, '_blank');
@@ -805,5 +828,20 @@ tbody > tr:hover {
 
 .consensus-row:hover {
   background-color: #f5f5f5;
+}
+
+/* 열린 과제 표시 스타일 */
+.opened-row {
+  background-color: #e3f2fd;
+}
+
+.opened-row:hover {
+  background-color: #bbdefb;
+}
+
+.opened-icon {
+  color: #1976d2;
+  margin-right: 6px;
+  font-size: 11px;
 }
 </style>

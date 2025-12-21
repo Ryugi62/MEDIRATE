@@ -19,6 +19,8 @@ export default createStore({
     // 정렬 상태 유지
     assignmentSortColumn: localStorage.getItem("assignmentSortColumn") || "id",
     assignmentSortDirection: localStorage.getItem("assignmentSortDirection") || "down",
+    // 열린 과제 ID 목록 (새 탭에서 열린 과제 표시용)
+    openedAssignments: JSON.parse(localStorage.getItem("openedAssignments")) || [],
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -32,6 +34,7 @@ export default createStore({
     getDashboardCurrentPage: (state) => state.dashboardCurrentPage, // 추가
     getAssignmentSortColumn: (state) => state.assignmentSortColumn,
     getAssignmentSortDirection: (state) => state.assignmentSortDirection,
+    getOpenedAssignments: (state) => state.openedAssignments,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -80,6 +83,20 @@ export default createStore({
       state.assignmentSortDirection = direction;
       localStorage.setItem("assignmentSortDirection", direction);
     },
+    addOpenedAssignment(state, assignmentId) {
+      if (!state.openedAssignments.includes(assignmentId)) {
+        state.openedAssignments.push(assignmentId);
+        localStorage.setItem("openedAssignments", JSON.stringify(state.openedAssignments));
+      }
+    },
+    removeOpenedAssignment(state, assignmentId) {
+      state.openedAssignments = state.openedAssignments.filter(id => id !== assignmentId);
+      localStorage.setItem("openedAssignments", JSON.stringify(state.openedAssignments));
+    },
+    clearOpenedAssignments(state) {
+      state.openedAssignments = [];
+      localStorage.removeItem("openedAssignments");
+    },
   },
   actions: {
     loginUser({ commit }, user) {
@@ -107,6 +124,7 @@ export default createStore({
       localStorage.removeItem("dashboardCurrentPage"); // 추가
       localStorage.removeItem("assignmentSortColumn");
       localStorage.removeItem("assignmentSortDirection");
+      localStorage.removeItem("openedAssignments");
     },
   },
   modules: {},

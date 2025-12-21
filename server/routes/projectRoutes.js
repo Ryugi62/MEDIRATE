@@ -194,6 +194,107 @@ router.delete("/cancer-types/:cancerTypeId", authenticateToken, async (req, res)
 });
 
 // ========================================
+// 계층형 트리뷰 API (프로젝트 > 암종 > 모드)
+// ========================================
+
+// GET /api/projects/tree - 계층형 프로젝트 트리 데이터
+router.get("/tree", authenticateToken, async (req, res) => {
+  try {
+    // 프로젝트별 과제 수 및 암종/모드 정보 조회
+    const [assignments] = await db.query(
+      `SELECT
+        a.id, a.title, a.project_id, a.cancer_type_id, a.assignment_mode,
+        p.name as project_name,
+        ct.code as cancer_code, ct.name_ko as cancer_name
+       FROM assignments a
+       LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
+       WHERE a.deleted_at IS NULL`
+    );
+
+    // 합의 과제 조회
+    const [consensusAssignments] = await db.query(
+      `SELECT
+        ca.id, ca.title, ca.project_id, ca.cancer_type_id, 'Consensus' as assignment_mode,
+        p.name as project_name,
+        ct.code as cancer_code, ct.name_ko as cancer_name
+       FROM consensus_assignments ca
+       LEFT JOIN projects p ON ca.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
+       WHERE ca.deleted_at IS NULL`
+    );
+
+    // 모든 과제 합치기
+    const allAssignments = [...assignments, ...consensusAssignments];
+
+    // 트리 구조 생성
+    const treeMap = {};
+
+    allAssignments.forEach((a) => {
+      const projectKey = a.project_id ? `p_${a.project_id}` : "p_none";
+      const projectName = a.project_name || "미분류";
+      const cancerKey = a.cancer_type_id ? `c_${a.cancer_type_id}` : "c_none";
+      const cancerName = a.cancer_name || "미지정";
+      const mode = a.assignment_mode || "BBox";
+
+      // 프로젝트 레벨
+      if (!treeMap[projectKey]) {
+        treeMap[projectKey] = {
+          id: a.project_id,
+          key: projectKey,
+          name: projectName,
+          type: "project",
+          count: 0,
+          children: {},
+        };
+      }
+      treeMap[projectKey].count++;
+
+      // 암종 레벨
+      if (!treeMap[projectKey].children[cancerKey]) {
+        treeMap[projectKey].children[cancerKey] = {
+          id: a.cancer_type_id,
+          key: cancerKey,
+          name: cancerName,
+          code: a.cancer_code,
+          type: "cancer",
+          count: 0,
+          children: {},
+        };
+      }
+      treeMap[projectKey].children[cancerKey].count++;
+
+      // 모드 레벨
+      const modeKey = `m_${mode}`;
+      if (!treeMap[projectKey].children[cancerKey].children[modeKey]) {
+        treeMap[projectKey].children[cancerKey].children[modeKey] = {
+          key: modeKey,
+          name: mode,
+          type: "mode",
+          count: 0,
+        };
+      }
+      treeMap[projectKey].children[cancerKey].children[modeKey].count++;
+    });
+
+    // 객체를 배열로 변환
+    const tree = Object.values(treeMap)
+      .map((project) => ({
+        ...project,
+        children: Object.values(project.children).map((cancer) => ({
+          ...cancer,
+          children: Object.values(cancer.children),
+        })),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+
+    res.json(tree);
+  } catch (error) {
+    handleError(res, "프로젝트 트리 데이터 조회 중 오류 발생", error);
+  }
+});
+
+// ========================================
 // 초기 암종 데이터 시드
 // ========================================
 router.post("/seed-cancer-types", authenticateToken, async (req, res) => {
