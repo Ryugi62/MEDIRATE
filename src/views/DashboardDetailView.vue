@@ -382,6 +382,11 @@ export default {
     async calculateOverlaps() {
       this.overlaps = {};
 
+      // 데이터가 없거나 questions가 없으면 종료
+      if (!this.data.length || !this.data[0]?.questions?.length) {
+        return;
+      }
+
       for (const question of this.data[0].questions) {
         const questionId = question.questionId;
         this.overlaps[questionId] = {};
