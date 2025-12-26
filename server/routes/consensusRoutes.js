@@ -29,6 +29,8 @@ router.get("/", authenticateToken, async (req, res) => {
         ca.score_threshold,
         ca.assignment_type,
         ca.creation_date,
+        ca.project_id,
+        ca.cancer_type_id,
         (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
         (SELECT COUNT(DISTINCT cr.fp_square_id)
          FROM consensus_responses cr

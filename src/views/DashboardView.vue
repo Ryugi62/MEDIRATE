@@ -480,6 +480,8 @@ export default {
             unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
             tags: c.tags || [],
             isConsensus: true,
+            project_id: c.project_id,
+            cancer_type_id: c.cancer_type_id,
           }));
 
           // 검색어 필터 (클라이언트)
@@ -495,6 +497,24 @@ export default {
               if (!item.tags || item.tags.length === 0) return false;
               return item.tags.some((t) => t.name === this.selectedTag);
             });
+          }
+
+          // 프로젝트 필터 (클라이언트)
+          if (this.filterProjectId !== null) {
+            if (this.filterProjectId === "unclassified") {
+              consensusData = consensusData.filter((item) => item.project_id === null);
+            } else {
+              consensusData = consensusData.filter((item) => item.project_id === this.filterProjectId);
+            }
+          }
+
+          // 암종 필터 (클라이언트)
+          if (this.filterCancerId !== null) {
+            if (this.filterCancerId === "unclassified") {
+              consensusData = consensusData.filter((item) => item.cancer_type_id === null);
+            } else {
+              consensusData = consensusData.filter((item) => item.cancer_type_id === this.filterCancerId);
+            }
           }
 
           // 정렬 (클라이언트)
@@ -1020,7 +1040,7 @@ export default {
 /* 컨테이너 레이아웃 */
 .dashboard-view-container {
   display: flex;
-  height: calc(100vh - 71px);
+  height: 100%;
   overflow: hidden;
 }
 
@@ -1028,7 +1048,8 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* 전체 페이지 좌우 스크롤 방지 */
@@ -1196,8 +1217,9 @@ export default {
 
 /* 테이블 박스 */
 .table-box {
-  min-height: 676px;
+  flex: 1;
   overflow-x: auto;
+  overflow-y: auto;
 }
 
 table {

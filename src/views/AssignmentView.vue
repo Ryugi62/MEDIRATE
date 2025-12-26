@@ -307,12 +307,20 @@ export default {
 
           // 프로젝트 필터 (클라이언트)
           if (this.filterProjectId !== null) {
-            consensusAssignments = consensusAssignments.filter((a) => a.project_id === this.filterProjectId);
+            if (this.filterProjectId === "unclassified") {
+              consensusAssignments = consensusAssignments.filter((a) => a.project_id === null);
+            } else {
+              consensusAssignments = consensusAssignments.filter((a) => a.project_id === this.filterProjectId);
+            }
           }
 
           // 암종 필터 (클라이언트)
           if (this.filterCancerId !== null) {
-            consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === this.filterCancerId);
+            if (this.filterCancerId === "unclassified") {
+              consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === null);
+            } else {
+              consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === this.filterCancerId);
+            }
           }
 
           // 정렬 (클라이언트)
