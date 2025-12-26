@@ -165,7 +165,7 @@ export default {
       isExporting: false,
       exportingMessage: "내보내기 중...",
       colorList: [
-        { backgroundColor: "#F70101", color: "white" },
+        { backgroundColor: "#00838F", color: "white" },
         { backgroundColor: "#36A2EB", color: "white" },
         { backgroundColor: "#FF9F40", color: "white" },
         { backgroundColor: "#B2F302", color: "black" },

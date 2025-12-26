@@ -361,7 +361,9 @@ export default {
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
       );
-      const x = (canvasWidth - this.originalWidth * scale) / 2;
+      // 확대경(우측 상단 300x300)과 겹치지 않도록 이미지를 왼쪽으로 100px 이동
+      const imageOffset = 100;
+      const x = (canvasWidth - this.originalWidth * scale) / 2 - imageOffset;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
       return { x, y, scale };
     },
@@ -526,23 +528,23 @@ export default {
 
         // 박스 타입별 스타일 차별화 (크기 및 선 굵기 확대)
         if (square.isTemporaryAI) {
-          // AI 탐지 박스 (아직 Apply 안됨) - 노란색, 더 크게
+          // AI 탐지 박스 (아직 Apply 안됨) - 노란색
           ctx.strokeStyle = "#FFD700";
-          ctx.lineWidth = 6;
+          ctx.lineWidth = 3;
           ctx.globalAlpha = 0.8;
-          ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
+          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         } else if (square.isAI) {
           // AI Apply 후 확정된 박스 - 형광 파란색
           ctx.strokeStyle = "#00BFFF";
-          ctx.lineWidth = 6;
+          ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
+          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         } else {
           // 전문의 지정 박스 - 빨간색
           ctx.strokeStyle = "#FF0000";
           ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 15, square.y - 15, 30, 30);
+          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         }
         ctx.globalAlpha = 1;
       });
@@ -578,7 +580,7 @@ export default {
       if (closestSquare && this.eraserActive) {
         ctx.lineWidth = 3;
         ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 15, closestSquare.y - 15, 30, 30);
+        ctx.strokeRect(closestSquare.x - 12.5, closestSquare.y - 12.5, 25, 25);
       }
     },
 
@@ -648,7 +650,7 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 30;
+      const squareSize = 25;
 
       ctx.lineWidth = 3;
       ctx.strokeStyle = "orange";
