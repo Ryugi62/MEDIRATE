@@ -341,7 +341,7 @@ export default {
         ctx.lineWidth = 3;
         ctx.strokeStyle = square.color || "#FF0000";
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 15, square.y - 15, 30, 30);
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
       });
 
@@ -351,7 +351,7 @@ export default {
         ctx.lineWidth = 4;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 17.5, square.y - 17.5, 35, 35);
+        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
         ctx.globalAlpha = 1;
       });
 
@@ -449,7 +449,7 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 30;
+      const squareSize = 25;
 
       const cursorX = x - squareSize / 2;
       const cursorY = y - squareSize / 2;
