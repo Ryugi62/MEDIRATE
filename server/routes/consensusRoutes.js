@@ -18,35 +18,72 @@ const handleError = (res, message, error) => {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const showAll = req.query.all === "true"; // 대시보드에서 모든 과제 조회
 
-    const query = `
-      SELECT
-        ca.id,
-        ca.title,
-        ca.deadline,
-        ca.source_excel,
-        ca.evaluator_threshold,
-        ca.score_threshold,
-        ca.assignment_type,
-        ca.creation_date,
-        ca.project_id,
-        ca.cancer_type_id,
-        (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
-        (SELECT COUNT(DISTINCT cr.fp_square_id)
-         FROM consensus_responses cr
-         JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
-         WHERE cfp.consensus_assignment_id = ca.id AND cr.user_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL) AS responded_fp,
-        cci.evaluation_time,
-        cci.start_time,
-        cci.end_time
-      FROM consensus_assignments ca
-      JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
-      LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
-      WHERE cua.user_id = ? AND ca.deleted_at IS NULL
-      ORDER BY ca.creation_date DESC
-    `;
+    let query;
+    let params;
 
-    const [assignments] = await db.query(query, [userId, userId, userId]);
+    if (showAll) {
+      // 대시보드: 모든 과제 조회 (할당 여부 무관)
+      query = `
+        SELECT
+          ca.id,
+          ca.title,
+          ca.deadline,
+          ca.source_excel,
+          ca.evaluator_threshold,
+          ca.score_threshold,
+          ca.assignment_type,
+          ca.creation_date,
+          ca.project_id,
+          ca.cancer_type_id,
+          (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
+          (SELECT COUNT(DISTINCT cr.fp_square_id)
+           FROM consensus_responses cr
+           JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
+           WHERE cfp.consensus_assignment_id = ca.id AND cr.user_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL) AS responded_fp,
+          cci.evaluation_time,
+          cci.start_time,
+          cci.end_time,
+          (SELECT COUNT(*) FROM consensus_user_assignments WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS evaluator_count
+        FROM consensus_assignments ca
+        LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
+        WHERE ca.deleted_at IS NULL
+        ORDER BY ca.creation_date DESC
+      `;
+      params = [userId, userId];
+    } else {
+      // 일반: 할당된 과제만 조회
+      query = `
+        SELECT
+          ca.id,
+          ca.title,
+          ca.deadline,
+          ca.source_excel,
+          ca.evaluator_threshold,
+          ca.score_threshold,
+          ca.assignment_type,
+          ca.creation_date,
+          ca.project_id,
+          ca.cancer_type_id,
+          (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) AS total_fp,
+          (SELECT COUNT(DISTINCT cr.fp_square_id)
+           FROM consensus_responses cr
+           JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
+           WHERE cfp.consensus_assignment_id = ca.id AND cr.user_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL) AS responded_fp,
+          cci.evaluation_time,
+          cci.start_time,
+          cci.end_time
+        FROM consensus_assignments ca
+        JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
+        LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
+        WHERE cua.user_id = ? AND ca.deleted_at IS NULL
+        ORDER BY ca.creation_date DESC
+      `;
+      params = [userId, userId, userId];
+    }
+
+    const [assignments] = await db.query(query, params);
 
     // 각 과제의 태그 조회
     for (const assignment of assignments) {
@@ -74,14 +111,12 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
     const { consensusId } = req.params;
     const userId = req.user.id;
 
-    // 1. 과제 정보 조회
+    // 1. 과제 정보 조회 (할당 여부 무관하게 조회)
     const [assignmentResult] = await db.query(
-      `SELECT ca.*, u.realname as studentName
+      `SELECT ca.*
        FROM consensus_assignments ca
-       JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
-       JOIN users u ON cua.user_id = u.id AND u.deleted_at IS NULL
-       WHERE ca.id = ? AND cua.user_id = ? AND ca.deleted_at IS NULL`,
-      [consensusId, userId]
+       WHERE ca.id = ? AND ca.deleted_at IS NULL`,
+      [consensusId]
     );
 
     if (assignmentResult.length === 0) {

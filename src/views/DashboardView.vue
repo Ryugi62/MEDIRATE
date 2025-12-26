@@ -472,7 +472,7 @@ export default {
       try {
         // Consensus 모드일 경우 별도 처리
         if (this.selectedMode === "Consensus") {
-          const consensusRes = await this.$axios.get("/api/consensus", { headers });
+          const consensusRes = await this.$axios.get("/api/consensus?all=true", { headers });
           let consensusData = consensusRes.data.map((c) => ({
             id: `C${c.id}`,
             consensusId: c.id,
