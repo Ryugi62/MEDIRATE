@@ -526,7 +526,7 @@ export default {
 
         ctx.lineWidth = 2;
         ctx.strokeStyle = "#00FFFF"; // cyan 하이라이트
-        ctx.strokeRect(canvasX - 14.5, canvasY - 14.5, 29, 29);
+        ctx.strokeRect(canvasX - 12.5, canvasY - 12.5, 25, 25);
       }
     },
 
