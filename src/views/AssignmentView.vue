@@ -351,8 +351,113 @@ export default {
           this.allTags = Object.entries(tagCount)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
+        } else if (this.selectedMode === "all") {
+          // 일반 과제 + Consensus 과제 모두 로드
+
+          // 1. 일반 과제 로드 (서버 사이드 필터링)
+          const regularParams = {
+            page: 1,
+            limit: 9999,
+            search: this.searchQuery || "",
+            mode: "all",
+            tag: this.selectedTag,
+            status: "all",
+            sortBy: this.sortColumn === "CreationDate" ? "createdAt" : this.sortColumn,
+            sortDir: this.sortDirection,
+            projectId: this.filterProjectId,
+            cancerId: this.filterCancerId,
+          };
+
+          const regularRes = await this.$axios.get("/api/assignments/paginated", { headers, params: regularParams });
+          let regularAssignments = regularRes.data.data.map((a) => ({
+            ...a,
+            mode: a.assignmentMode || "BBox",
+            tags: a.tags || [],
+            isConsensus: false,
+          }));
+
+          // 2. Consensus 과제 로드
+          const consensusRes = await this.$axios.get("/api/consensus", { headers });
+          let consensusAssignments = consensusRes.data.map((c) => ({
+            id: `C${c.id}`,
+            consensusId: c.id,
+            title: c.title,
+            mode: "Consensus",
+            CreationDate: c.creation_date,
+            dueDate: c.deadline,
+            status: this.getConsensusStatus(c),
+            completed: c.responded_fp || 0,
+            total: c.total_fp || 0,
+            tags: c.tags || [],
+            isConsensus: true,
+            project_id: c.project_id,
+            cancer_type_id: c.cancer_type_id,
+          }));
+
+          // 3. Consensus 필터 적용 (클라이언트 사이드)
+          if (this.filterProjectId !== null) {
+            if (this.filterProjectId === "unclassified") {
+              consensusAssignments = consensusAssignments.filter((a) => a.project_id === null);
+            } else {
+              consensusAssignments = consensusAssignments.filter((a) => a.project_id === this.filterProjectId);
+            }
+          }
+
+          if (this.filterCancerId !== null) {
+            if (this.filterCancerId === "unclassified") {
+              consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === null);
+            } else {
+              consensusAssignments = consensusAssignments.filter((a) => a.cancer_type_id === this.filterCancerId);
+            }
+          }
+
+          if (this.searchQuery) {
+            consensusAssignments = consensusAssignments.filter((a) =>
+              a.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
+            );
+          }
+
+          if (this.selectedTag !== "all") {
+            consensusAssignments = consensusAssignments.filter((a) => {
+              if (!a.tags || a.tags.length === 0) return false;
+              return a.tags.some((t) => t.name === this.selectedTag);
+            });
+          }
+
+          // 4. 합치기
+          const allAssignments = [...regularAssignments, ...consensusAssignments];
+
+          // 5. 정렬
+          allAssignments.sort((a, b) => {
+            let aValue = this.getValue(a, this.sortColumn);
+            let bValue = this.getValue(b, this.sortColumn);
+            if (aValue < bValue) return this.sortDirection === "up" ? -1 : 1;
+            if (aValue > bValue) return this.sortDirection === "up" ? 1 : -1;
+            return 0;
+          });
+
+          // 6. 페이지네이션
+          this.total = allAssignments.length;
+          this.totalPages = Math.ceil(this.total / this.perPage) || 1;
+          const start = (this.current - 1) * this.perPage;
+          const end = start + this.perPage;
+          this.assignments = allAssignments.slice(start, end);
+
+          // 7. 태그 목록 수집
+          const tagCount = {};
+          [...regularRes.data.data, ...consensusRes.data].forEach((item) => {
+            if (item.tags) {
+              item.tags.forEach((tag) => {
+                const tagName = tag.name || tag;
+                tagCount[tagName] = (tagCount[tagName] || 0) + 1;
+              });
+            }
+          });
+          this.allTags = Object.entries(tagCount)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
         } else {
-          // 일반 과제 서버 페이지네이션
+          // 특정 모드 (BBox, Segment, TextBox) 서버 페이지네이션
           const params = {
             page: this.current,
             limit: this.perPage,

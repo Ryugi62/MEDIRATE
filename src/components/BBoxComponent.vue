@@ -895,6 +895,7 @@ export default {
 canvas {
   border: 1px solid #ccc;
   max-height: 100%;
+  max-width: 100%;
   background-color: white;
   cursor: crosshair;
 }

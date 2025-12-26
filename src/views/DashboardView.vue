@@ -1230,7 +1230,7 @@ table {
 }
 
 th {
-  padding: 10px 8px;
+  padding: 6px 4px;
   text-align: center;
   font-weight: bold;
   border-bottom: 1px solid var(--light-gray);
@@ -1257,7 +1257,7 @@ tbody > tr:hover {
 }
 
 td {
-  padding: 10px 8px;
+  padding: 6px 4px;
   text-align: center;
   font-size: 13px;
   overflow: hidden;
@@ -1680,7 +1680,7 @@ td.assignment-mode {
 
 /* 관리자 관리 섹션 */
 .admin-manager-section {
-  margin: 20px 16px;
+  margin: 12px 16px;
 }
 
 .manager-grid {

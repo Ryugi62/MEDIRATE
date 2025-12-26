@@ -104,7 +104,7 @@ body {
 }
 
 #app {
-  width: fit-content;
+  width: 100%;
   color: var(--black);
   margin: 0;
   padding: 0;
@@ -142,6 +142,8 @@ button:active {
 
 .content {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .exporting-message {
