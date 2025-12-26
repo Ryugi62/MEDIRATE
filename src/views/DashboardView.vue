@@ -315,8 +315,8 @@ export default {
 
   data() {
     return {
-      sortColumn: "id",
-      sortDirection: "down", // 기본 내림차순
+      sortColumn: this.$store.getters.getDashboardSortColumn || "id",
+      sortDirection: this.$store.getters.getDashboardSortDirection || "down", // 기본 내림차순
       data: [], // 현재 페이지 데이터
       current: this.$store.getters.getDashboardCurrentPage || 1,
       total: 0, // 서버에서 받은 총 개수
@@ -327,14 +327,14 @@ export default {
       isExporting: false,
       isLoading: false, // 로딩 상태
       exportingMessage: "잠시만 기다려주세요. 데이터를 다운로드 중입니다.",
-      sliderValue: 1,
-      score_value: 50,
-      selectedMode: "all", // all, TextBox, BBox, Consensus, Segment
-      selectedTag: "all", // 태그 필터
+      sliderValue: this.$store.getters.getDashboardSliderValue || 1,
+      score_value: this.$store.getters.getDashboardScoreValue || 50,
+      selectedMode: this.$store.getters.getDashboardSelectedMode || "all", // all, TextBox, BBox, Consensus, Segment
+      selectedTag: this.$store.getters.getDashboardSelectedTag || "all", // 태그 필터
       // 프로젝트/암종 필터
-      filterProjectId: null,
-      filterCancerId: null,
-      filterMode: null,
+      filterProjectId: this.$store.getters.getDashboardFilterProjectId,
+      filterCancerId: this.$store.getters.getDashboardFilterCancerId,
+      filterMode: this.$store.getters.getDashboardFilterMode,
       allTags: [], // 서버에서 받은 태그 목록
       // 일괄 작업 관련
       selectedItems: [],
@@ -448,6 +448,11 @@ export default {
     selectedMode() {
       this.current = 1;
       this.loadPaginatedData();
+    },
+
+    // score_value 변경 시 Vuex에 저장
+    score_value(newValue) {
+      this.$store.commit("setDashboardScoreValue", newValue);
     },
   },
 
@@ -604,19 +609,29 @@ export default {
       this.filterMode = mode;
       this.selectedMode = mode || "all";
 
+      // Vuex에 필터 상태 저장
+      this.$store.commit("setDashboardFilterProjectId", projectId);
+      this.$store.commit("setDashboardFilterCancerId", cancerId);
+      this.$store.commit("setDashboardFilterMode", mode);
+      this.$store.commit("setDashboardSelectedMode", this.selectedMode);
+
       // 태그 초기화 (필터 초기화 시)
       if (tag !== undefined) {
         this.selectedTag = tag;
+        this.$store.commit("setDashboardSelectedTag", tag);
       }
 
       this.current = 1; // 페이지 초기화
+      this.$store.commit("setDashboardCurrentPage", 1);
       this.loadPaginatedData();
     },
 
     // 태그 필터 변경 처리
     onTagFilterChange(tagName) {
       this.selectedTag = tagName;
+      this.$store.commit("setDashboardSelectedTag", tagName);
       this.current = 1;
+      this.$store.commit("setDashboardCurrentPage", 1);
       this.loadPaginatedData();
     },
 
@@ -624,6 +639,7 @@ export default {
     async changePage(pageNumber) {
       if (pageNumber >= 1 && pageNumber <= this.totalPages && pageNumber !== this.current) {
         this.current = pageNumber;
+        this.$store.commit("setDashboardCurrentPage", pageNumber);
         await this.loadPaginatedData();
       }
     },
@@ -643,16 +659,23 @@ export default {
         this.sortDirection = "down"; // 새 컬럼은 내림차순 시작
       }
 
+      // Vuex에 정렬 상태 저장
+      this.$store.commit("setDashboardSortColumn", this.sortColumn);
+      this.$store.commit("setDashboardSortDirection", this.sortDirection);
+
       this.current = 1;
+      this.$store.commit("setDashboardCurrentPage", 1);
       await this.loadPaginatedData();
     },
 
     changeSliderValue(event) {
       this.sliderValue = event.target.value;
+      this.$store.commit("setDashboardSliderValue", this.sliderValue);
     },
 
     async searchDashboard() {
       this.current = 1;
+      this.$store.commit("setDashboardCurrentPage", 1);
       this.$store.commit("setDashboardSearchHistory", this.searchQuery);
       await this.loadPaginatedData();
     },
@@ -660,6 +683,7 @@ export default {
     async resetSearch() {
       this.searchQuery = "";
       this.current = 1;
+      this.$store.commit("setDashboardCurrentPage", 1);
       this.$store.commit("setDashboardSearchHistory", "");
       await this.loadPaginatedData();
     },

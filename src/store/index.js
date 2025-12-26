@@ -21,6 +21,16 @@ export default createStore({
     assignmentSortDirection: localStorage.getItem("assignmentSortDirection") || "down",
     // 열린 과제 ID 목록 (새 탭에서 열린 과제 표시용)
     openedAssignments: JSON.parse(localStorage.getItem("openedAssignments")) || [],
+    // 대시보드 필터 상태
+    dashboardFilterProjectId: JSON.parse(localStorage.getItem("dashboardFilterProjectId")),
+    dashboardFilterCancerId: JSON.parse(localStorage.getItem("dashboardFilterCancerId")),
+    dashboardFilterMode: localStorage.getItem("dashboardFilterMode") || null,
+    dashboardSelectedMode: localStorage.getItem("dashboardSelectedMode") || "all",
+    dashboardSelectedTag: localStorage.getItem("dashboardSelectedTag") || "all",
+    dashboardSliderValue: parseInt(localStorage.getItem("dashboardSliderValue")) || 1,
+    dashboardScoreValue: parseInt(localStorage.getItem("dashboardScoreValue")) || 50,
+    dashboardSortColumn: localStorage.getItem("dashboardSortColumn") || "id",
+    dashboardSortDirection: localStorage.getItem("dashboardSortDirection") || "down",
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -35,6 +45,16 @@ export default createStore({
     getAssignmentSortColumn: (state) => state.assignmentSortColumn,
     getAssignmentSortDirection: (state) => state.assignmentSortDirection,
     getOpenedAssignments: (state) => state.openedAssignments,
+    // 대시보드 필터 상태 getters
+    getDashboardFilterProjectId: (state) => state.dashboardFilterProjectId,
+    getDashboardFilterCancerId: (state) => state.dashboardFilterCancerId,
+    getDashboardFilterMode: (state) => state.dashboardFilterMode,
+    getDashboardSelectedMode: (state) => state.dashboardSelectedMode,
+    getDashboardSelectedTag: (state) => state.dashboardSelectedTag,
+    getDashboardSliderValue: (state) => state.dashboardSliderValue,
+    getDashboardScoreValue: (state) => state.dashboardScoreValue,
+    getDashboardSortColumn: (state) => state.dashboardSortColumn,
+    getDashboardSortDirection: (state) => state.dashboardSortDirection,
   },
   mutations: {
     setAuthenticated(state, isAuthenticated) {
@@ -96,6 +116,43 @@ export default createStore({
       state.openedAssignments = [];
       localStorage.removeItem("openedAssignments");
     },
+    // 대시보드 필터 상태 mutations
+    setDashboardFilterProjectId(state, projectId) {
+      state.dashboardFilterProjectId = projectId;
+      localStorage.setItem("dashboardFilterProjectId", JSON.stringify(projectId));
+    },
+    setDashboardFilterCancerId(state, cancerId) {
+      state.dashboardFilterCancerId = cancerId;
+      localStorage.setItem("dashboardFilterCancerId", JSON.stringify(cancerId));
+    },
+    setDashboardFilterMode(state, mode) {
+      state.dashboardFilterMode = mode;
+      localStorage.setItem("dashboardFilterMode", mode);
+    },
+    setDashboardSelectedMode(state, mode) {
+      state.dashboardSelectedMode = mode;
+      localStorage.setItem("dashboardSelectedMode", mode);
+    },
+    setDashboardSelectedTag(state, tag) {
+      state.dashboardSelectedTag = tag;
+      localStorage.setItem("dashboardSelectedTag", tag);
+    },
+    setDashboardSliderValue(state, value) {
+      state.dashboardSliderValue = value;
+      localStorage.setItem("dashboardSliderValue", value);
+    },
+    setDashboardScoreValue(state, value) {
+      state.dashboardScoreValue = value;
+      localStorage.setItem("dashboardScoreValue", value);
+    },
+    setDashboardSortColumn(state, column) {
+      state.dashboardSortColumn = column;
+      localStorage.setItem("dashboardSortColumn", column);
+    },
+    setDashboardSortDirection(state, direction) {
+      state.dashboardSortDirection = direction;
+      localStorage.setItem("dashboardSortDirection", direction);
+    },
   },
   actions: {
     loginUser({ commit }, user) {
@@ -124,6 +181,16 @@ export default createStore({
       localStorage.removeItem("assignmentSortColumn");
       localStorage.removeItem("assignmentSortDirection");
       localStorage.removeItem("openedAssignments");
+      // 대시보드 필터 상태 삭제
+      localStorage.removeItem("dashboardFilterProjectId");
+      localStorage.removeItem("dashboardFilterCancerId");
+      localStorage.removeItem("dashboardFilterMode");
+      localStorage.removeItem("dashboardSelectedMode");
+      localStorage.removeItem("dashboardSelectedTag");
+      localStorage.removeItem("dashboardSliderValue");
+      localStorage.removeItem("dashboardScoreValue");
+      localStorage.removeItem("dashboardSortColumn");
+      localStorage.removeItem("dashboardSortDirection");
     },
   },
   modules: {},
