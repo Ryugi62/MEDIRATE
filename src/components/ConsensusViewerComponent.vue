@@ -187,7 +187,7 @@ export default {
       this.fpSquares.forEach((fp) => {
         const x = imgX + fp.x * scale;
         const y = imgY + fp.y * scale;
-        const size = 35;
+        const size = 25;
 
         // 응답 상태에 따른 색상 결정
         const responses = this.evaluatorResponses[fp.id] || {};
@@ -295,7 +295,7 @@ export default {
     },
 
     highlightFp(fp, ctx) {
-      const size = 40;
+      const size = 25;
       ctx.strokeStyle = "#FFFF00";
       ctx.lineWidth = 4;
       ctx.strokeRect(
