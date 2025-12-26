@@ -53,3 +53,9 @@ pnpm-debug.log*
 *.sw?
 
 venv/
+
+# Custom ignores
+fp_ai_mitosis_v2/
+01040855095_20251226_142408.txt
+01040855095_20251226_160659.txt
+nul
