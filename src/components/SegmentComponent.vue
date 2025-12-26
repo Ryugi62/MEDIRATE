@@ -685,9 +685,10 @@ canvas {
   padding: 8px;
   background-color: #f0f0f0;
   border-radius: 4px;
-  margin-top: 10px;
+  margin-top: 0;
   font-size: 12px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 /* 타이머 섹션 스타일 */

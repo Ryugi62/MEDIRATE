@@ -582,6 +582,7 @@ export default {
       this.filterProjectId = projectId;
       this.filterCancerId = cancerId;
       this.filterMode = mode;
+      this.selectedMode = mode || "all";
 
       // 태그 초기화 (필터 초기화 시)
       if (tag !== undefined) {
