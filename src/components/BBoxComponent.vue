@@ -623,11 +623,15 @@ export default {
       const sourceWidth = zoomWidth / zoomLevel;
       const sourceHeight = zoomHeight / zoomLevel;
 
+      // 확대경 위치: 이미지 우측 끝에서 20px 떨어진 곳
+      const imageRightEdge = imgX + this.originalWidth * scale;
+      const zoomX = imageRightEdge + 20;
+
       this.redrawSquares();
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight);
+      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
       ctx.closePath();
       ctx.clip();
 
@@ -637,7 +641,7 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        canvas.width - zoomWidth,
+        zoomX,
         0,
         zoomWidth,
         zoomHeight

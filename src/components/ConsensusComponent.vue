@@ -473,9 +473,9 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200;
-      const zoomHeight = 200;
-      const zoomLevel = 2.5;
+      const zoomWidth = 300;
+      const zoomHeight = 300;
+      const zoomLevel = 3.0;
 
       const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
         canvas.width,
@@ -491,9 +491,13 @@ export default {
 
       if (!this.backgroundImage) return;
 
+      // 확대경 위치: 이미지 우측 끝에서 20px 떨어진 곳
+      const imageRightEdge = imgX + this.originalWidth * scale;
+      const zoomX = imageRightEdge + 20;
+
       ctx.save();
       ctx.beginPath();
-      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight);
+      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
       ctx.closePath();
       ctx.clip();
 
@@ -503,7 +507,7 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        canvas.width - zoomWidth,
+        zoomX,
         0,
         zoomWidth,
         zoomHeight

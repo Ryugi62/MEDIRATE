@@ -384,9 +384,9 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 200;
-      const zoomHeight = 200;
-      const zoomLevel = 2.5;
+      const zoomWidth = 300;
+      const zoomHeight = 300;
+      const zoomLevel = 3.0;
 
       const {
         x: imgX,
@@ -407,21 +407,20 @@ export default {
         return;
       }
 
-      const enlargePosition = this.getEnlargePosition(
-        x,
-        canvas.width,
-        zoomWidth
-      );
       const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
       const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
       const sourceWidth = zoomWidth / zoomLevel;
       const sourceHeight = zoomHeight / zoomLevel;
 
+      // 확대경 위치: 이미지 우측 끝에서 20px 떨어진 곳
+      const imageRightEdge = imgX + this.originalWidth * scale;
+      const zoomX = imageRightEdge + 20;
+
       this.redrawSquares();
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(enlargePosition.x, enlargePosition.y, zoomWidth, zoomHeight);
+      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
       ctx.closePath();
       ctx.clip();
 
@@ -431,20 +430,13 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        enlargePosition.x,
-        enlargePosition.y,
+        zoomX,
+        0,
         zoomWidth,
         zoomHeight
       );
 
       ctx.restore();
-    },
-
-    getEnlargePosition(mouseX, canvasWidth, zoomWidth) {
-      let positionX = canvasWidth - zoomWidth;
-      let positionY = 0;
-
-      return { x: positionX, y: positionY };
     },
 
     activeSquareCursor(event) {
