@@ -288,9 +288,15 @@ export default {
         canvas.width,
         canvas.height
       );
+
+      // 좌표 범위 체크 (이미지 영역 내로 제한)
+      const clampedX = Math.max(0, Math.min(originalX, this.originalWidth));
+      const clampedY = Math.max(0, Math.min(originalY, this.originalHeight));
+
       return {
-        canvasX: originalX * scale + x,
-        canvasY: originalY * scale + y,
+        canvasX: clampedX * scale + x,
+        canvasY: clampedY * scale + y,
+        isOutOfBounds: originalX !== clampedX || originalY !== clampedY,
       };
     },
 
@@ -382,10 +388,15 @@ export default {
 
       this.currentImageFpSquares.forEach((fp) => {
         const response = this.localResponses[fp.id];
-        const { canvasX, canvasY } = this.originalToCanvasCoordinates(
+        const { canvasX, canvasY, isOutOfBounds } = this.originalToCanvasCoordinates(
           fp.x + 12.5,
           fp.y + 12.5
         );
+
+        // 이미지 영역 밖의 좌표는 표시하지 않음
+        if (isOutOfBounds) {
+          return;
+        }
 
         // 색상 결정
         let color;

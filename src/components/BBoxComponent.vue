@@ -519,12 +519,25 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
+      // 이미지 영역 계산 (이미지 밖의 박스는 표시하지 않음)
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imageLeft = imgX;
+      const imageTop = imgY;
+      const imageRight = imgX + this.originalWidth * scale;
+      const imageBottom = imgY + this.originalHeight * scale;
+
       this.temporarySquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary && !square.isAI) return; // 임시 박스는 그리지 않음
 
         // AI 박스는 showAiBoxes가 true일 때만 표시
         if (square.isAI && !this.showAiBoxes) return;
+
+        // 이미지 영역 밖의 박스는 표시하지 않음
+        if (square.x < imageLeft || square.x > imageRight ||
+            square.y < imageTop || square.y > imageBottom) {
+          return;
+        }
 
         // 박스 타입별 스타일 차별화 (크기 및 선 굵기 확대)
         if (square.isTemporaryAI) {

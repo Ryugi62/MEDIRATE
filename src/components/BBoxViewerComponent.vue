@@ -336,9 +336,22 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
+      // 이미지 영역 계산 (이미지 밖의 박스는 표시하지 않음)
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imageLeft = imgX;
+      const imageTop = imgY;
+      const imageRight = imgX + this.originalWidth * scale;
+      const imageBottom = imgY + this.originalHeight * scale;
+
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
+
+        // 이미지 영역 밖의 박스는 표시하지 않음
+        if (square.x < imageLeft || square.x > imageRight ||
+            square.y < imageTop || square.y > imageBottom) {
+          return;
+        }
 
         ctx.lineWidth = 3;
         ctx.strokeStyle = square.color || "#FF0000";
@@ -350,6 +363,13 @@ export default {
       this.aiSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.score < this.score_percent / 100) return;
+
+        // 이미지 영역 밖의 박스는 표시하지 않음
+        if (square.x < imageLeft || square.x > imageRight ||
+            square.y < imageTop || square.y > imageBottom) {
+          return;
+        }
+
         ctx.lineWidth = 4;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;

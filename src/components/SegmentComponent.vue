@@ -299,6 +299,16 @@ export default {
 
       const { x, y } = this.getCanvasCoordinates(event);
 
+      // 이미지 영역 밖 클릭 방지
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imgWidth = this.originalWidth * scale;
+      const imgHeight = this.originalHeight * scale;
+
+      if (x < imgX || x > imgX + imgWidth || y < imgY || y > imgY + imgHeight) {
+        return; // 이미지 영역 밖이면 무시
+      }
+
       if (this.eraserActive) {
         this.erasePolygon(x, y);
       } else {

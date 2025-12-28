@@ -110,13 +110,16 @@ export default {
       if (!container) return;
 
       const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight || 500;
+      // 최대 높이를 제한하여 이미지가 세로로 늘어나지 않도록 함
+      const maxCanvasHeight = 600;
+      const containerHeight = Math.min(container.clientHeight || 500, maxCanvasHeight);
 
       if (this.originalWidth && this.originalHeight) {
         const aspectRatio = this.originalWidth / this.originalHeight;
         let newWidth = containerWidth;
         let newHeight = containerWidth / aspectRatio;
 
+        // 높이가 최대 높이를 초과하면 높이 기준으로 조정
         if (newHeight > containerHeight) {
           newHeight = containerHeight;
           newWidth = containerHeight * aspectRatio;
@@ -124,9 +127,14 @@ export default {
 
         canvas.width = newWidth;
         canvas.height = newHeight;
+        // CSS 크기도 명시적으로 설정하여 일관성 유지
+        canvas.style.width = `${newWidth}px`;
+        canvas.style.height = `${newHeight}px`;
       } else {
         canvas.width = containerWidth;
         canvas.height = containerHeight;
+        canvas.style.width = `${containerWidth}px`;
+        canvas.style.height = `${containerHeight}px`;
       }
 
       this.redrawCanvas();
@@ -168,9 +176,8 @@ export default {
         canvasHeight / this.originalHeight
       );
 
-      // 확대경(우측 상단)과 겹치지 않도록 이미지를 왼쪽으로 100px 이동
-      const imageOffset = 100;
-      const x = (canvasWidth - this.originalWidth * scale) / 2 - imageOffset;
+      // 이미지를 캔버스 중앙에 배치
+      const x = (canvasWidth - this.originalWidth * scale) / 2;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
 
       return { x, y, scale };
@@ -187,6 +194,15 @@ export default {
       );
 
       this.fpSquares.forEach((fp) => {
+        // 좌표 범위 체크 (이미지 영역 내로 제한)
+        const clampedFpX = Math.max(0, Math.min(fp.x, this.originalWidth));
+        const clampedFpY = Math.max(0, Math.min(fp.y, this.originalHeight));
+
+        // 원본 좌표가 이미지 영역을 벗어나면 표시하지 않음
+        if (fp.x !== clampedFpX || fp.y !== clampedFpY) {
+          return;
+        }
+
         const x = imgX + fp.x * scale;
         const y = imgY + fp.y * scale;
         const size = 25;
@@ -381,8 +397,6 @@ export default {
 
 canvas {
   border: 1px solid #ccc;
-  max-width: 100%;
-  max-height: 100%;
   background-color: white;
   cursor: crosshair;
 }

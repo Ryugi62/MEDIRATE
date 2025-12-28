@@ -108,11 +108,16 @@ router.get("/ai", authenticateToken, async (req, res) => {
       return res.json([]);
     }
 
-    const AI_BBOX = annotations.map((annotation) => {
-      const [x, y] = annotation.bbox;
-      const score = annotation.score ? annotation.score : 0.6;
-      return { x, y, questionIndex: Number(questionIndex), score: score };
-    });
+    const AI_BBOX = annotations
+      .map((annotation) => {
+        const [x, y] = annotation.bbox;
+        const score = annotation.score ? annotation.score : 0.6;
+        // 좌표 유효성 검증 (음수 값을 0으로 변환)
+        const validX = Math.max(0, Number(x) || 0);
+        const validY = Math.max(0, Number(y) || 0);
+        return { x: validX, y: validY, questionIndex: Number(questionIndex), score: score };
+      })
+      .filter((item) => item.x >= 0 && item.y >= 0); // 유효하지 않은 좌표 필터링
 
     res.json(AI_BBOX);
   } catch (error) {

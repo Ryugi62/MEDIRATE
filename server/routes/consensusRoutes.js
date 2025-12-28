@@ -287,14 +287,18 @@ router.post("/import", authenticateToken, async (req, res) => {
 
           for (const question of assignment.questions || []) {
             for (const fpSquare of question.fp_squares || []) {
+              // 좌표 유효성 검증 (음수 또는 비정상적으로 큰 값 체크)
+              const x = Math.max(0, Number(fpSquare.x) || 0);
+              const y = Math.max(0, Number(fpSquare.y) || 0);
+
               await conn.query(
                 `INSERT INTO consensus_fp_squares (consensus_assignment_id, question_image, x, y, ai_score)
                  VALUES (?, ?, ?, ?, ?)`,
                 [
                   consensusAssignmentId,
                   question.image,
-                  fpSquare.x,
-                  fpSquare.y,
+                  x,
+                  y,
                   fpSquare.score,
                 ]
               );
