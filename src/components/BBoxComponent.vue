@@ -104,6 +104,9 @@ export default {
       timer: 0,
       isRunning: false,
       timerInterval: null,
+      // 슬라이드 전환 시 race condition 방지
+      currentLoadId: 0,
+      isUnmounted: false,
     };
   },
 
@@ -312,12 +315,23 @@ export default {
     },
 
     async loadBackgroundImage() {
+      const loadId = ++this.currentLoadId;
+
+      if (!this.src) return;
+
       try {
         const img = await this.createImage(this.src);
+
+        // 로드 완료 시 현재 로드인지 확인 (stale 로드 방지)
+        if (loadId !== this.currentLoadId || this.isUnmounted) {
+          return;
+        }
+
         this.setBackgroundImage(img);
         this.resizeCanvas();
       } catch (error) {
-        console.error(error);
+        if (loadId !== this.currentLoadId || this.isUnmounted) return;
+        console.error("이미지 로드 오류:", error);
       }
     },
 
@@ -357,6 +371,11 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {
+      // 0으로 나누기 방지
+      if (!this.originalWidth || !this.originalHeight) {
+        return { x: 0, y: 0, scale: 1 };
+      }
+
       const scale = Math.min(
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
@@ -370,7 +389,7 @@ export default {
 
     async resizeCanvas() {
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
 
       if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
         canvas.width = this.localBeforeCanvas.width;
@@ -515,8 +534,10 @@ export default {
     },
 
     redrawSquares(event = null) {
-      this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
+      this.drawBackgroundImage();
       const ctx = canvas.getContext("2d");
 
       // 이미지 영역 계산 (이미지 밖의 박스는 표시하지 않음)
@@ -599,6 +620,8 @@ export default {
 
     handleCanvasMouseLeave() {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -606,6 +629,8 @@ export default {
     },
     activeEnlarge(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const zoomWidth = 300;
@@ -665,6 +690,8 @@ export default {
 
     activeSquareCursor(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const squareSize = 25;
@@ -775,6 +802,8 @@ export default {
   },
 
   beforeUnmount() {
+    this.isUnmounted = true;
+    this.currentLoadId++;  // 진행 중인 로드 무효화
     window.removeEventListener("resize", this.resizeCanvas);
     window.removeEventListener("keydown", this.handleHotkeys);
     this.clearTimerInterval();

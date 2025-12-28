@@ -49,6 +49,9 @@ export default {
       backgroundImage: null,
       originalWidth: 0,
       originalHeight: 0,
+      // 슬라이드 전환 시 race condition 방지
+      currentLoadId: 0,
+      isUnmounted: false,
     };
   },
 
@@ -81,22 +84,31 @@ export default {
   },
 
   beforeUnmount() {
+    this.isUnmounted = true;
+    this.currentLoadId++;  // 진행 중인 로드 무효화
     window.removeEventListener("resize", this.resizeCanvas);
   },
 
   methods: {
-    async loadBackgroundImage() {
+    loadBackgroundImage() {
+      const loadId = ++this.currentLoadId;
+
       if (!this.src) return;
 
       const image = new Image();
       image.crossOrigin = "anonymous";
       image.onload = () => {
+        // 로드 완료 시 현재 로드인지 확인 (stale 로드 방지)
+        if (loadId !== this.currentLoadId || this.isUnmounted) {
+          return;
+        }
         this.backgroundImage = image;
         this.originalWidth = image.width;
         this.originalHeight = image.height;
         this.resizeCanvas();
       };
       image.onerror = () => {
+        if (loadId !== this.currentLoadId || this.isUnmounted) return;
         console.error("Failed to load image:", this.src);
       };
       image.src = this.src;
@@ -104,7 +116,7 @@ export default {
 
     resizeCanvas() {
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
 
       const container = canvas.parentElement;
       if (!container) return;
@@ -142,7 +154,7 @@ export default {
 
     redrawCanvas() {
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
 
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -266,6 +278,8 @@ export default {
 
     handleCanvasMouseMove(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
 

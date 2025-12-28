@@ -65,6 +65,9 @@ export default {
       originalWidth: null,
       originalHeight: null,
       aiSquares: [],
+      // 슬라이드 전환 시 race condition 방지
+      currentLoadId: 0,
+      isUnmounted: false,
     };
   },
 
@@ -76,7 +79,10 @@ export default {
 
   methods: {
     async fetchLocalInfo() {
-      const { width, height } = this.$refs.canvas.getBoundingClientRect();
+      const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
+      const { width, height } = canvas.getBoundingClientRect();
       const img = await this.createImage(this.src);
       this.setBackgroundImage(img);
       this.localBeforeCanvas = { width, height };
@@ -226,15 +232,31 @@ export default {
     },
 
     async loadBackgroundImage() {
-      const img = await this.createImage(this.src);
-      this.setBackgroundImage(img);
-      this.resizeCanvas();
+      const loadId = ++this.currentLoadId;
+
+      if (!this.src) return;
+
+      try {
+        const img = await this.createImage(this.src);
+
+        // 로드 완료 시 현재 로드인지 확인 (stale 로드 방지)
+        if (loadId !== this.currentLoadId || this.isUnmounted) {
+          return;
+        }
+
+        this.setBackgroundImage(img);
+        this.resizeCanvas();
+      } catch (error) {
+        if (loadId !== this.currentLoadId || this.isUnmounted) return;
+        console.error("이미지 로드 오류:", error);
+      }
     },
 
     createImage(src) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
+        img.onerror = (error) => reject(error);
         img.src = src;
       });
     },
@@ -266,6 +288,11 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {
+      // 0으로 나누기 방지
+      if (!this.originalWidth || !this.originalHeight) {
+        return { x: 0, y: 0, scale: 1 };
+      }
+
       const scale = Math.min(
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
@@ -312,7 +339,10 @@ export default {
     },
 
     setSquaresPosition(beforePosition) {
-      const { width, height } = this.$refs.canvas;
+      const canvas = this.$refs.canvas;
+      if (!canvas) return;
+
+      const { width, height } = canvas;
       const currentPosition = this.calculateImagePosition(width, height);
       const scaleRatio = currentPosition.scale / beforePosition.scale;
 
@@ -332,8 +362,10 @@ export default {
     },
 
     redrawSquares(event = null) {
-      this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
+      this.drawBackgroundImage();
       const ctx = canvas.getContext("2d");
 
       // 이미지 영역 계산 (이미지 밖의 박스는 표시하지 않음)
@@ -402,6 +434,8 @@ export default {
 
     activeEnlarge(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const zoomWidth = 300;
@@ -461,6 +495,8 @@ export default {
 
     activeSquareCursor(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const squareSize = 25;
@@ -486,6 +522,8 @@ export default {
   },
 
   beforeUnmount() {
+    this.isUnmounted = true;
+    this.currentLoadId++;  // 진행 중인 로드 무효화
     window.removeEventListener("resize", this.resizeCanvas);
   },
 
@@ -510,7 +548,10 @@ export default {
 
     aiData: {
       handler(newAiData) {
-        const { width, height } = this.$refs.canvas.getBoundingClientRect();
+        const canvas = this.$refs.canvas;
+        if (!canvas || this.isUnmounted) return;
+
+        const { width, height } = canvas.getBoundingClientRect();
         const {
           x: imgX,
           y: imgY,

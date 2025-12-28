@@ -117,6 +117,9 @@ export default {
       timer: 0,
       isRunning: false,
       timerInterval: null,
+      // 슬라이드 전환 시 race condition 방지
+      currentLoadId: 0,
+      isUnmounted: false,
     };
   },
 
@@ -209,12 +212,23 @@ export default {
     },
 
     async loadBackgroundImage() {
+      const loadId = ++this.currentLoadId;
+
+      if (!this.src) return;
+
       try {
         const img = await this.createImage(this.src);
+
+        // 로드 완료 시 현재 로드인지 확인 (stale 로드 방지)
+        if (loadId !== this.currentLoadId || this.isUnmounted) {
+          return;
+        }
+
         this.setBackgroundImage(img);
         this.resizeCanvas();
       } catch (error) {
-        console.error(error);
+        if (loadId !== this.currentLoadId || this.isUnmounted) return;
+        console.error("이미지 로드 오류:", error);
       }
     },
 
@@ -251,6 +265,11 @@ export default {
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {
+      // 0으로 나누기 방지
+      if (!this.originalWidth || !this.originalHeight) {
+        return { x: 0, y: 0, scale: 1 };
+      }
+
       const scale = Math.min(
         canvasWidth / this.originalWidth,
         canvasHeight / this.originalHeight
@@ -262,7 +281,7 @@ export default {
 
     async resizeCanvas() {
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
 
       canvas.width = 0;
       canvas.height = 0;
@@ -392,9 +411,10 @@ export default {
     },
 
     redrawCanvas(event = null) {
-      this.drawBackgroundImage();
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
+
+      this.drawBackgroundImage();
       const ctx = canvas.getContext("2d");
 
       // 완성된 폴리곤 그리기
@@ -443,12 +463,14 @@ export default {
     },
 
     handleCanvasMouseMove(event) {
-      if (!this.isRunning) return;
+      if (!this.isRunning || this.isUnmounted) return;
       this.redrawCanvas(event);
 
       // 현재 그리고 있는 폴리곤의 미리보기 선
       if (this.currentPoints.length > 0) {
         const canvas = this.$refs.canvas;
+        if (!canvas) return;
+
         const ctx = canvas.getContext("2d");
         const { x, y } = this.getCanvasCoordinates(event);
 
@@ -469,6 +491,8 @@ export default {
 
     activeEnlarge(event) {
       const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted) return;
+
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
       const zoomWidth = 300;
@@ -559,6 +583,8 @@ export default {
   },
 
   beforeUnmount() {
+    this.isUnmounted = true;
+    this.currentLoadId++;  // 진행 중인 로드 무효화
     window.removeEventListener("resize", this.resizeCanvas);
     window.removeEventListener("keydown", this.handleHotkeys);
     this.clearTimerInterval();
