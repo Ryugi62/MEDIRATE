@@ -122,16 +122,15 @@ export default {
       if (!container) return;
 
       const containerWidth = container.clientWidth;
-      // 최대 높이를 제한하여 이미지가 세로로 늘어나지 않도록 함
-      const maxCanvasHeight = 600;
-      const containerHeight = Math.min(container.clientHeight || 500, maxCanvasHeight);
+      // 컨테이너의 실제 높이를 사용 (제한 없이)
+      const containerHeight = container.clientHeight || 500;
 
       if (this.originalWidth && this.originalHeight) {
         const aspectRatio = this.originalWidth / this.originalHeight;
         let newWidth = containerWidth;
         let newHeight = containerWidth / aspectRatio;
 
-        // 높이가 최대 높이를 초과하면 높이 기준으로 조정
+        // 높이가 컨테이너 높이를 초과하면 높이 기준으로 조정
         if (newHeight > containerHeight) {
           newHeight = containerHeight;
           newWidth = containerHeight * aspectRatio;
@@ -407,6 +406,7 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .consensus-viewer__body {
@@ -414,7 +414,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 400px;
+  min-height: 0;
   overflow: hidden;
 }
 

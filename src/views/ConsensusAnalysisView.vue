@@ -19,11 +19,11 @@
           <span class="completed-status">
             <strong>{{ completedCount }}/{{ questionList.length }}</strong> 완료
           </span>
-          <button class="edit-button" @click="openEditModal">과제수정</button>
-          <button v-if="isAdmin" class="delete-button" @click="deleteConsensus">과제삭제</button>
-          <button class="export-button" @click="exportToExcel">내보내기</button>
-          <button class="download-button" @click="downloadImages">이미지 다운로드</button>
-          <button class="evaluate-button" @click="goToEvaluation">평가하기</button>
+          <button class="action-button action-button--blue" @click="openEditModal">과제수정</button>
+          <button class="action-button action-button--red" @click="deleteConsensus">과제삭제</button>
+          <button class="action-button action-button--green" @click="exportToExcel">내보내기</button>
+          <button class="action-button action-button--blue" @click="downloadImages">이미지 다운로드</button>
+          <button class="action-button action-button--blue" @click="goToEvaluation">평가하기</button>
         </div>
         <div class="table-body">
           <div class="table-section">
@@ -749,49 +749,38 @@ export default {
   font-size: 16px;
 }
 
-.export-button {
-  background-color: var(--green, #28a745);
+/* 통일된 버튼 스타일 (파란색, 빨간색, 초록색만 사용) */
+.action-button {
+  font-size: 11px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
   color: white;
 }
 
-.export-button:hover {
-  background-color: #218838;
-}
-
-.evaluate-button {
+.action-button--blue {
   background-color: var(--blue, #007bff);
-  color: white;
 }
 
-.evaluate-button:hover {
+.action-button--blue:hover {
   background-color: #0056b3;
 }
 
-.edit-button {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.edit-button:hover {
-  background-color: #138496;
-}
-
-.delete-button {
+.action-button--red {
   background-color: #dc3545;
-  color: white;
 }
 
-.delete-button:hover {
+.action-button--red:hover {
   background-color: #c82333;
 }
 
-.download-button {
-  background-color: #6c757d;
-  color: white;
+.action-button--green {
+  background-color: var(--green, #28a745);
 }
 
-.download-button:hover {
-  background-color: #5a6268;
+.action-button--green:hover {
+  background-color: #218838;
 }
 
 .table-body {
