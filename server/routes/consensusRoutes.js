@@ -238,14 +238,16 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       is_gold_standard: fp.agree_count >= threshold,
     }));
 
-    // 8. NIPA 데이터 조회 (assignment_type과 question_image로 매핑)
+    // 8. NIPA 데이터 조회 (이미지 파일명으로 직접 매핑)
     let nipaData = {};
-    if (assignment.assignment_type) {
+    const imageList = Array.from(imageSet);
+    if (imageList.length > 0) {
+      const placeholders = imageList.map(() => '?').join(',');
       const [nipaResult] = await db.query(
         `SELECT question_image, match_2, match_3, (match_2 + match_3) as gs_nipa
          FROM nipa_match_data
-         WHERE assignment_type = ? AND deleted_at IS NULL`,
-        [assignment.assignment_type]
+         WHERE question_image IN (${placeholders}) AND deleted_at IS NULL`,
+        imageList
       );
 
       // NIPA 데이터를 맵으로 변환
