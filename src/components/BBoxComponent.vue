@@ -563,25 +563,29 @@ export default {
           return;
         }
 
-        // 박스 타입별 스타일 차별화 (크기 및 선 굵기 확대)
+        // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+        const boxSize = 20 * scale;
+        const boxHalf = boxSize / 2;
+
+        // 박스 타입별 스타일 차별화
         if (square.isTemporaryAI) {
           // AI 탐지 박스 (아직 Apply 안됨) - 노란색
           ctx.strokeStyle = "#FFD700";
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2 * scale;
           ctx.globalAlpha = 0.8;
-          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+          ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);
         } else if (square.isAI) {
           // AI Apply 후 확정된 박스 - 형광 파란색
           ctx.strokeStyle = "#00BFFF";
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2 * scale;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+          ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);
         } else {
           // 전문의 지정 박스 - 빨간색
           ctx.strokeStyle = "#FF0000";
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2 * scale;
           ctx.globalAlpha = 1;
-          ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+          ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);
         }
         ctx.globalAlpha = 1;
       });
@@ -615,9 +619,14 @@ export default {
       this.redrawSquares(event);
 
       if (closestSquare && this.eraserActive) {
-        ctx.lineWidth = 3;
+        // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+        const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+        const boxSize = 20 * scale;
+        const boxHalf = boxSize / 2;
+
+        ctx.lineWidth = 2 * scale;
         ctx.strokeStyle = "blue";
-        ctx.strokeRect(closestSquare.x - 12.5, closestSquare.y - 12.5, 25, 25);
+        ctx.strokeRect(closestSquare.x - boxHalf, closestSquare.y - boxHalf, boxSize, boxSize);
       }
     },
 
@@ -697,16 +706,15 @@ export default {
 
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 25;
 
-      ctx.lineWidth = 3;
+      // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const boxSize = 20 * scale;
+      const boxHalf = boxSize / 2;
+
+      ctx.lineWidth = 2 * scale;
       ctx.strokeStyle = "orange";
-      ctx.strokeRect(
-        x - squareSize / 2,
-        y - squareSize / 2,
-        squareSize,
-        squareSize
-      );
+      ctx.strokeRect(x - boxHalf, y - boxHalf, boxSize, boxSize);
     },
 
     applyMitosis() {

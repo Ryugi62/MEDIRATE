@@ -375,6 +375,10 @@ export default {
       const imageRight = imgX + this.originalWidth * scale;
       const imageBottom = imgY + this.originalHeight * scale;
 
+      // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const boxSize = 20 * scale;
+      const boxHalf = boxSize / 2;
+
       this.localSquares.forEach((square) => {
         if (square.questionIndex !== this.questionIndex || square.isTemporary)
           return;
@@ -385,10 +389,10 @@ export default {
           return;
         }
 
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2 * scale;
         ctx.strokeStyle = square.color || "#FF0000";
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);
         ctx.globalAlpha = 1;
       });
 
@@ -402,10 +406,10 @@ export default {
           return;
         }
 
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3 * scale;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
-        ctx.strokeRect(square.x - 12.5, square.y - 12.5, 25, 25);
+        ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);
         ctx.globalAlpha = 1;
       });
 
@@ -499,14 +503,15 @@ export default {
 
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const squareSize = 25;
 
-      const cursorX = x - squareSize / 2;
-      const cursorY = y - squareSize / 2;
+      // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const boxSize = 20 * scale;
+      const boxHalf = boxSize / 2;
 
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2 * scale;
       ctx.strokeStyle = "white";
-      ctx.strokeRect(cursorX, cursorY, squareSize, squareSize);
+      ctx.strokeRect(x - boxHalf, y - boxHalf, boxSize, boxSize);
     },
 
     getFileNameFromSrc() {

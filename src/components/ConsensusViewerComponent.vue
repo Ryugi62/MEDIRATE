@@ -206,6 +206,10 @@ export default {
         canvas.height
       );
 
+      // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const boxSize = 20 * scale;
+      const boxHalf = boxSize / 2;
+
       this.fpSquares.forEach((fp) => {
         // 좌표 범위 체크 (이미지 영역 내로 제한)
         const clampedFpX = Math.max(0, Math.min(fp.x, this.originalWidth));
@@ -218,7 +222,6 @@ export default {
 
         const x = imgX + fp.x * scale;
         const y = imgY + fp.y * scale;
-        const size = 25;
 
         // 응답 상태에 따른 색상 결정
         const responses = this.evaluatorResponses[fp.id] || {};
@@ -258,10 +261,10 @@ export default {
 
         // 사각형 그리기
         ctx.fillStyle = fillColor;
-        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+        ctx.fillRect(x - boxHalf, y - boxHalf, boxSize, boxSize);
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+        ctx.lineWidth = 2 * scale;
+        ctx.strokeRect(x - boxHalf, y - boxHalf, boxSize, boxSize);
 
         // 응답 개수 표시
         if (totalResponses > 0) {
@@ -271,7 +274,7 @@ export default {
           ctx.fillText(
             `${agreeCount}/${disagreeCount}`,
             x,
-            y + size / 2 + 12
+            y + boxHalf + 12
           );
         }
       });
@@ -328,14 +331,20 @@ export default {
     },
 
     highlightFp(fp, ctx) {
-      const size = 25;
+      const canvas = this.$refs.canvas;
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 박스 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const boxSize = 20 * scale;
+      const boxHalf = boxSize / 2;
+
       ctx.strokeStyle = "#FFFF00";
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3 * scale;
       ctx.strokeRect(
-        fp.canvasX - size / 2,
-        fp.canvasY - size / 2,
-        size,
-        size
+        fp.canvasX - boxHalf,
+        fp.canvasY - boxHalf,
+        boxSize,
+        boxSize
       );
 
       // 평가자별 응답 툴팁 표시
@@ -361,13 +370,12 @@ export default {
         const tooltipWidth = maxWidth + padding * 2;
         const tooltipHeight = tooltipLines.length * lineHeight + padding * 2;
 
-        let tooltipX = fp.canvasX + size / 2 + 10;
+        let tooltipX = fp.canvasX + boxHalf + 10;
         let tooltipY = fp.canvasY - tooltipHeight / 2;
 
         // 캔버스 경계 체크
-        const canvas = this.$refs.canvas;
         if (tooltipX + tooltipWidth > canvas.width) {
-          tooltipX = fp.canvasX - size / 2 - tooltipWidth - 10;
+          tooltipX = fp.canvasX - boxHalf - tooltipWidth - 10;
         }
         if (tooltipY < 0) tooltipY = 0;
         if (tooltipY + tooltipHeight > canvas.height) {
