@@ -346,22 +346,28 @@ export default {
       }
     },
 
-    addPoint(x, y) {
+    addPoint(canvasX, canvasY) {
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 캔버스 좌표를 원본 이미지 좌표로 변환
+      const originalX = (canvasX - imgX) / scale;
+      const originalY = (canvasY - imgY) / scale;
+
       // 첫 점 근처를 클릭하면 폴리곤 완성
       if (this.currentPoints.length >= 3) {
-        const canvas = this.$refs.canvas;
-        const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
-        const POLYGON_CLOSE_THRESHOLD = 15 * scale; // 폴리곤 닫기 거리 - scale 적용
+        const POLYGON_CLOSE_THRESHOLD = 15; // 원본 좌표 기준 거리
 
         const firstPoint = this.currentPoints[0];
-        const distance = Math.hypot(firstPoint.x - x, firstPoint.y - y);
+        const distance = Math.hypot(firstPoint.x - originalX, firstPoint.y - originalY);
         if (distance < POLYGON_CLOSE_THRESHOLD) {
           this.completePolygon();
           return;
         }
       }
 
-      this.currentPoints.push({ x, y });
+      // 원본 이미지 좌표로 저장
+      this.currentPoints.push({ x: originalX, y: originalY });
       this.redrawCanvas();
     },
 
@@ -383,8 +389,14 @@ export default {
       this.redrawCanvas();
     },
 
-    erasePolygon(mouseX, mouseY) {
-      const closestPolygon = this.findClosestPolygon(mouseX, mouseY);
+    erasePolygon(canvasX, canvasY) {
+      // 캔버스 좌표를 원본 이미지 좌표로 변환
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const originalX = (canvasX - imgX) / scale;
+      const originalY = (canvasY - imgY) / scale;
+
+      const closestPolygon = this.findClosestPolygon(originalX, originalY);
       if (closestPolygon) {
         const index = this.temporaryPolygons.indexOf(closestPolygon);
         if (index !== -1) {
@@ -394,10 +406,10 @@ export default {
       }
     },
 
-    findClosestPolygon(x, y) {
+    findClosestPolygon(originalX, originalY) {
       return this.temporaryPolygons.find((polygon) => {
         if (polygon.questionIndex !== this.questionIndex) return false;
-        return this.isPointInPolygon(x, y, polygon.points);
+        return this.isPointInPolygon(originalX, originalY, polygon.points);
       });
     },
 
@@ -422,21 +434,30 @@ export default {
 
       this.drawBackgroundImage();
       const ctx = canvas.getContext("2d");
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
 
-      // 완성된 폴리곤 그리기
+      // 완성된 폴리곤 그리기 (원본 좌표 → 캔버스 좌표 변환)
       this.temporaryPolygons.forEach((polygon) => {
         if (polygon.questionIndex !== this.questionIndex) return;
-        this.drawPolygon(ctx, polygon.points, "#FF0000", true);
+        const canvasPoints = polygon.points.map(p => ({
+          x: imgX + p.x * scale,
+          y: imgY + p.y * scale
+        }));
+        this.drawPolygon(ctx, canvasPoints, "#FF0000", true, scale);
       });
 
-      // 현재 그리고 있는 폴리곤 그리기
+      // 현재 그리고 있는 폴리곤 그리기 (원본 좌표 → 캔버스 좌표 변환)
       if (this.currentPoints.length > 0) {
-        this.drawPolygon(ctx, this.currentPoints, "#00FF00", false);
+        const canvasPoints = this.currentPoints.map(p => ({
+          x: imgX + p.x * scale,
+          y: imgY + p.y * scale
+        }));
+        this.drawPolygon(ctx, canvasPoints, "#00FF00", false, scale);
 
         // 각 점에 원 표시
-        this.currentPoints.forEach((point, index) => {
+        canvasPoints.forEach((point, index) => {
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, 5 * scale, 0, Math.PI * 2);
           ctx.fillStyle = index === 0 ? "#FFFF00" : "#00FF00";
           ctx.fill();
         });
@@ -447,14 +468,14 @@ export default {
       }
     },
 
-    drawPolygon(ctx, points, color, closed) {
-      if (points.length < 2) return;
+    drawPolygon(ctx, canvasPoints, color, closed, scale = 1) {
+      if (canvasPoints.length < 2) return;
 
       ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
+      ctx.moveTo(canvasPoints[0].x, canvasPoints[0].y);
 
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
+      for (let i = 1; i < canvasPoints.length; i++) {
+        ctx.lineTo(canvasPoints[i].x, canvasPoints[i].y);
       }
 
       if (closed) {
@@ -464,7 +485,7 @@ export default {
       }
 
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 * scale;
       ctx.stroke();
     },
 
@@ -478,13 +499,19 @@ export default {
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
-        const { x, y } = this.getCanvasCoordinates(event);
+        const { x: mouseX, y: mouseY } = this.getCanvasCoordinates(event);
+        const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+        // 마지막 점을 원본 좌표에서 캔버스 좌표로 변환
+        const lastPoint = this.currentPoints[this.currentPoints.length - 1];
+        const lastCanvasX = imgX + lastPoint.x * scale;
+        const lastCanvasY = imgY + lastPoint.y * scale;
 
         ctx.beginPath();
-        ctx.moveTo(this.currentPoints[this.currentPoints.length - 1].x, this.currentPoints[this.currentPoints.length - 1].y);
-        ctx.lineTo(x, y);
+        ctx.moveTo(lastCanvasX, lastCanvasY);
+        ctx.lineTo(mouseX, mouseY);
         ctx.strokeStyle = "#00FF00";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 * scale;
         ctx.setLineDash([5, 5]);
         ctx.stroke();
         ctx.setLineDash([]);
