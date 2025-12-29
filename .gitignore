@@ -60,3 +60,9 @@ fp_ai_mitosis_v2/
 01040855095_20251226_160659.txt
 nul
 fp_ai_mitosis
+
+# Temp files
+.claude/
+scripts/
+image.png
+*.xlsx
