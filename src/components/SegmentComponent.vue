@@ -528,24 +528,35 @@ export default {
 
       const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
-      const zoomWidth = 300;
-      const zoomHeight = 300;
-      const zoomLevel = 3.0;
 
       const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 확대경 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      const baseZoomSize = 300;
+      const zoomLevel = 2.0;
+      const zoomWidth = baseZoomSize * scale;
+      const zoomHeight = baseZoomSize * scale;
+
+      // 캡처 영역은 고정 (스케일과 무관하게 항상 동일한 영역 표시)
+      const sourceWidth = baseZoomSize / zoomLevel;
+      const sourceHeight = baseZoomSize / zoomLevel;
+
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;
 
-      const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
-      const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
-      const sourceWidth = zoomWidth / zoomLevel;
-      const sourceHeight = zoomHeight / zoomLevel;
+      const sourceX = mouseXOnImage - sourceWidth / 2;
+      const sourceY = mouseYOnImage - sourceHeight / 2;
 
       if (!this.backgroundImage) return;
 
+      // 확대경 위치: 이미지 우측 끝에서 20px * scale 떨어진 곳
+      const imageRightEdge = imgX + this.originalWidth * scale;
+      const zoomGap = 20 * scale;
+      const zoomX = imageRightEdge + zoomGap;
+
       ctx.save();
       ctx.beginPath();
-      ctx.rect(canvas.width - zoomWidth, 0, zoomWidth, zoomHeight);
+      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
       ctx.closePath();
       ctx.clip();
 
@@ -555,7 +566,7 @@ export default {
         sourceY,
         sourceWidth,
         sourceHeight,
-        canvas.width - zoomWidth,
+        zoomX,
         0,
         zoomWidth,
         zoomHeight
