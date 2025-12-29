@@ -118,35 +118,19 @@ export default {
       const canvas = this.$refs.canvas;
       if (!canvas || this.isUnmounted) return;
 
-      const container = canvas.parentElement;
+      // 캔버스 크기 초기화 (강제 재계산)
+      canvas.width = 0;
+      canvas.height = 0;
+
+      // 부모 컨테이너의 실제 렌더링 크기 측정 (ConsensusComponent 방식)
+      const container = this.$el.querySelector(".consensus-viewer__body");
       if (!container) return;
 
-      const containerWidth = container.clientWidth;
-      // 컨테이너의 실제 높이를 사용 (제한 없이)
-      const containerHeight = container.clientHeight || 500;
+      const rect = container.getBoundingClientRect();
 
-      if (this.originalWidth && this.originalHeight) {
-        const aspectRatio = this.originalWidth / this.originalHeight;
-        let newWidth = containerWidth;
-        let newHeight = containerWidth / aspectRatio;
-
-        // 높이가 컨테이너 높이를 초과하면 높이 기준으로 조정
-        if (newHeight > containerHeight) {
-          newHeight = containerHeight;
-          newWidth = containerHeight * aspectRatio;
-        }
-
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-        // CSS 크기도 명시적으로 설정하여 일관성 유지
-        canvas.style.width = `${newWidth}px`;
-        canvas.style.height = `${newHeight}px`;
-      } else {
-        canvas.width = containerWidth;
-        canvas.height = containerHeight;
-        canvas.style.width = `${containerWidth}px`;
-        canvas.style.height = `${containerHeight}px`;
-      }
+      // 캔버스 크기 = 컨테이너 크기
+      canvas.width = rect.width;
+      canvas.height = rect.height;
 
       this.redrawCanvas();
     },
@@ -288,11 +272,62 @@ export default {
 
       this.redrawCanvas();
 
+      // 확대경 표시
+      this.activeEnlarge(event);
+
       // 마우스 위치에 가장 가까운 FP 하이라이트
       const closestFp = this.getClosestFp(x, y);
       if (closestFp) {
         this.highlightFp(closestFp, ctx);
       }
+    },
+
+    // 확대경 기능 (ConsensusComponent와 동일)
+    activeEnlarge(event) {
+      const canvas = this.$refs.canvas;
+      if (!canvas || this.isUnmounted || !this.backgroundImage) return;
+
+      const ctx = canvas.getContext("2d");
+      const { x, y } = this.getCanvasCoordinates(event);
+      const zoomWidth = 300;
+      const zoomHeight = 300;
+      const zoomLevel = 3.0;
+
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+      const mouseXOnImage = (x - imgX) / scale;
+      const mouseYOnImage = (y - imgY) / scale;
+
+      const sourceX = mouseXOnImage - zoomWidth / zoomLevel / 2;
+      const sourceY = mouseYOnImage - zoomHeight / zoomLevel / 2;
+      const sourceWidth = zoomWidth / zoomLevel;
+      const sourceHeight = zoomHeight / zoomLevel;
+
+      // 확대경 위치: 이미지 우측 끝에서 20px 떨어진 곳
+      const imageRightEdge = imgX + this.originalWidth * scale;
+      const zoomX = imageRightEdge + 20;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.drawImage(
+        this.backgroundImage,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        zoomX,
+        0,
+        zoomWidth,
+        zoomHeight
+      );
+
+      ctx.restore();
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -422,5 +457,7 @@ canvas {
   border: 1px solid #ccc;
   background-color: white;
   cursor: crosshair;
+  max-width: 100%;
+  max-height: 100%;
 }
 </style>
