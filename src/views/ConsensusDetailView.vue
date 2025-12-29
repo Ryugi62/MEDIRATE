@@ -26,8 +26,8 @@
         </span>
         <span class="legend">
           <span class="legend-item pending">미응답</span>
-          <span class="legend-item agree">동의 (논 마이토시스)</span>
-          <span class="legend-item disagree">비동의 (마이토시스)</span>
+          <span class="legend-item agree">마이토시스</span>
+          <span class="legend-item disagree">논 마이토시스</span>
         </span>
       </div>
     </div>
@@ -41,7 +41,7 @@
               <th>이미지</th>
               <th>FP</th>
               <th>응답</th>
-              <th>동의</th>
+              <th>마이토시스</th>
               <th>판정</th>
               <!-- 개별 평가자 열 -->
               <th
@@ -126,10 +126,10 @@
 
     <div class="keyboard-guide">
       <span>조작법:</span>
-      <span class="key">왼클릭</span>=동의 |
-      <span class="key">우클릭</span>=비동의 |
-      <span class="key">Space</span>=전체 동의 |
-      <span class="key">Shift+Space</span>=전체 비동의 |
+      <span class="key">왼클릭</span>=마이토시스 |
+      <span class="key">우클릭</span>=논 마이토시스 |
+      <span class="key">Space</span>=전체 마이토시스 |
+      <span class="key">Shift+Space</span>=전체 논 마이토시스 |
       <span class="key">↑↓</span>=이미지 이동
     </div>
   </div>
@@ -532,7 +532,7 @@ export default {
     // 평가자 응답 타이틀 가져오기
     getEvaluatorResponseTitle(questionImage, evaluatorId, realname) {
       const stats = this.getEvaluatorImageResponses(questionImage, evaluatorId);
-      return `${realname}: 동의 ${stats.agree}, 비동의 ${stats.disagree}, 미응답 ${stats.pending}`;
+      return `${realname}: 마이토시스 ${stats.agree}, 논 마이토시스 ${stats.disagree}, 미응답 ${stats.pending}`;
     },
   },
 
@@ -697,7 +697,7 @@ th.col-num { width: 28px; }
 th:nth-child(2) { width: auto; } /* 이미지 */
 th:nth-child(3) { width: 28px; } /* FP */
 th:nth-child(4) { width: 42px; } /* 응답 */
-th:nth-child(5) { width: 36px; } /* 동의 */
+th:nth-child(5) { width: 36px; } /* 마이토시스 */
 th:nth-child(6) { width: 42px; } /* 판정 */
 
 .image-cell {

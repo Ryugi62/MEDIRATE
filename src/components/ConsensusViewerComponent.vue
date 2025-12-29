@@ -229,11 +229,11 @@ export default {
           strokeColor = "#FFD700";
           fillColor = "rgba(255, 215, 0, 0.3)";
         } else if (agreeCount >= this.threshold) {
-          // 동의 (논 마이토시스)
+          // 마이토시스
           strokeColor = "#00FF00";
           fillColor = "rgba(0, 255, 0, 0.2)";
         } else if (disagreeCount >= this.threshold) {
-          // 비동의 (마이토시스)
+          // 논 마이토시스
           strokeColor = "#FF0000";
           fillColor = "rgba(255, 0, 0, 0.2)";
         } else {
@@ -396,8 +396,8 @@ export default {
         const response = responses[evaluator.id];
         const status = response
           ? response.response === "agree"
-            ? "동의"
-            : "비동의"
+            ? "마이토시스"
+            : "논 마이토시스"
           : "미응답";
         tooltipLines.push(`${evaluator.realname}: ${status}`);
       });

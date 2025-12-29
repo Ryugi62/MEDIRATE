@@ -29,16 +29,16 @@
 
       <div class="legend">
         <span class="legend-item pending">미응답</span>
-        <span class="legend-item agree">동의 (논 마이토시스)</span>
-        <span class="legend-item disagree">비동의 (마이토시스)</span>
+        <span class="legend-item agree">마이토시스</span>
+        <span class="legend-item disagree">논 마이토시스</span>
       </div>
 
       <div class="consensus-component__actions">
         <button @click="agreeAll" :disabled="!isRunning" class="action-btn agree-btn">
-          전체 동의 (Space)
+          전체 마이토시스 (Space)
         </button>
         <button @click="disagreeAll" :disabled="!isRunning" class="action-btn disagree-btn">
-          전체 비동의 (Shift+Space)
+          전체 논 마이토시스 (Shift+Space)
         </button>
         <button @click="commitChanges" class="save-btn">Save</button>
       </div>
@@ -64,10 +64,10 @@
 
     <div class="consensus-component__instructions">
       <strong>조작법:</strong>
-      왼클릭 = 동의 (논 마이토시스) |
-      우클릭 = 비동의 (마이토시스) |
-      Space = 전체 동의 |
-      Shift+Space = 전체 비동의
+      왼클릭 = 마이토시스 |
+      우클릭 = 논 마이토시스 |
+      Space = 전체 마이토시스 |
+      Shift+Space = 전체 논 마이토시스
     </div>
   </div>
 </template>
@@ -429,10 +429,10 @@ export default {
         let color;
         let fillAlpha = 0;
         if (response === "agree") {
-          color = "#00FF00"; // 녹색 - 동의 (FP 확정)
+          color = "#00FF00"; // 녹색 - 마이토시스
           fillAlpha = 0.2;
         } else if (response === "disagree") {
-          color = "#FF0000"; // 빨강 - 비동의 (TP로 변경)
+          color = "#FF0000"; // 빨강 - 논 마이토시스
           fillAlpha = 0.2;
         } else {
           color = "#FFA500"; // 주황 - 미응답

@@ -44,8 +44,8 @@ export const CANVAS_CONSTANTS = {
     MANUAL: "#FF0000", // 전문의 지정 박스 - 빨간색
 
     // Consensus 관련
-    AGREE: "#00FF00", // 동의 - 녹색
-    DISAGREE: "#FF0000", // 비동의 - 빨간색
+    AGREE: "#00FF00", // 마이토시스 - 녹색
+    DISAGREE: "#FF0000", // 논 마이토시스 - 빨간색
     PENDING: "#FFA500", // 대기중 - 주황색
 
     // 기타
