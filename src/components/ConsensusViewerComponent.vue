@@ -170,8 +170,8 @@ export default {
       // FP 사각형 그리기
       this.drawFpSquares();
 
-      // NIPA 박스 그리기
-      this.drawNipaBoxes();
+      // NIPA 박스 그리기 (비활성화)
+      // this.drawNipaBoxes();
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {

@@ -131,8 +131,6 @@
       <span class="legend-item disagree">논 마이토시스</span>
       <span class="legend-item pending">미응답</span>
       <span class="legend-item gs">GS_FP</span>
-      <span class="legend-item nipa-2">NIPA 2인 일치</span>
-      <span class="legend-item nipa-3">NIPA 3인 일치</span>
     </div>
 
   </div>
