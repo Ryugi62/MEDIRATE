@@ -36,12 +36,12 @@ export default {
         },
         {
           name: "과제 관리",
-          paths: ["/evaluation", "/edit-assignment/:id"],
+          paths: ["/evaluation", "/edit-assignment/:id", "/edit-consensus/:id"],
           isAdmin: true,
         },
         {
           name: "대시보드",
-          paths: ["/dashboard", "/dashboard/:id"],
+          paths: ["/dashboard", "/dashboard/:id", "/consensus/:id/analysis"],
           isAdmin: true,
         },
         {
