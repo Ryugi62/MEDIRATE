@@ -135,9 +135,9 @@ router.post("/cancer-types", authenticateToken, async (req, res) => {
 
   try {
     const [result] = await db.query(
-      `INSERT INTO cancer_types (code, name_ko, name_en)
-       VALUES (?, ?, ?)`,
-      [code, name_ko, name_en || null]
+      `INSERT INTO cancer_types (code, name, name_ko, name_en)
+       VALUES (?, ?, ?, ?)`,
+      [code, name_ko, name_ko, name_en || null]
     );
 
     res.status(201).json({
