@@ -268,7 +268,7 @@ router.post(
                   group.reduce((acc, bbox) => acc + bbox.y, 0) / group.length -
                     12.5
                 );
-                return [x, y, 25, 25];
+                return [x, y, 20, 20];
               }),
               hardneg: nonOverlappingGroups.map((group) => {
                 const square = group[0];
@@ -608,8 +608,8 @@ async function getAdjustedSquares(users, question) {
           ...square,
           x: adjustedX,
           y: adjustedY,
-          width: 25,
-          height: 25,
+          width: 20,
+          height: 20,
         };
       })
   );

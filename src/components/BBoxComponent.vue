@@ -487,7 +487,9 @@ export default {
     },
 
     drawSquare(x, y) {
-      const MIN_DISTANCE = 20; // 최소 거리 (20px) - 중복 방지
+      const canvas = this.$refs.canvas;
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const MIN_DISTANCE = 20 * scale; // 최소 거리 - scale 적용
 
       // 기존 박스와 너무 가까운지 체크
       const isTooClose = this.temporarySquares.some((square) => {
@@ -523,10 +525,14 @@ export default {
     },
 
     getClosestSquare(x, y) {
+      const canvas = this.$refs.canvas;
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const CLICK_THRESHOLD = 50 * scale; // 클릭 인식 범위 - scale 적용
+
       return this.temporarySquares.reduce(
         (closest, square) => {
           const distance = Math.hypot(square.x - x, square.y - y);
-          if (distance <= 50 && square.questionIndex === this.questionIndex) {
+          if (distance <= CLICK_THRESHOLD && square.questionIndex === this.questionIndex) {
             return distance < closest.distance ? { square, distance } : closest;
           }
           return closest;

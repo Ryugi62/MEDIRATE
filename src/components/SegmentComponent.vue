@@ -349,9 +349,13 @@ export default {
     addPoint(x, y) {
       // 첫 점 근처를 클릭하면 폴리곤 완성
       if (this.currentPoints.length >= 3) {
+        const canvas = this.$refs.canvas;
+        const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+        const POLYGON_CLOSE_THRESHOLD = 15 * scale; // 폴리곤 닫기 거리 - scale 적용
+
         const firstPoint = this.currentPoints[0];
         const distance = Math.hypot(firstPoint.x - x, firstPoint.y - y);
-        if (distance < 15) {
+        if (distance < POLYGON_CLOSE_THRESHOLD) {
           this.completePolygon();
           return;
         }

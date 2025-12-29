@@ -318,6 +318,10 @@ export default {
     },
 
     findClosestFpSquare(canvasX, canvasY) {
+      const canvas = this.$refs.canvas;
+      const { scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const CLICK_THRESHOLD = 50 * scale; // 클릭 인식 범위 - scale 적용
+
       let closest = null;
       let minDistance = Infinity;
 
@@ -326,7 +330,7 @@ export default {
           this.originalToCanvasCoordinates(fp.x + 12.5, fp.y + 12.5);
         const distance = Math.hypot(fpCanvasX - canvasX, fpCanvasY - canvasY);
 
-        if (distance <= 50 && distance < minDistance) {
+        if (distance <= CLICK_THRESHOLD && distance < minDistance) {
           closest = fp;
           minDistance = distance;
         }

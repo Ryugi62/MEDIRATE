@@ -315,7 +315,7 @@ export default {
       );
 
       let closest = null;
-      let minDistance = 50;
+      let minDistance = 50 * scale; // 호버 인식 범위 - scale 적용
 
       this.fpSquares.forEach((fp) => {
         const x = imgX + fp.x * scale;
