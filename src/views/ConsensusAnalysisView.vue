@@ -167,9 +167,9 @@ export default {
       colorList: [
         { backgroundColor: "#00838F", color: "white" },
         { backgroundColor: "#36A2EB", color: "white" },
-        { backgroundColor: "#FF9F40", color: "white" },
+        { backgroundColor: "#00BCD4", color: "white" },
         { backgroundColor: "#B2F302", color: "black" },
-        { backgroundColor: "#FFA07A", color: "white" },
+        { backgroundColor: "#3F51B5", color: "white" },
       ],
     };
   },
