@@ -188,8 +188,9 @@ export default {
         canvasHeight / this.originalHeight
       );
 
-      // 이미지를 캔버스 중앙에 배치
-      const x = (canvasWidth - this.originalWidth * scale) / 2;
+      // 확대경(우측 상단 300x300)과 겹치지 않도록 이미지를 왼쪽으로 100px 이동
+      const imageOffset = 100;
+      const x = (canvasWidth - this.originalWidth * scale) / 2 - imageOffset;
       const y = (canvasHeight - this.originalHeight * scale) / 2;
 
       return { x, y, scale };

@@ -191,7 +191,12 @@ export default {
       }
     },
 
-    async fetchLocalInfo() {
+    async initializeComponent() {
+      this.fetchLocalInfo();
+      await this.loadBackgroundImage();
+    },
+
+    fetchLocalInfo() {
       this.localBeforeCanvas = this.beforeCanvas;
       this.localSquares = [...this.squares];
       this.temporarySquares = [...this.squares];
@@ -200,9 +205,6 @@ export default {
       if (this.timer === 0) {
         this.timer = this.evaluation_time || 0;
       }
-
-      // AI 버튼을 눌러야만 AI 박스를 표시하도록 변경
-      // 자동으로 AI 박스를 표시하지 않음
     },
 
     async activateIcon(selectedIcon) {
@@ -551,8 +553,9 @@ export default {
         if (square.questionIndex !== this.questionIndex) return;
         if (square.isTemporary && !square.isAI) return; // 임시 박스는 그리지 않음
 
-        // AI 박스는 showAiBoxes가 true일 때만 표시
-        if (square.isAI && !this.showAiBoxes) return;
+        // 새로 불러온 AI 박스(isTemporaryAI)만 AI 모드에서 표시
+        // 이미 저장된 AI 박스(isAI && !isTemporaryAI)는 항상 표시
+        if (square.isTemporaryAI && !this.showAiBoxes) return;
 
         // 이미지 영역 밖의 박스는 표시하지 않음
         if (square.x < imageLeft || square.x > imageRight ||
@@ -785,8 +788,10 @@ export default {
   mounted() {
     if (!this.is_ai_use)
       this.iconList = this.iconList.filter((e) => e.name !== "fa-robot");
-    this.fetchLocalInfo();
-    this.loadBackgroundImage();
+
+    // 초기화 (mounted에서 실행하여 $refs.canvas가 있는 상태에서 실행)
+    this.initializeComponent();
+
     window.addEventListener("resize", this.resizeCanvas);
     window.addEventListener("keydown", this.handleHotkeys);
 
@@ -811,13 +816,11 @@ export default {
 
   watch: {
     src: {
-      immediate: true, // 초기 렌더링 시에도 호출하도록 설정
       handler: async function (newVal, oldVal) {
-        if (newVal !== oldVal) {
+        // src가 변경될 때만 실행 (초기 로딩은 mounted에서 처리)
+        if (newVal && newVal !== oldVal) {
           await this.loadBackgroundImage();
-          await this.fetchLocalInfo();
-          // AI 버튼을 눌러야만 AI 박스를 표시하도록 변경
-          // 이미지 변경 시 자동으로 AI 박스를 표시하지 않음
+          this.fetchLocalInfo();
           this.resizeCanvas();
         }
       },

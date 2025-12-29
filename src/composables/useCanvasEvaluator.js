@@ -33,6 +33,9 @@ export const CANVAS_CONSTANTS = {
   // Viewer 관련
   GROUP_DISTANCE_THRESHOLD: 12.5, // 박스 그룹화 거리
 
+  // 이미지 오프셋 (확대경 공간 확보용)
+  IMAGE_OFFSET: 100, // 이미지를 왼쪽으로 100px 이동
+
   // Canvas 색상 상수 (하드코딩된 값 중앙 집중화)
   COLORS: {
     // BBox 관련
