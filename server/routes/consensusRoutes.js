@@ -244,7 +244,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
     if (imageList.length > 0) {
       const placeholders = imageList.map(() => '?').join(',');
       const [nipaResult] = await db.query(
-        `SELECT question_image, match_2, match_3, (match_2 + match_3) as gs_nipa
+        `SELECT question_image, match_2, match_3, match_2 as gs_nipa
          FROM nipa_match_data
          WHERE question_image IN (${placeholders}) AND deleted_at IS NULL`,
         imageList
