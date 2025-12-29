@@ -42,6 +42,10 @@ export default {
       type: Number,
       default: 2,
     },
+    nipaBoxes: {
+      type: Object,
+      default: () => ({ match_2: [], match_3: [] }),
+    },
   },
 
   data() {
@@ -69,6 +73,12 @@ export default {
       deep: true,
     },
     evaluatorResponses: {
+      handler() {
+        this.redrawCanvas();
+      },
+      deep: true,
+    },
+    nipaBoxes: {
       handler() {
         this.redrawCanvas();
       },
@@ -159,6 +169,9 @@ export default {
 
       // FP 사각형 그리기
       this.drawFpSquares();
+
+      // NIPA 박스 그리기
+      this.drawNipaBoxes();
     },
 
     calculateImagePosition(canvasWidth, canvasHeight) {
@@ -261,6 +274,48 @@ export default {
           );
         }
       });
+    },
+
+    // NIPA 박스 그리기
+    drawNipaBoxes() {
+      const canvas = this.$refs.canvas;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
+        canvas.width,
+        canvas.height
+      );
+
+      // 2인 일치 박스 (마젠타)
+      if (this.nipaBoxes.match_2 && this.nipaBoxes.match_2.length > 0) {
+        ctx.strokeStyle = "#FF00FF";
+        ctx.lineWidth = 2 * scale;
+        this.nipaBoxes.match_2.forEach((box) => {
+          const [x, y, w, h] = box;
+          ctx.strokeRect(
+            imgX + x * scale,
+            imgY + y * scale,
+            w * scale,
+            h * scale
+          );
+        });
+      }
+
+      // 3인 일치 박스 (보라)
+      if (this.nipaBoxes.match_3 && this.nipaBoxes.match_3.length > 0) {
+        ctx.strokeStyle = "#8B00FF";
+        ctx.lineWidth = 2 * scale;
+        this.nipaBoxes.match_3.forEach((box) => {
+          const [x, y, w, h] = box;
+          ctx.strokeRect(
+            imgX + x * scale,
+            imgY + y * scale,
+            w * scale,
+            h * scale
+          );
+        });
+      }
     },
 
     handleCanvasMouseMove(event) {

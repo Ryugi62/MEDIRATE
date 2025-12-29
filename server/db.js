@@ -592,6 +592,7 @@ const expectedColumns = {
     { name: "question_image", definition: "VARCHAR(255) NOT NULL" },
     { name: "match_2", definition: "INT DEFAULT 0" },
     { name: "match_3", definition: "INT DEFAULT 0" },
+    { name: "boxes_json", definition: "TEXT DEFAULT NULL" },
     {
       name: "created_at",
       definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
@@ -868,6 +869,7 @@ const createTablesSQL = {
     \`question_image\` VARCHAR(255) NOT NULL,
     \`match_2\` INT DEFAULT 0,
     \`match_3\` INT DEFAULT 0,
+    \`boxes_json\` TEXT DEFAULT NULL,
     \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,

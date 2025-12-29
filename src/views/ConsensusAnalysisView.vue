@@ -89,6 +89,7 @@
               :evaluatorResponses="evaluatorResponsesForImage"
               :evaluators="evaluators"
               :threshold="consensusData.threshold || 2"
+              :nipaBoxes="currentNipaBoxes"
             />
           </div>
         </div>
@@ -126,10 +127,12 @@
       </div>
     </div>
     <div class="legend-bar">
-      <span class="legend-item agree">동의</span>
-      <span class="legend-item disagree">비동의</span>
+      <span class="legend-item agree">마이토시스</span>
+      <span class="legend-item disagree">논 마이토시스</span>
       <span class="legend-item pending">미응답</span>
-      <span class="legend-item gs">GS</span>
+      <span class="legend-item gs">GS_FP</span>
+      <span class="legend-item nipa-2">NIPA 2인 일치</span>
+      <span class="legend-item nipa-3">NIPA 3인 일치</span>
     </div>
 
   </div>
@@ -297,6 +300,13 @@ export default {
     // NIPA 데이터 맵
     nipaDataMap() {
       return this.consensusData?.nipaData || {};
+    },
+
+    // 현재 이미지의 NIPA 박스 좌표
+    currentNipaBoxes() {
+      const activeImage = this.questionList[this.activeIndex]?.image;
+      const nipaData = this.nipaDataMap[activeImage];
+      return nipaData?.boxes || { match_2: [], match_3: [] };
     },
 
     // 총 NIPA GS
@@ -970,6 +980,14 @@ tbody tr:hover:not(.active) {
 
 .legend-item.gs::before {
   background-color: #ffc107;
+}
+
+.legend-item.nipa-2::before {
+  background-color: #ff00ff;
+}
+
+.legend-item.nipa-3::before {
+  background-color: #8b00ff;
 }
 
 .exporting-message {

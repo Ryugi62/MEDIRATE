@@ -244,7 +244,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
     if (imageList.length > 0) {
       const placeholders = imageList.map(() => '?').join(',');
       const [nipaResult] = await db.query(
-        `SELECT question_image, match_2, match_3, match_2 as gs_nipa
+        `SELECT question_image, match_2, match_3, match_2 as gs_nipa, boxes_json
          FROM nipa_match_data
          WHERE question_image IN (${placeholders}) AND deleted_at IS NULL`,
         imageList
@@ -252,10 +252,21 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
 
       // NIPA 데이터를 맵으로 변환
       nipaResult.forEach((n) => {
+        // boxes_json 파싱
+        let boxes = { match_2: [], match_3: [] };
+        if (n.boxes_json) {
+          try {
+            boxes = JSON.parse(n.boxes_json);
+          } catch (e) {
+            // 파싱 실패 시 기본값 유지
+          }
+        }
+
         nipaData[n.question_image] = {
           match_2: n.match_2,
           match_3: n.match_3,
           gs_nipa: n.gs_nipa,
+          boxes: boxes,
         };
       });
     }
@@ -1148,7 +1159,7 @@ router.post(
         });
       }
 
-      // 데이터 매핑: { assignment_type: { question_image: { match_2, match_3 } } }
+      // 데이터 매핑: { assignment_type: { question_image: { match_2, match_3, boxes } } }
       const dataMap = {};
 
       // 2인 일치 파일 파싱
@@ -1162,6 +1173,7 @@ router.post(
         const assignmentTypeIdx = header2.indexOf("과제 ID");
         const questionImageIdx = header2.indexOf("문제 번호");
         const match2Idx = header2.indexOf("2일치");
+        const jsonIdx = header2.indexOf("JSON");
 
         if (assignmentTypeIdx >= 0 && questionImageIdx >= 0 && match2Idx >= 0) {
           for (let i = 1; i < data2.length; i++) {
@@ -1169,13 +1181,25 @@ router.post(
             const assignmentType = String(row[assignmentTypeIdx] || "");
             const questionImage = String(row[questionImageIdx] || "");
             const match2Value = parseInt(row[match2Idx], 10) || 0;
+            const jsonStr = jsonIdx >= 0 ? row[jsonIdx] : null;
 
             if (assignmentType && questionImage) {
               if (!dataMap[assignmentType]) dataMap[assignmentType] = {};
               if (!dataMap[assignmentType][questionImage]) {
-                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0 };
+                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0, boxes: { match_2: [], match_3: [] } };
               }
               dataMap[assignmentType][questionImage].match_2 = match2Value;
+
+              // JSON에서 박스 좌표 추출 (2인 일치)
+              if (jsonStr) {
+                try {
+                  const jsonData = JSON.parse(jsonStr);
+                  const boxes = [...(jsonData.mitosis || []), ...(jsonData.hardneg || [])];
+                  dataMap[assignmentType][questionImage].boxes.match_2 = boxes;
+                } catch (e) {
+                  // JSON 파싱 실패 시 무시
+                }
+              }
             }
           }
         }
@@ -1192,6 +1216,7 @@ router.post(
         const assignmentTypeIdx = header3.indexOf("과제 ID");
         const questionImageIdx = header3.indexOf("문제 번호");
         const match3Idx = header3.indexOf("3일치");
+        const jsonIdx = header3.indexOf("JSON");
 
         if (assignmentTypeIdx >= 0 && questionImageIdx >= 0 && match3Idx >= 0) {
           for (let i = 1; i < data3.length; i++) {
@@ -1199,13 +1224,25 @@ router.post(
             const assignmentType = String(row[assignmentTypeIdx] || "");
             const questionImage = String(row[questionImageIdx] || "");
             const match3Value = parseInt(row[match3Idx], 10) || 0;
+            const jsonStr = jsonIdx >= 0 ? row[jsonIdx] : null;
 
             if (assignmentType && questionImage) {
               if (!dataMap[assignmentType]) dataMap[assignmentType] = {};
               if (!dataMap[assignmentType][questionImage]) {
-                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0 };
+                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0, boxes: { match_2: [], match_3: [] } };
               }
               dataMap[assignmentType][questionImage].match_3 = match3Value;
+
+              // JSON에서 박스 좌표 추출 (3인 일치)
+              if (jsonStr) {
+                try {
+                  const jsonData = JSON.parse(jsonStr);
+                  const boxes = [...(jsonData.mitosis || []), ...(jsonData.hardneg || [])];
+                  dataMap[assignmentType][questionImage].boxes.match_3 = boxes;
+                } catch (e) {
+                  // JSON 파싱 실패 시 무시
+                }
+              }
             }
           }
         }
@@ -1216,16 +1253,20 @@ router.post(
       await db.withTransaction(async (conn) => {
         for (const [assignmentType, images] of Object.entries(dataMap)) {
           for (const [questionImage, data] of Object.entries(images)) {
+            // boxes_json 직렬화
+            const boxesJson = JSON.stringify(data.boxes);
+
             await conn.query(
               `INSERT INTO nipa_match_data
-               (assignment_type, question_image, match_2, match_3)
-               VALUES (?, ?, ?, ?)
+               (assignment_type, question_image, match_2, match_3, boxes_json)
+               VALUES (?, ?, ?, ?, ?)
                ON DUPLICATE KEY UPDATE
                match_2 = VALUES(match_2),
                match_3 = VALUES(match_3),
+               boxes_json = VALUES(boxes_json),
                updated_at = CURRENT_TIMESTAMP,
                deleted_at = NULL`,
-              [assignmentType, questionImage, data.match_2, data.match_3]
+              [assignmentType, questionImage, data.match_2, data.match_3, boxesJson]
             );
             importedCount++;
           }
