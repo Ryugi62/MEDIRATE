@@ -724,6 +724,43 @@ function formatTime(ms) {
 }
 
 // ========================================
+// PUT /api/consensus/:id - 과제 수정
+// ========================================
+router.put("/:consensusId", authenticateToken, async (req, res) => {
+  const { consensusId } = req.params;
+  const { title, deadline, evaluator_threshold, score_threshold } = req.body;
+
+  try {
+    // 관리자 권한 확인
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "관리자만 수정할 수 있습니다." });
+    }
+
+    // 과제 존재 확인
+    const [assignment] = await db.query(
+      `SELECT * FROM consensus_assignments WHERE id = ? AND deleted_at IS NULL`,
+      [consensusId]
+    );
+
+    if (assignment.length === 0) {
+      return res.status(404).json({ message: "합의 과제를 찾을 수 없습니다." });
+    }
+
+    // 업데이트 실행
+    await db.query(
+      `UPDATE consensus_assignments
+       SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      [title, deadline, evaluator_threshold, score_threshold, consensusId]
+    );
+
+    res.json({ message: "수정되었습니다." });
+  } catch (error) {
+    handleError(res, "합의 과제 수정 중 오류 발생", error);
+  }
+});
+
+// ========================================
 // DELETE /api/consensus/:id - 과제 삭제 (Soft Delete)
 // ========================================
 router.delete("/:consensusId", authenticateToken, async (req, res) => {

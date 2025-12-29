@@ -19,7 +19,10 @@
           <span class="completed-status">
             <strong>{{ completedCount }}/{{ questionList.length }}</strong> 완료
           </span>
+          <button class="edit-button" @click="openEditModal">과제수정</button>
+          <button v-if="isAdmin" class="delete-button" @click="deleteConsensus">과제삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
+          <button class="download-button" @click="downloadImages">이미지 다운로드</button>
           <button class="evaluate-button" @click="goToEvaluation">평가하기</button>
         </div>
         <div class="table-body">
@@ -137,6 +140,7 @@
       <span class="legend-item pending">미응답</span>
       <span class="legend-item gs">GS</span>
     </div>
+
   </div>
   <div v-else class="loading-message">
     <p>Consensus 데이터를 불러오는 중입니다...</p>
@@ -148,6 +152,7 @@ import ConsensusViewerComponent from "@/components/ConsensusViewerComponent.vue"
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { format } from "date-fns";
+import JSZip from "jszip";
 
 export default {
   name: "ConsensusAnalysisView",
@@ -195,6 +200,14 @@ export default {
 
     evaluatorCount() {
       return this.evaluators.length;
+    },
+
+    isAdmin() {
+      return this.$store.getters.getUserRole === "admin";
+    },
+
+    consensusId() {
+      return this.$route.params.id;
     },
 
     questionList() {
@@ -483,6 +496,61 @@ export default {
       });
     },
 
+    // 수정 페이지로 이동
+    openEditModal() {
+      this.$router.push(`/edit-consensus/${this.consensusId}`);
+    },
+
+    // Consensus 삭제
+    async deleteConsensus() {
+      if (
+        !confirm(
+          "정말 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다."
+        )
+      ) {
+        return;
+      }
+
+      try {
+        await this.$axios.delete(`/api/consensus/${this.consensusId}`, {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+        });
+        this.$router.push("/consensus");
+      } catch (error) {
+        console.error("Consensus 삭제 실패:", error);
+        alert("삭제 실패: " + (error.response?.data?.message || error.message));
+      }
+    },
+
+    // 이미지 다운로드
+    async downloadImages() {
+      this.isExporting = true;
+      this.exportingMessage = "이미지 다운로드 중...";
+
+      try {
+        const zip = new JSZip();
+
+        for (const question of this.questionList) {
+          const imageUrl = this.getImageThumbnail(question.image);
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+          const fileName = question.image.split("/").pop();
+          zip.file(fileName, blob);
+        }
+
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, `${this.consensusData.title}_images.zip`);
+        alert("이미지 다운로드가 완료되었습니다.");
+      } catch (error) {
+        console.error("이미지 다운로드 실패:", error);
+        alert("다운로드 실패: " + error.message);
+      } finally {
+        this.isExporting = false;
+      }
+    },
+
     handleKeyDown(event) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -697,6 +765,33 @@ export default {
 
 .evaluate-button:hover {
   background-color: #0056b3;
+}
+
+.edit-button {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.edit-button:hover {
+  background-color: #138496;
+}
+
+.delete-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-button:hover {
+  background-color: #c82333;
+}
+
+.download-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.download-button:hover {
+  background-color: #5a6268;
 }
 
 .table-body {

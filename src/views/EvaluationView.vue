@@ -61,7 +61,7 @@
       <div class="assignment-addition">
         <div class="assignment-info">
           <!-- A1: 평가 유형 그룹 (택일형, BBox, Segment) -->
-          <div class="mode-group">
+          <div class="mode-group" :class="{ 'mode-group--disabled': isConsensusMode }">
             <span class="group-label">평가 유형</span>
             <div class="mode-options">
               <label class="mode-option" :class="{ active: assignmentDetails.mode === 'TextBox' }">
@@ -71,6 +71,7 @@
                   name="mode"
                   value="TextBox"
                   v-model="assignmentDetails.mode"
+                  :disabled="isConsensusMode"
                 />
                 <i class="fas fa-list-ul"></i>
                 <span>택일형</span>
@@ -82,6 +83,7 @@
                   name="mode"
                   value="BBox"
                   v-model="assignmentDetails.mode"
+                  :disabled="isConsensusMode"
                 />
                 <i class="fas fa-square"></i>
                 <span>BBox</span>
@@ -93,10 +95,15 @@
                   name="mode"
                   value="Segment"
                   v-model="assignmentDetails.mode"
+                  :disabled="isConsensusMode"
                 />
                 <i class="fas fa-draw-polygon"></i>
                 <span>Segment</span>
               </label>
+            </div>
+            <!-- Consensus 모드 오버레이 -->
+            <div v-if="isConsensusMode" class="mode-disabled-overlay">
+              <span>Consensus이기 때문에 모드를 변경할 수 없습니다</span>
             </div>
           </div>
 
@@ -231,12 +238,16 @@
             :key="fieldName"
             class="assignment-field"
           >
-            <!-- 만약 mode가 BBox 또는 Segment면 선택 유형 입력창은 출력하지 않는다. -->
+            <!--
+              Consensus 모드: 과제 ID, 선택 유형 필드 숨김
+              BBox/Segment 모드: 선택 유형 필드 숨김
+            -->
             <template
               v-if="
                 !(
-                  fieldName === 'assignment-type' &&
-                  (assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Segment')
+                  (isConsensusMode && (fieldName === 'assignment-id' || fieldName === 'assignment-type')) ||
+                  (fieldName === 'assignment-type' &&
+                    (assignmentDetails.mode === 'BBox' || assignmentDetails.mode === 'Segment'))
                 )
               "
             >
@@ -513,7 +524,11 @@ export default {
       this.fetchCancerTypes(),
     ]);
     if (this.isEditMode) {
-      await this.fetchAssignmentData();
+      if (this.isConsensusMode) {
+        await this.fetchConsensusData();
+      } else {
+        await this.fetchAssignmentData();
+      }
     }
   },
 
@@ -524,6 +539,9 @@ export default {
   computed: {
     isEditMode() {
       return !!this.$route.params.id;
+    },
+    isConsensusMode() {
+      return this.$route.meta?.isConsensus === true;
     },
     assignmentId() {
       return this.$route.params.id;
@@ -758,6 +776,12 @@ export default {
       }
     },
     saveAssignment() {
+      // Consensus 모드일 때는 다른 저장 로직 사용
+      if (this.isConsensusMode) {
+        this.saveConsensus();
+        return;
+      }
+
       if (
         this.addedUsers.length === 0 ||
         !this.assignmentDetails.title ||
@@ -1073,6 +1097,94 @@ export default {
         this.selectedCancerId = response.data.cancer_type_id ? Number(response.data.cancer_type_id) : null;
       } catch (error) {
         console.error("과제 정보를 가져오는 중 오류 발생:", error);
+      }
+    },
+
+    // Consensus 데이터 로드
+    async fetchConsensusData() {
+      try {
+        const response = await this.$axios.get(
+          `/api/consensus/${this.assignmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        const data = response.data;
+
+        // Consensus 데이터를 assignmentDetails 형식에 맞게 매핑
+        this.assignmentDetails.id = data.id;
+        this.assignmentDetails.title = data.title;
+        this.assignmentDetails.deadline = data.deadline
+          ? new Date(data.deadline).toISOString().split("T")[0]
+          : "";
+        this.assignmentDetails.mode = data.assignment_mode || "BBox";
+        this.assignmentDetails.is_score = false;
+        this.assignmentDetails.is_ai_use = false;
+        this.assignmentDetails.selectedAssignmentId = data.assignment_type;
+
+        // 할당된 평가자 설정
+        this.addedUsers = data.evaluators || [];
+
+        // 프로젝트/암종 정보
+        this.selectedProjectId = data.project_id ? Number(data.project_id) : null;
+        this.selectedCancerId = data.cancer_type_id ? Number(data.cancer_type_id) : null;
+
+        // fpSquares에서 이미지 목록 추출
+        if (data.fpSquares && data.fpSquares.length > 0) {
+          const imageSet = new Set();
+          data.fpSquares.forEach((fp) => {
+            if (fp.question_image) {
+              imageSet.add(fp.question_image);
+            }
+          });
+
+          const questions = Array.from(imageSet)
+            .sort()
+            .map((imageName, index) => ({
+              id: index,
+              img: `https://aialpa-eval.duckdns.org/api/assets/${data.assignment_type}/${encodeURIComponent(imageName)}`,
+              select: null,
+            }));
+
+          this.assignmentDetails.questions = questions;
+          this.activeQuestionId = questions.length > 0 ? 0 : null;
+        }
+
+        console.log("[DEBUG] fetchConsensusData - loaded:", data);
+      } catch (error) {
+        console.error("Consensus 정보를 가져오는 중 오류 발생:", error);
+      }
+    },
+
+    // Consensus 저장
+    async saveConsensus() {
+      if (!this.assignmentDetails.title) {
+        alert("제목을 입력해주세요.");
+        return;
+      }
+
+      try {
+        await this.$axios.put(
+          `/api/consensus/${this.assignmentId}`,
+          {
+            title: this.assignmentDetails.title,
+            deadline: this.assignmentDetails.deadline || null,
+            evaluator_threshold: 2, // 기본값
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+
+        alert("Consensus가 저장되었습니다.");
+        this.$router.push(`/consensus/${this.assignmentId}/analysis`);
+      } catch (error) {
+        console.error("Consensus 저장 중 오류 발생:", error);
+        alert("저장 실패: " + (error.response?.data?.message || error.message));
       }
     },
 
@@ -1759,6 +1871,38 @@ hr {
   border: 1px solid var(--light-gray);
   border-radius: 6px;
   background-color: #fafafa;
+  position: relative;
+}
+
+/* Consensus 모드일 때 비활성화 스타일 */
+.mode-group--disabled {
+  pointer-events: none;
+}
+
+.mode-group--disabled .mode-options {
+  opacity: 0.5;
+}
+
+.mode-disabled-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.mode-disabled-overlay span {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  padding: 8px 12px;
 }
 
 .group-label {

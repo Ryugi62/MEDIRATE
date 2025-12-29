@@ -105,6 +105,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/edit-consensus/:id",
+    name: "editConsensus",
+    component: EvaluationView,
+    meta: { requiresAuth: true, isConsensus: true },
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "not-found",
     component: () => import("../views/NotFoundView.vue"),
