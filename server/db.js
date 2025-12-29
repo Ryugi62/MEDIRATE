@@ -585,6 +585,33 @@ const expectedColumns = {
       constraintName: "fk_consensus_tags_tag",
     },
   ],
+  // NIPA 일치 데이터 테이블 (엑셀에서 임포트)
+  nipa_match_data: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "assignment_type", definition: "VARCHAR(255) NOT NULL" },
+    { name: "question_image", definition: "VARCHAR(255) NOT NULL" },
+    { name: "match_2", definition: "INT DEFAULT 0" },
+    { name: "match_3", definition: "INT DEFAULT 0" },
+    {
+      name: "created_at",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    },
+    {
+      name: "updated_at",
+      definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+    },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY type_image_unique (assignment_type, question_image)",
+      constraintName: "type_image_unique",
+    },
+  ],
 };
 
 // 초기 테이블 생성 SQL
@@ -833,6 +860,21 @@ const createTablesSQL = {
     PRIMARY KEY (\`consensus_assignment_id\`, \`tag_id\`),
     FOREIGN KEY (\`consensus_assignment_id\`) REFERENCES \`consensus_assignments\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`tag_id\`) REFERENCES \`tags\`(\`id\`) ON DELETE CASCADE
+  )`,
+  // NIPA 일치 데이터 테이블 (엑셀에서 임포트)
+  nipa_match_data: `CREATE TABLE IF NOT EXISTS \`nipa_match_data\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`assignment_type\` VARCHAR(255) NOT NULL,
+    \`question_image\` VARCHAR(255) NOT NULL,
+    \`match_2\` INT DEFAULT 0,
+    \`match_3\` INT DEFAULT 0,
+    \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`type_image_unique\` (\`assignment_type\`, \`question_image\`),
+    INDEX \`idx_assignment_type\` (\`assignment_type\`),
+    INDEX \`idx_question_image\` (\`question_image\`)
   )`,
 };
 

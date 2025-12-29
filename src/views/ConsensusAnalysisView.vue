@@ -33,6 +33,9 @@
                   <th>번호</th>
                   <th>이미지</th>
                   <th>FP</th>
+                  <th>GS_FP</th>
+                  <th>GS_NIPA</th>
+                  <th>GS_Total</th>
                   <th
                     v-for="(evaluator, idx) in evaluators"
                     :key="evaluator.id"
@@ -40,9 +43,6 @@
                   >
                     {{ evaluator.realname }}
                   </th>
-                  <th>동의율</th>
-                  <th>GS</th>
-                  <th>상태</th>
                 </tr>
               </thead>
               <tbody>
@@ -57,6 +57,9 @@
                     <img :src="getImageThumbnail(question.image)" alt="이미지" />
                   </td>
                   <td>{{ question.fpCount }}</td>
+                  <td>{{ question.goldStandardCount || '-' }}</td>
+                  <td>{{ getNipaGS(question.image) || '-' }}</td>
+                  <td>{{ question.goldStandardCount + getNipaGS(question.image) }}</td>
                   <td
                     v-for="evaluator in evaluators"
                     :key="evaluator.id"
@@ -64,29 +67,17 @@
                   >
                     {{ getEvaluatorResponseSummary(question.image, evaluator.id) }}
                   </td>
-                  <td>{{ getAgreeRate(question.image) }}%</td>
-                  <td>
-                    <span v-if="question.goldStandardCount > 0" class="gs-badge">
-                      {{ question.goldStandardCount }}
-                    </span>
-                    <span v-else>-</span>
-                  </td>
-                  <td>
-                    <span :class="getStatusClass(question)">
-                      {{ getStatusText(question) }}
-                    </span>
-                  </td>
                 </tr>
               </tbody>
               <tfoot class="table-footer">
                 <tr>
                   <th colspan="3">총계</th>
+                  <th>{{ totalGoldStandard }}</th>
+                  <th>{{ totalNipaGS }}</th>
+                  <th>{{ totalGoldStandard + totalNipaGS }}</th>
                   <th v-for="evaluator in evaluators" :key="evaluator.id">
                     {{ getEvaluatorTotalResponses(evaluator.id) }}
                   </th>
-                  <th>{{ overallAgreeRate }}%</th>
-                  <th>{{ totalGoldStandard }}</th>
-                  <th>{{ completedCount }}/{{ questionList.length }}</th>
                 </tr>
               </tfoot>
             </table>
@@ -303,12 +294,31 @@ export default {
       );
     },
 
+    // NIPA 데이터 맵
+    nipaDataMap() {
+      return this.consensusData?.nipaData || {};
+    },
+
+    // 총 NIPA GS
+    totalNipaGS() {
+      return this.questionList.reduce((sum, q) => {
+        const nipaData = this.nipaDataMap[q.image];
+        return sum + (nipaData?.gs_nipa || 0);
+      }, 0);
+    },
+
     completedCount() {
       return this.questionList.filter((q) => q.isComplete).length;
     },
   },
 
   methods: {
+    // NIPA GS 값 가져오기
+    getNipaGS(questionImage) {
+      const nipaData = this.nipaDataMap[questionImage];
+      return nipaData?.gs_nipa || 0;
+    },
+
     async loadConsensusData() {
       try {
         const consensusId = this.$route.params.id;
@@ -874,6 +884,33 @@ tbody tr:hover:not(.active) {
 .gs-badge {
   background-color: #ffc107;
   color: #333;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.gs-fp-badge {
+  background-color: #ffc107;
+  color: #333;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.gs-nipa-badge {
+  background-color: #17a2b8;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.gs-total-badge {
+  background-color: #28a745;
+  color: white;
   padding: 1px 4px;
   border-radius: 3px;
   font-weight: bold;

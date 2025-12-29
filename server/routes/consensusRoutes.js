@@ -4,6 +4,17 @@
 const express = require("express");
 const db = require("../db");
 const authenticateToken = require("../jwt");
+const multer = require("multer");
+const xlsx = require("xlsx");
+const path = require("path");
+const fs = require("fs");
+
+// 파일 업로드 설정
+const uploadDir = path.join(__dirname, "../uploads/nipa");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const nipaUpload = multer({ dest: uploadDir });
 
 const router = express.Router();
 
@@ -227,6 +238,26 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       is_gold_standard: fp.agree_count >= threshold,
     }));
 
+    // 8. NIPA 데이터 조회 (assignment_type과 question_image로 매핑)
+    let nipaData = {};
+    if (assignment.assignment_type) {
+      const [nipaResult] = await db.query(
+        `SELECT question_image, match_2, match_3, (match_2 + match_3) as gs_nipa
+         FROM nipa_match_data
+         WHERE assignment_type = ? AND deleted_at IS NULL`,
+        [assignment.assignment_type]
+      );
+
+      // NIPA 데이터를 맵으로 변환
+      nipaResult.forEach((n) => {
+        nipaData[n.question_image] = {
+          match_2: n.match_2,
+          match_3: n.match_3,
+          gs_nipa: n.gs_nipa,
+        };
+      });
+    }
+
     res.json({
       ...assignment,
       evaluators,
@@ -237,6 +268,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       responses: responseMap,
       evaluatorResponses: evaluatorResponsesMap,
       canvasInfo,
+      nipaData,
     });
   } catch (error) {
     handleError(res, "합의 과제 상세를 가져오는 중 오류 발생", error);
@@ -1087,5 +1119,132 @@ router.put("/bulk-assign", authenticateToken, async (req, res) => {
     handleError(res, "일괄 할당 중 오류 발생", error);
   }
 });
+
+// ========================================
+// POST /api/consensus/import-nipa - NIPA 엑셀 데이터 임포트
+// ========================================
+router.post(
+  "/import-nipa",
+  authenticateToken,
+  nipaUpload.fields([
+    { name: "match2", maxCount: 1 },
+    { name: "match3", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    // 관리자 권한 확인
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "관리자만 가져오기를 할 수 있습니다." });
+    }
+
+    const match2File = req.files?.["match2"]?.[0];
+    const match3File = req.files?.["match3"]?.[0];
+
+    try {
+      if (!match2File || !match3File) {
+        return res.status(400).json({
+          message: "2인 일치 파일과 3인 일치 파일이 모두 필요합니다.",
+        });
+      }
+
+      // 데이터 매핑: { assignment_type: { question_image: { match_2, match_3 } } }
+      const dataMap = {};
+
+      // 2인 일치 파일 파싱
+      const workbook2 = xlsx.readFile(match2File.path);
+      const sheet2 = workbook2.Sheets["결과 Sheet"];
+      if (sheet2) {
+        const data2 = xlsx.utils.sheet_to_json(sheet2, { header: 1 });
+        const header2 = data2[0];
+
+        // 컬럼 인덱스 찾기
+        const assignmentTypeIdx = header2.indexOf("과제 ID");
+        const questionImageIdx = header2.indexOf("문제 번호");
+        const match2Idx = header2.indexOf("2일치");
+
+        if (assignmentTypeIdx >= 0 && questionImageIdx >= 0 && match2Idx >= 0) {
+          for (let i = 1; i < data2.length; i++) {
+            const row = data2[i];
+            const assignmentType = String(row[assignmentTypeIdx] || "");
+            const questionImage = String(row[questionImageIdx] || "");
+            const match2Value = parseInt(row[match2Idx], 10) || 0;
+
+            if (assignmentType && questionImage) {
+              if (!dataMap[assignmentType]) dataMap[assignmentType] = {};
+              if (!dataMap[assignmentType][questionImage]) {
+                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0 };
+              }
+              dataMap[assignmentType][questionImage].match_2 = match2Value;
+            }
+          }
+        }
+      }
+
+      // 3인 일치 파일 파싱
+      const workbook3 = xlsx.readFile(match3File.path);
+      const sheet3 = workbook3.Sheets["결과 Sheet"];
+      if (sheet3) {
+        const data3 = xlsx.utils.sheet_to_json(sheet3, { header: 1 });
+        const header3 = data3[0];
+
+        // 컬럼 인덱스 찾기
+        const assignmentTypeIdx = header3.indexOf("과제 ID");
+        const questionImageIdx = header3.indexOf("문제 번호");
+        const match3Idx = header3.indexOf("3일치");
+
+        if (assignmentTypeIdx >= 0 && questionImageIdx >= 0 && match3Idx >= 0) {
+          for (let i = 1; i < data3.length; i++) {
+            const row = data3[i];
+            const assignmentType = String(row[assignmentTypeIdx] || "");
+            const questionImage = String(row[questionImageIdx] || "");
+            const match3Value = parseInt(row[match3Idx], 10) || 0;
+
+            if (assignmentType && questionImage) {
+              if (!dataMap[assignmentType]) dataMap[assignmentType] = {};
+              if (!dataMap[assignmentType][questionImage]) {
+                dataMap[assignmentType][questionImage] = { match_2: 0, match_3: 0 };
+              }
+              dataMap[assignmentType][questionImage].match_3 = match3Value;
+            }
+          }
+        }
+      }
+
+      // DB에 UPSERT
+      let importedCount = 0;
+      await db.withTransaction(async (conn) => {
+        for (const [assignmentType, images] of Object.entries(dataMap)) {
+          for (const [questionImage, data] of Object.entries(images)) {
+            await conn.query(
+              `INSERT INTO nipa_match_data
+               (assignment_type, question_image, match_2, match_3)
+               VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE
+               match_2 = VALUES(match_2),
+               match_3 = VALUES(match_3),
+               updated_at = CURRENT_TIMESTAMP,
+               deleted_at = NULL`,
+              [assignmentType, questionImage, data.match_2, data.match_3]
+            );
+            importedCount++;
+          }
+        }
+      });
+
+      // 업로드 파일 삭제
+      if (match2File) fs.unlinkSync(match2File.path);
+      if (match3File) fs.unlinkSync(match3File.path);
+
+      res.json({
+        message: "NIPA 데이터가 성공적으로 가져오기 되었습니다.",
+        importedCount,
+      });
+    } catch (error) {
+      // 에러 시에도 업로드 파일 삭제
+      if (match2File && fs.existsSync(match2File.path)) fs.unlinkSync(match2File.path);
+      if (match3File && fs.existsSync(match3File.path)) fs.unlinkSync(match3File.path);
+      handleError(res, "NIPA 데이터 가져오기 중 오류 발생", error);
+    }
+  }
+);
 
 module.exports = router;
