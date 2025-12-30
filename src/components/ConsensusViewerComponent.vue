@@ -216,8 +216,9 @@ export default {
           return;
         }
 
-        const x = imgX + fp.x * scale;
-        const y = imgY + fp.y * scale;
+        // ConsensusComponent와 동일하게 +12.5 오프셋 적용 (박스 중심 맞춤)
+        const x = imgX + (fp.x + 12.5) * scale;
+        const y = imgY + (fp.y + 12.5) * scale;
 
         // 응답 상태에 따른 색상 결정
         const responses = this.evaluatorResponses[fp.id] || {};
@@ -414,8 +415,8 @@ export default {
       let minDistance = 50 * scale; // 호버 인식 범위 - scale 적용
 
       this.fpSquares.forEach((fp) => {
-        const x = imgX + fp.x * scale;
-        const y = imgY + fp.y * scale;
+        const x = imgX + (fp.x + 12.5) * scale;
+        const y = imgY + (fp.y + 12.5) * scale;
         const distance = Math.hypot(mouseX - x, mouseY - y);
         if (distance < minDistance) {
           minDistance = distance;
