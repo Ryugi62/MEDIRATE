@@ -1,6 +1,10 @@
 <template>
-  <div class="zoom-lens" v-show="isActive">
-    <canvas ref="zoomCanvas"></canvas>
+  <div class="zoom-lens" :style="{ width: width + 'px', height: height + 'px' }">
+    <canvas v-show="isActive" ref="zoomCanvas"></canvas>
+    <div v-show="!isActive" class="zoom-placeholder">
+      <i class="fas fa-search-plus"></i>
+      <span>캔버스에 마우스를 올려주세요</span>
+    </div>
   </div>
 </template>
 
@@ -148,9 +152,32 @@ export default {
   border-radius: 4px;
   background: #f0f0f0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
 }
 
 .zoom-lens canvas {
   display: block;
+}
+
+.zoom-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  gap: 8px;
+}
+
+.zoom-placeholder i {
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+.zoom-placeholder span {
+  font-size: 12px;
+  text-align: center;
+  padding: 0 10px;
 }
 </style>
