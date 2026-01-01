@@ -4,18 +4,34 @@
 <template>
   <div class="consensus-viewer">
     <div class="consensus-viewer__body">
-      <canvas
-        ref="canvas"
-        @mousemove="handleCanvasMouseMove"
-        @mouseleave="redrawCanvas"
-      ></canvas>
+      <div class="canvas-container">
+        <canvas
+          ref="canvas"
+          @mousemove="handleCanvasMouseMove"
+          @mouseleave="handleCanvasMouseLeave"
+        ></canvas>
+      </div>
+      <ZoomLens
+        :image="backgroundImage"
+        :mouseX="zoomMouseX"
+        :mouseY="zoomMouseY"
+        :isActive="isZoomActive"
+        :width="zoomSize"
+        :height="zoomSize"
+        :zoomLevel="2.0"
+      />
     </div>
   </div>
 </template>
 
 <script>
+import ZoomLens from "./ZoomLens.vue";
+
 export default {
   name: "ConsensusViewerComponent",
+  components: {
+    ZoomLens,
+  },
 
   props: {
     src: {
@@ -56,7 +72,19 @@ export default {
       // 슬라이드 전환 시 race condition 방지
       currentLoadId: 0,
       isUnmounted: false,
+      // 확대경 관련
+      zoomMouseX: 0,
+      zoomMouseY: 0,
+      isZoomActive: false,
+      canvasHeight: 280,
     };
+  },
+
+  computed: {
+    zoomSize() {
+      const size = Math.floor(this.canvasHeight * 0.4);
+      return Math.max(200, Math.min(350, size));
+    },
   },
 
   watch: {
@@ -124,23 +152,42 @@ export default {
       image.src = this.src;
     },
 
-    resizeCanvas() {
+    async resizeCanvas() {
       const canvas = this.$refs.canvas;
       if (!canvas || this.isUnmounted) return;
 
-      // 캔버스 크기 초기화 (강제 재계산)
-      canvas.width = 0;
-      canvas.height = 0;
+      // 이미지가 로드되지 않았으면 리턴
+      if (!this.originalWidth || !this.originalHeight) {
+        return;
+      }
 
-      // 부모 컨테이너의 실제 렌더링 크기 측정 (ConsensusComponent 방식)
-      const container = this.$el.querySelector(".consensus-viewer__body");
-      if (!container) return;
+      await this.$nextTick();
 
-      const rect = container.getBoundingClientRect();
+      // 부모 body에서 크기 측정
+      const body = this.$el?.querySelector(".consensus-viewer__body");
+      if (!body) return;
 
-      // 캔버스 크기 = 컨테이너 크기
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      const bodyRect = body.getBoundingClientRect();
+
+      // ZoomLens 너비 + gap (10px)을 뺀 가용 너비
+      const zoomLensWidth = this.zoomSize;
+      const gap = 10;
+      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const availableHeight = bodyRect.height;
+
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+
+      // 이미지 비율 유지하면서 가용 공간에 맞춤
+      const scaleX = availableWidth / this.originalWidth;
+      const scaleY = availableHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
+
+      const canvasWidth = Math.floor(this.originalWidth * scale);
+      const canvasHeight = Math.floor(this.originalHeight * scale);
+
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      this.canvasHeight = canvasHeight;
 
       this.redrawCanvas();
     },
@@ -323,8 +370,17 @@ export default {
 
       this.redrawCanvas();
 
-      // 확대경 표시
-      this.activeEnlarge(event);
+      // ZoomLens 컴포넌트용 마우스 좌표 계산
+      if (this.backgroundImage) {
+        const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
+          canvas.width,
+          canvas.height
+        );
+        // 이미지 상의 원본 좌표로 변환
+        this.zoomMouseX = (x - imgX) / scale;
+        this.zoomMouseY = (y - imgY) / scale;
+        this.isZoomActive = true;
+      }
 
       // 마우스 위치에 가장 가까운 FP 하이라이트
       const closestFp = this.getClosestFp(x, y);
@@ -333,59 +389,8 @@ export default {
       }
     },
 
-    // 확대경 기능 (ConsensusComponent와 동일)
-    activeEnlarge(event) {
-      const canvas = this.$refs.canvas;
-      if (!canvas || this.isUnmounted || !this.backgroundImage) return;
-
-      const ctx = canvas.getContext("2d");
-      const { x, y } = this.getCanvasCoordinates(event);
-
-      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(
-        canvas.width,
-        canvas.height
-      );
-
-      // 확대경 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
-      const baseZoomSize = 300;
-      const zoomLevel = 2.0;
-      const zoomWidth = baseZoomSize * scale;
-      const zoomHeight = baseZoomSize * scale;
-
-      // 캡처 영역은 고정 (스케일과 무관하게 항상 동일한 영역 표시)
-      const sourceWidth = baseZoomSize / zoomLevel;
-      const sourceHeight = baseZoomSize / zoomLevel;
-
-      const mouseXOnImage = (x - imgX) / scale;
-      const mouseYOnImage = (y - imgY) / scale;
-
-      const sourceX = mouseXOnImage - sourceWidth / 2;
-      const sourceY = mouseYOnImage - sourceHeight / 2;
-
-      // 확대경 위치: 이미지 우측 끝에서 20px * scale 떨어진 곳
-      const imageRightEdge = imgX + this.originalWidth * scale;
-      const zoomGap = 20 * scale;
-      const zoomX = imageRightEdge + zoomGap;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.drawImage(
-        this.backgroundImage,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        zoomX,
-        0,
-        zoomWidth,
-        zoomHeight
-      );
-
-      ctx.restore();
+    handleCanvasMouseLeave() {
+      this.isZoomActive = false;
     },
 
     getCanvasCoordinates({ clientX, clientY }) {
@@ -505,17 +510,27 @@ export default {
 .consensus-viewer__body {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  gap: 10px;
+  align-items: flex-start;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+}
+
+.canvas-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.zoom-lens {
+  flex-shrink: 0;
 }
 
 canvas {
   border: 1px solid #ccc;
   background-color: white;
   cursor: crosshair;
-  max-width: 100%;
-  max-height: 100%;
 }
 </style>

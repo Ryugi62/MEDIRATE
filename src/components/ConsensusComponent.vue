@@ -292,25 +292,31 @@ export default {
       const canvas = this.$refs.canvas;
       if (!canvas || this.isUnmounted) return;
 
-      canvas.width = 0;
-      canvas.height = 0;
+      // 이미지가 로드되지 않은 경우 조기 반환
+      if (!this.originalWidth || !this.originalHeight) return;
 
-      const canvasContainer = this.$el.querySelector(".canvas-container");
-      if (!canvasContainer) return;
-      const containerRect = canvasContainer.getBoundingClientRect();
+      // DOM 레이아웃이 완료될 때까지 대기
+      await this.$nextTick();
 
-      // 이미지 비율에 맞게 캔버스 크기 계산 (빈 공간 없이 딱 맞게)
-      if (this.originalWidth && this.originalHeight) {
-        const scaleX = containerRect.width / this.originalWidth;
-        const scaleY = containerRect.height / this.originalHeight;
-        const scale = Math.min(scaleX, scaleY);
-        canvas.width = Math.floor(this.originalWidth * scale);
-        canvas.height = Math.floor(this.originalHeight * scale);
-      } else {
-        canvas.width = containerRect.width;
-        canvas.height = containerRect.height;
-      }
+      // 부모 컨테이너(.consensus-component__body)에서 크기 측정
+      const body = this.$el.querySelector(".consensus-component__body");
+      if (!body) return;
+      const bodyRect = body.getBoundingClientRect();
 
+      // 가용 크기 계산 (ZoomLens 크기 + gap 제외)
+      const zoomLensWidth = this.zoomSize || 200;
+      const gap = 10;
+      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const availableHeight = bodyRect.height;
+
+      // 이미지 비율에 맞게 캔버스 크기 계산
+      const scaleX = availableWidth / this.originalWidth;
+      const scaleY = availableHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
+      canvas.width = Math.floor(this.originalWidth * scale);
+      canvas.height = Math.floor(this.originalHeight * scale);
+
+      // 결과 저장
       this.localCanvasInfo.width = canvas.width;
       this.localCanvasInfo.height = canvas.height;
       this.canvasHeight = canvas.height;
@@ -831,12 +837,9 @@ export default {
 }
 
 .canvas-container {
-  flex: 1;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 

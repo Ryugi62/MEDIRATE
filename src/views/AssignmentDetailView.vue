@@ -135,8 +135,8 @@
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
-        :is_score="currentAssignmentDetails.is_score"
-        :is_ai_use="currentAssignmentDetails.is_ai_use"
+        :is_score="!!currentAssignmentDetails.is_score"
+        :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
         :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
       />
@@ -150,8 +150,8 @@
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
-        :is_score="currentAssignmentDetails.is_score"
-        :is_ai_use="currentAssignmentDetails.is_ai_use"
+        :is_score="!!currentAssignmentDetails.is_score"
+        :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
         :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
       />
@@ -188,7 +188,6 @@ export default {
 
   mounted() {
     this.$nextTick(() => {
-      this.makeTdClickable();
       window.addEventListener("keydown", this.handleKeyDown);
       window.addEventListener("keyup", this.handleKeyUp);
     });

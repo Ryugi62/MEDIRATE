@@ -413,36 +413,36 @@ export default {
       const canvas = this.$refs.canvas;
       if (!canvas || this.isUnmounted) return;
 
-      if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
-        canvas.width = this.localBeforeCanvas.width;
-        canvas.height = this.localBeforeCanvas.height;
-      }
+      // 이미지가 로드되지 않은 경우 조기 반환
+      if (!this.originalWidth || !this.originalHeight) return;
 
-      const beforePosition = this.calculateImagePosition(
-        canvas.width,
-        canvas.height
-      );
+      // DOM 레이아웃이 완료될 때까지 대기
+      await this.$nextTick();
+
+      // 부모 컨테이너(.bbox-component__body)에서 크기 측정
+      // canvas-container는 min-width:0으로 캔버스 크기에 따라 축소되므로 부모에서 측정
+      const body = this.$el.querySelector(".bbox-component__body");
+      if (!body) return;
+      const bodyRect = body.getBoundingClientRect();
+
+      // 가용 크기 계산 (ZoomLens 크기 + gap 제외)
+      const zoomLensWidth = this.zoomSize || 200;
+      const gap = 10;
+      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const availableHeight = bodyRect.height;
+
+      // 이전 위치 계산
+      const beforePosition = this.calculateImagePosition(canvas.width, canvas.height);
       this.beforeResizePosition = beforePosition;
 
-      canvas.width = 0;
-      canvas.height = 0;
+      // 이미지 비율에 맞게 캔버스 크기 계산
+      const scaleX = availableWidth / this.originalWidth;
+      const scaleY = availableHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
+      canvas.width = Math.floor(this.originalWidth * scale);
+      canvas.height = Math.floor(this.originalHeight * scale);
 
-      const canvasContainer = this.$el.querySelector(".canvas-container");
-      if (!canvasContainer) return;
-      const containerRect = canvasContainer.getBoundingClientRect();
-
-      // 이미지 비율에 맞게 캔버스 크기 계산 (빈 공간 없이 딱 맞게)
-      if (this.originalWidth && this.originalHeight) {
-        const scaleX = containerRect.width / this.originalWidth;
-        const scaleY = containerRect.height / this.originalHeight;
-        const scale = Math.min(scaleX, scaleY);
-        canvas.width = Math.floor(this.originalWidth * scale);
-        canvas.height = Math.floor(this.originalHeight * scale);
-      } else {
-        canvas.width = containerRect.width;
-        canvas.height = containerRect.height;
-      }
-
+      // 결과 저장
       this.localBeforeCanvas.width = canvas.width;
       this.localBeforeCanvas.height = canvas.height;
       this.canvasHeight = canvas.height;
@@ -945,12 +945,9 @@ export default {
 }
 
 .canvas-container {
-  flex: 1;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 

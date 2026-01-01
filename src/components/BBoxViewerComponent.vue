@@ -1,12 +1,22 @@
 <template>
   <div class="bbox-component">
     <div class="bbox-component__body">
-      <canvas
-        ref="canvas"
-        @mousemove="handleCanvasMouseMove"
-        @resize="resizeCanvas"
-        @mouseleave="redrawSquares"
-      ></canvas>
+      <div class="canvas-container">
+        <canvas
+          ref="canvas"
+          @mousemove="handleCanvasMouseMove"
+          @mouseleave="handleCanvasMouseLeave"
+        ></canvas>
+      </div>
+      <ZoomLens
+        :image="backgroundImage"
+        :mouseX="zoomMouseX"
+        :mouseY="zoomMouseY"
+        :isActive="isZoomActive"
+        :width="zoomSize"
+        :height="zoomSize"
+        :zoomLevel="2.0"
+      />
     </div>
     <div class="bbox-component__footer">
       <strong>{{ getFileNameFromSrc() }}</strong>
@@ -15,8 +25,13 @@
 </template>
 
 <script>
+import ZoomLens from "./ZoomLens.vue";
+
 export default {
   name: "BBoxViewerComponent",
+  components: {
+    ZoomLens,
+  },
 
   props: {
     userSquaresList: {
@@ -68,12 +83,21 @@ export default {
       // 슬라이드 전환 시 race condition 방지
       currentLoadId: 0,
       isUnmounted: false,
+      // 확대경 관련
+      zoomMouseX: 0,
+      zoomMouseY: 0,
+      isZoomActive: false,
+      canvasHeight: 280,
     };
   },
 
   computed: {
     isSliderActive() {
       return this.$store.getters.isSlideBarOpen;
+    },
+    zoomSize() {
+      const size = Math.floor(this.canvasHeight * 0.4);
+      return Math.max(200, Math.min(350, size));
     },
   },
 
@@ -301,35 +325,44 @@ export default {
       return { x: 0, y: 0, scale };
     },
 
-    resizeCanvas() {
+    async resizeCanvas() {
       const canvas = this.$refs.canvas;
-      if (!canvas) return;
+      if (!canvas || this.isUnmounted) return;
 
-      if (this.localBeforeCanvas.width && this.localBeforeCanvas.height) {
-        canvas.width = this.localBeforeCanvas.width;
-        canvas.height = this.localBeforeCanvas.height;
-      }
+      // 이미지가 로드되지 않은 경우 조기 반환
+      if (!this.originalWidth || !this.originalHeight) return;
 
-      const beforePosition = this.calculateImagePosition(
-        canvas.width,
-        canvas.height
-      );
+      // DOM 레이아웃이 완료될 때까지 대기
+      await this.$nextTick();
 
-      canvas.width = 0;
-      canvas.height = 0;
+      // 부모 컨테이너에서 크기 측정
+      const body = this.$el.querySelector(".bbox-component__body");
+      if (!body) return;
+      const bodyRect = body.getBoundingClientRect();
 
-      const bboxBody = this.$el
-        .querySelector(".bbox-component__body")
-        .getBoundingClientRect();
-      canvas.width = bboxBody.width;
-      canvas.height = bboxBody.height;
+      // 가용 크기 계산 (ZoomLens 크기 + gap 제외)
+      const zoomLensWidth = this.zoomSize || 200;
+      const gap = 10;
+      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const availableHeight = bodyRect.height;
 
+      // 이전 위치 계산
+      const beforePosition = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 이미지 비율에 맞게 캔버스 크기 계산
+      const scaleX = availableWidth / this.originalWidth;
+      const scaleY = availableHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
+      canvas.width = Math.floor(this.originalWidth * scale);
+      canvas.height = Math.floor(this.originalHeight * scale);
+
+      // 결과 저장
       this.localBeforeCanvas.width = canvas.width;
       this.localBeforeCanvas.height = canvas.height;
+      this.canvasHeight = canvas.height;
 
       this.drawBackgroundImage();
       this.setSquaresPosition(beforePosition);
-
       this.redrawSquares();
     },
 
@@ -409,7 +442,6 @@ export default {
       });
 
       if (event) {
-        this.activeEnlarge(event);
         this.activeSquareCursor(event);
       }
 
@@ -428,75 +460,36 @@ export default {
     },
 
     handleCanvasMouseMove(event) {
-      this.redrawSquares(event);
-    },
-
-    activeEnlarge(event) {
       const canvas = this.$refs.canvas;
-      if (!canvas || this.isUnmounted) return;
+      if (!canvas || this.isUnmounted || !this.backgroundImage) return;
 
-      const ctx = canvas.getContext("2d");
       const { x, y } = this.getCanvasCoordinates(event);
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
 
-      const {
-        x: imgX,
-        y: imgY,
-        scale,
-      } = this.calculateImagePosition(canvas.width, canvas.height);
-
-      // 확대경 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
-      const baseZoomSize = 300;
-      const zoomLevel = 2.0;
-      const zoomWidth = baseZoomSize * scale;
-      const zoomHeight = baseZoomSize * scale;
-
-      // 캡처 영역은 고정 (스케일과 무관하게 항상 동일한 영역 표시)
-      const sourceWidth = baseZoomSize / zoomLevel;
-      const sourceHeight = baseZoomSize / zoomLevel;
-
+      // 원본 이미지 좌표로 변환
       const mouseXOnImage = (x - imgX) / scale;
       const mouseYOnImage = (y - imgY) / scale;
 
-      // 이미지 영역 밖(검은 영역)에서는 줌을 표시하지 않음
+      // 이미지 영역 내에 있을 때만 확대경 활성화
       if (
-        !this.backgroundImage ||
-        mouseXOnImage < 0 ||
-        mouseYOnImage < 0 ||
-        mouseXOnImage > this.originalWidth ||
-        mouseYOnImage > this.originalHeight
+        mouseXOnImage >= 0 &&
+        mouseYOnImage >= 0 &&
+        mouseXOnImage <= this.originalWidth &&
+        mouseYOnImage <= this.originalHeight
       ) {
-        return;
+        this.zoomMouseX = mouseXOnImage;
+        this.zoomMouseY = mouseYOnImage;
+        this.isZoomActive = true;
+      } else {
+        this.isZoomActive = false;
       }
 
-      const sourceX = mouseXOnImage - sourceWidth / 2;
-      const sourceY = mouseYOnImage - sourceHeight / 2;
+      this.redrawSquares(event);
+    },
 
-      // 확대경 위치: 이미지 우측 끝에서 20px * scale 떨어진 곳
-      const imageRightEdge = imgX + this.originalWidth * scale;
-      const zoomGap = 20 * scale;
-      const zoomX = imageRightEdge + zoomGap;
-
+    handleCanvasMouseLeave() {
+      this.isZoomActive = false;
       this.redrawSquares();
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.drawImage(
-        this.backgroundImage,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        zoomX,
-        0,
-        zoomWidth,
-        zoomHeight
-      );
-
-      ctx.restore();
     },
 
     activeSquareCursor(event) {
@@ -612,15 +605,28 @@ export default {
 .bbox-component__body {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
+  gap: 10px;
   min-height: 0;
+  overflow: hidden;
+  align-items: flex-start;
+}
+
+.canvas-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
   overflow: hidden;
 }
 
+.zoom-lens {
+  flex-shrink: 0;
+}
+
 canvas {
-  max-height: 100%;
+  border: 1px solid #ccc;
   background-color: white;
+  cursor: crosshair;
 }
 
 .bbox-component__footer {
