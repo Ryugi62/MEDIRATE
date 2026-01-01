@@ -773,7 +773,7 @@ function formatTime(ms) {
 // ========================================
 router.put("/:consensusId", authenticateToken, async (req, res) => {
   const { consensusId } = req.params;
-  const { title, deadline, evaluator_threshold, score_threshold } = req.body;
+  const { title, deadline, evaluator_threshold, score_threshold, project_id, cancer_type_id } = req.body;
 
   try {
     // 관리자 권한 확인
@@ -794,9 +794,10 @@ router.put("/:consensusId", authenticateToken, async (req, res) => {
     // 업데이트 실행
     await db.query(
       `UPDATE consensus_assignments
-       SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?
+       SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?,
+           project_id = ?, cancer_type_id = ?
        WHERE id = ? AND deleted_at IS NULL`,
-      [title, deadline, evaluator_threshold, score_threshold, consensusId]
+      [title, deadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, consensusId]
     );
 
     res.json({ message: "수정되었습니다." });

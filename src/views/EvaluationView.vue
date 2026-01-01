@@ -1172,6 +1172,8 @@ export default {
             title: this.assignmentDetails.title,
             deadline: this.assignmentDetails.deadline || null,
             evaluator_threshold: 2, // 기본값
+            project_id: this.selectedProjectId,
+            cancer_type_id: this.selectedCancerId,
           },
           {
             headers: {
