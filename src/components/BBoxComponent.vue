@@ -130,6 +130,8 @@ export default {
       // 슬라이드 전환 시 race condition 방지
       currentLoadId: 0,
       isUnmounted: false,
+      // 최초 로드 여부 (저장된 좌표 변환용)
+      isFirstLoad: true,
       // 확대경 관련
       zoomMouseX: 0,
       zoomMouseY: 0,
@@ -241,6 +243,7 @@ export default {
     },
 
     async initializeComponent() {
+      this.isFirstLoad = true;  // 새 슬라이드 로드 시 플래그 리셋
       this.fetchLocalInfo();
       await this.loadBackgroundImage();
     },
@@ -450,16 +453,21 @@ export default {
 
       // 가용 크기 계산 (ZoomLens 크기 + ShortcutHelp 크기 + gap 제외)
       const zoomLensWidth = this.zoomSize || 200;
-      const helpPanel = this.$el.querySelector(".shortcut-help-panel");
-      const helpWidth = helpPanel ? helpPanel.getBoundingClientRect().width : 0;
+      // 고정 너비 사용 (렌더링 타이밍 문제 방지)
+      const helpWidth = this.helpCollapsed ? 28 : 180;
       const gap = 10; // gap between elements
       const totalGap = gap * 2; // canvas-zoomlens gap + zoomlens-help gap
       const availableWidth = bodyRect.width - zoomLensWidth - helpWidth - totalGap;
       const availableHeight = bodyRect.height;
 
-      // 이전 위치 계산
-      const beforePosition = this.calculateImagePosition(canvas.width, canvas.height);
-      this.beforeResizePosition = beforePosition;
+      // 이전 scale 계산 (0이면 좌표 변환 스킵)
+      const beforeScale = canvas.width > 0 ? canvas.width / this.originalWidth : 0;
+      // 저장된 beforeCanvas의 scale (최초 로드용)
+      const savedBeforeCanvasWidth = this.localBeforeCanvas.width;
+
+      console.log('[DEBUG resizeCanvas] isFirstLoad:', this.isFirstLoad);
+      console.log('[DEBUG resizeCanvas] savedBeforeCanvasWidth:', savedBeforeCanvasWidth);
+      console.log('[DEBUG resizeCanvas] temporarySquares.length:', this.temporarySquares.length);
 
       // 이미지 비율에 맞게 캔버스 크기 계산
       const scaleX = availableWidth / this.originalWidth;
@@ -468,21 +476,40 @@ export default {
       canvas.width = Math.floor(this.originalWidth * scale);
       canvas.height = Math.floor(this.originalHeight * scale);
 
+      console.log('[DEBUG resizeCanvas] 새 canvas.width:', canvas.width);
+
       // 결과 저장
       this.localBeforeCanvas.width = canvas.width;
       this.localBeforeCanvas.height = canvas.height;
       this.canvasHeight = canvas.height;
 
       this.drawBackgroundImage();
-      await this.setSquaresPosition(beforePosition);
+      // 좌표 변환
+      if (this.isFirstLoad && savedBeforeCanvasWidth > 0) {
+        // 최초 로드 시: 저장된 beforeCanvas 기준으로 변환
+        console.log('[DEBUG resizeCanvas] convertLoadedSquaresPosition 호출');
+        this.convertLoadedSquaresPosition(savedBeforeCanvasWidth);
+        this.isFirstLoad = false;
+      } else if (beforeScale > 0) {
+        // 리사이즈 시: 이전 캔버스 크기 기준으로 변환
+        console.log('[DEBUG resizeCanvas] setSquaresPosition 호출');
+        await this.setSquaresPosition({ x: 0, y: 0, scale: beforeScale });
+      }
       this.redrawSquares();
     },
 
     setSquaresPosition(beforePosition) {
       if (!this.temporarySquares.length) return;
 
+      // 안전 장치: beforePosition.scale이 0이면 변환 스킵
+      if (!beforePosition.scale || beforePosition.scale <= 0) return;
+
       const { width, height } = this.$refs.canvas;
       const currentPosition = this.calculateImagePosition(width, height);
+
+      // 안전 장치: currentPosition.scale이 0이면 변환 스킵
+      if (!currentPosition.scale || currentPosition.scale <= 0) return;
+
       const scaleRatio = currentPosition.scale / beforePosition.scale;
 
       this.temporarySquares.forEach((square) => {
@@ -490,6 +517,58 @@ export default {
           (square.x - beforePosition.x) * scaleRatio + currentPosition.x;
         square.y =
           (square.y - beforePosition.y) * scaleRatio + currentPosition.y;
+      });
+    },
+
+    // 로드된 좌표를 현재 캔버스 크기에 맞게 변환
+    convertLoadedSquaresPosition(savedBeforeCanvasWidth) {
+      console.log('[DEBUG] convertLoadedSquaresPosition 호출');
+      console.log('[DEBUG] savedBeforeCanvasWidth:', savedBeforeCanvasWidth);
+      console.log('[DEBUG] this.originalWidth:', this.originalWidth);
+      console.log('[DEBUG] canvas.width:', this.$refs.canvas?.width);
+      console.log('[DEBUG] temporarySquares:', JSON.stringify(this.temporarySquares));
+      console.log('[DEBUG] beforeCanvas (props):', JSON.stringify(this.beforeCanvas));
+
+      if (!this.temporarySquares.length) {
+        console.log('[DEBUG] 스킵: temporarySquares 없음');
+        return;
+      }
+      if (!savedBeforeCanvasWidth || !this.originalWidth) {
+        console.log('[DEBUG] 스킵: savedBeforeCanvasWidth 또는 originalWidth 없음');
+        return;
+      }
+
+      const canvas = this.$refs.canvas;
+      if (!canvas || !canvas.width) {
+        console.log('[DEBUG] 스킵: canvas 없음');
+        return;
+      }
+
+      // 저장 당시 scale
+      const savedScale = savedBeforeCanvasWidth / this.originalWidth;
+      // 현재 scale
+      const currentScale = canvas.width / this.originalWidth;
+
+      console.log('[DEBUG] savedScale:', savedScale);
+      console.log('[DEBUG] currentScale:', currentScale);
+
+      // 같으면 변환 불필요
+      if (Math.abs(savedScale - currentScale) < 0.001) {
+        console.log('[DEBUG] 스킵: scale 동일');
+        return;
+      }
+
+      const scaleRatio = currentScale / savedScale;
+      console.log('[DEBUG] scaleRatio:', scaleRatio);
+
+      this.temporarySquares.forEach((square, idx) => {
+        // AI 박스는 원본 좌표로 저장되므로 제외
+        if (square.isAI) return;
+
+        const oldX = square.x, oldY = square.y;
+        square.x = square.x * scaleRatio;
+        square.y = square.y * scaleRatio;
+        console.log(`[DEBUG] square[${idx}]: (${oldX}, ${oldY}) -> (${square.x}, ${square.y})`);
       });
     },
 

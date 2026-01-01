@@ -316,8 +316,8 @@ export default {
 
       // 가용 크기 계산 (ZoomLens 크기 + ShortcutHelp 크기 + gap 제외)
       const zoomLensWidth = this.zoomSize || 200;
-      const helpPanel = this.$el.querySelector(".shortcut-help-panel");
-      const helpWidth = helpPanel ? helpPanel.getBoundingClientRect().width : 0;
+      // 고정 너비 사용 (렌더링 타이밍 문제 방지)
+      const helpWidth = this.helpCollapsed ? 28 : 180;
       const gap = 10;
       const totalGap = gap * 2;
       const availableWidth = bodyRect.width - zoomLensWidth - helpWidth - totalGap;
