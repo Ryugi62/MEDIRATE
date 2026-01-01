@@ -64,6 +64,11 @@
         :height="zoomSize"
         :zoomLevel="2.0"
       />
+      <ShortcutHelp
+        :operations="helpOperations"
+        :shortcuts="helpShortcuts"
+        @collapse-change="onHelpCollapseChange"
+      />
     </div>
 
     <div class="consensus-component__footer">
@@ -72,24 +77,18 @@
         응답: {{ respondedCount }} / {{ totalFpCount }}
       </span>
     </div>
-
-    <div class="consensus-component__instructions">
-      <strong>조작법:</strong>
-      왼클릭 = 마이토시스 |
-      우클릭 = 논 마이토시스 |
-      Space = 전체 마이토시스 |
-      Shift+Space = 전체 논 마이토시스
-    </div>
   </div>
 </template>
 
 <script>
 import ZoomLens from "./ZoomLens.vue";
+import ShortcutHelp from "./ShortcutHelp.vue";
 
 export default {
   name: "ConsensusComponent",
   components: {
     ZoomLens,
+    ShortcutHelp,
   },
 
   props: {
@@ -167,6 +166,18 @@ export default {
       zoomMouseY: 0,
       isZoomActive: false,
       canvasHeight: 280,
+      // 단축키 도움말
+      helpOperations: [
+        { action: "왼클릭", description: "마이토시스" },
+        { action: "우클릭", description: "논 마이토시스" },
+      ],
+      helpShortcuts: [
+        { key: "Space", description: "전체 마이토시스" },
+        { key: "Shift+Space", description: "전체 논 마이토시스" },
+        { key: "Ctrl+S", description: "저장" },
+        { key: "↑/↓", description: "이전/다음" },
+      ],
+      helpCollapsed: false,
     };
   },
 
@@ -303,10 +314,13 @@ export default {
       if (!body) return;
       const bodyRect = body.getBoundingClientRect();
 
-      // 가용 크기 계산 (ZoomLens 크기 + gap 제외)
+      // 가용 크기 계산 (ZoomLens 크기 + ShortcutHelp 크기 + gap 제외)
       const zoomLensWidth = this.zoomSize || 200;
+      const helpPanel = this.$el.querySelector(".shortcut-help-panel");
+      const helpWidth = helpPanel ? helpPanel.getBoundingClientRect().width : 0;
       const gap = 10;
-      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const totalGap = gap * 2;
+      const availableWidth = bodyRect.width - zoomLensWidth - helpWidth - totalGap;
       const availableHeight = bodyRect.height;
 
       // 이미지 비율에 맞게 캔버스 크기 계산
@@ -599,6 +613,13 @@ export default {
     handleCanvasMouseLeave() {
       this.isZoomActive = false;
       this.redrawSquares();
+    },
+
+    onHelpCollapseChange(collapsed) {
+      this.helpCollapsed = collapsed;
+      this.$nextTick(() => {
+        this.resizeCanvas();
+      });
     },
 
     handleKeydown(event) {

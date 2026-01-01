@@ -63,6 +63,11 @@
         :height="zoomSize"
         :zoomLevel="2.0"
       />
+      <ShortcutHelp
+        :operations="helpOperations"
+        :shortcuts="helpShortcuts"
+        @collapse-change="onHelpCollapseChange"
+      />
     </div>
     <div class="bbox-component__footer">
       <strong>{{ fileName }}</strong>
@@ -72,11 +77,13 @@
 
 <script>
 import ZoomLens from "./ZoomLens.vue";
+import ShortcutHelp from "./ShortcutHelp.vue";
 
 export default {
   name: "BBoxComponent",
   components: {
     ZoomLens,
+    ShortcutHelp,
   },
 
   props: {
@@ -128,6 +135,22 @@ export default {
       zoomMouseY: 0,
       isZoomActive: false,
       canvasHeight: 280,
+      // 단축키 도움말
+      helpOperations: [
+        { action: "왼클릭", description: "박스 추가" },
+        { action: "드래그", description: "박스 그리기" },
+        { action: "우클릭", description: "박스 삭제" },
+      ],
+      helpShortcuts: [
+        { key: "Ctrl+A", description: "AI 탐지" },
+        { key: "Ctrl+C", description: "AI Confirm" },
+        { key: "Ctrl+Q", description: "박스 추가" },
+        { key: "Ctrl+E", description: "선택 삭제" },
+        { key: "Ctrl+D", description: "전체 삭제" },
+        { key: "Ctrl+S", description: "저장" },
+        { key: "↑/↓", description: "이전/다음" },
+      ],
+      helpCollapsed: false,
     };
   },
 
@@ -425,10 +448,13 @@ export default {
       if (!body) return;
       const bodyRect = body.getBoundingClientRect();
 
-      // 가용 크기 계산 (ZoomLens 크기 + gap 제외)
+      // 가용 크기 계산 (ZoomLens 크기 + ShortcutHelp 크기 + gap 제외)
       const zoomLensWidth = this.zoomSize || 200;
-      const gap = 10;
-      const availableWidth = bodyRect.width - zoomLensWidth - gap;
+      const helpPanel = this.$el.querySelector(".shortcut-help-panel");
+      const helpWidth = helpPanel ? helpPanel.getBoundingClientRect().width : 0;
+      const gap = 10; // gap between elements
+      const totalGap = gap * 2; // canvas-zoomlens gap + zoomlens-help gap
+      const availableWidth = bodyRect.width - zoomLensWidth - helpWidth - totalGap;
       const availableHeight = bodyRect.height;
 
       // 이전 위치 계산
@@ -691,6 +717,13 @@ export default {
       this.isZoomActive = false;
 
       this.redrawSquares();
+    },
+
+    onHelpCollapseChange(collapsed) {
+      this.helpCollapsed = collapsed;
+      this.$nextTick(() => {
+        this.resizeCanvas();
+      });
     },
     activeSquareCursor(event) {
       const canvas = this.$refs.canvas;

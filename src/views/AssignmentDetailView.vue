@@ -50,16 +50,6 @@
       </div>
     </div>
 
-    <div class="shortcut-help" v-if="isBBoxMode || isSegmentMode">
-      <span><kbd>Ctrl</kbd>+<kbd>A</kbd> AI 탐지 표시</span>
-      <span><kbd>Ctrl</kbd>+<kbd>C</kbd> AI Confirm</span>
-      <span><kbd>Ctrl</kbd>+<kbd>Q</kbd> 박스 추가</span>
-      <span><kbd>Ctrl</kbd>+<kbd>E</kbd> 선택 삭제</span>
-      <span><kbd>Ctrl</kbd>+<kbd>D</kbd> 전체 삭제</span>
-      <span><kbd>Ctrl</kbd>+<kbd>S</kbd> 저장</span>
-      <span><kbd>↑</kbd>/<kbd>↓</kbd> 이전/다음 문제</span>
-    </div>
-
     <div class="assignment-content">
       <div class="grades-table">
         <table>
