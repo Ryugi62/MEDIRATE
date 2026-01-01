@@ -161,6 +161,10 @@ export default {
       // 슬라이드 전환 시 race condition 방지
       currentLoadId: 0,
       isUnmounted: false,
+      // Undo/Redo 관련
+      undoStack: [],
+      redoStack: [],
+      maxHistorySize: 50,
       // 확대경 관련
       zoomMouseX: 0,
       zoomMouseY: 0,
@@ -174,6 +178,8 @@ export default {
       helpShortcuts: [
         { key: "Space", description: "전체 마이토시스" },
         { key: "Shift+Space", description: "전체 논 마이토시스" },
+        { key: "Ctrl+Z", description: "되돌리기" },
+        { key: "Ctrl+Shift+Z", description: "다시실행" },
         { key: "Ctrl+S", description: "저장" },
         { key: "↑/↓", description: "이전/다음" },
       ],
@@ -228,6 +234,100 @@ export default {
       if (this.timer === 0) {
         this.timer = this.evaluation_time || 0;
       }
+    },
+
+    // Undo/Redo 메서드
+    saveStateForUndo() {
+      // 현재 이미지의 FP 응답만 저장
+      const currentImageFpIds = this.currentImageFpSquares.map((fp) => fp.id);
+      const currentResponses = {};
+      currentImageFpIds.forEach((id) => {
+        if (this.localResponses[id]) {
+          currentResponses[id] = this.localResponses[id];
+        }
+      });
+      const stateSnapshot = JSON.stringify(currentResponses);
+
+      // 이전 상태와 동일하면 저장하지 않음
+      if (this.undoStack.length > 0) {
+        const lastState = this.undoStack[this.undoStack.length - 1];
+        if (lastState === stateSnapshot) {
+          return;
+        }
+      }
+
+      this.undoStack.push(stateSnapshot);
+
+      // 최대 히스토리 크기 제한
+      if (this.undoStack.length > this.maxHistorySize) {
+        this.undoStack.shift();
+      }
+
+      // 새 작업 시 redoStack 초기화
+      this.redoStack = [];
+    },
+
+    undo() {
+      if (this.undoStack.length === 0) return;
+
+      // 현재 상태를 redoStack에 저장
+      const currentImageFpIds = this.currentImageFpSquares.map((fp) => fp.id);
+      const currentResponses = {};
+      currentImageFpIds.forEach((id) => {
+        if (this.localResponses[id]) {
+          currentResponses[id] = this.localResponses[id];
+        }
+      });
+      this.redoStack.push(JSON.stringify(currentResponses));
+
+      // 이전 상태 복원
+      const previousState = this.undoStack.pop();
+      const restoredResponses = JSON.parse(previousState);
+
+      // 현재 이미지의 응답만 교체 (다른 이미지 응답은 유지)
+      currentImageFpIds.forEach((id) => {
+        if (restoredResponses[id]) {
+          this.localResponses[id] = restoredResponses[id];
+        } else {
+          delete this.localResponses[id];
+        }
+      });
+
+      this.redrawSquares();
+    },
+
+    redo() {
+      if (this.redoStack.length === 0) return;
+
+      // 현재 상태를 undoStack에 저장
+      const currentImageFpIds = this.currentImageFpSquares.map((fp) => fp.id);
+      const currentResponses = {};
+      currentImageFpIds.forEach((id) => {
+        if (this.localResponses[id]) {
+          currentResponses[id] = this.localResponses[id];
+        }
+      });
+      this.undoStack.push(JSON.stringify(currentResponses));
+
+      // 다음 상태 복원
+      const nextState = this.redoStack.pop();
+      const restoredResponses = JSON.parse(nextState);
+
+      // 현재 이미지의 응답만 교체 (다른 이미지 응답은 유지)
+      currentImageFpIds.forEach((id) => {
+        if (restoredResponses[id]) {
+          this.localResponses[id] = restoredResponses[id];
+        } else {
+          delete this.localResponses[id];
+        }
+      });
+
+      this.redrawSquares();
+    },
+
+    clearHistory() {
+      this.undoStack = [];
+      this.redoStack = [];
     },
 
     async loadBackgroundImage() {
@@ -402,6 +502,9 @@ export default {
       const closestFp = this.findClosestFpSquare(x, y);
 
       if (closestFp) {
+        // Undo를 위해 현재 상태 저장
+        this.saveStateForUndo();
+
         this.localResponses[closestFp.id] = "agree";
         this.redrawSquares();
       }
@@ -419,6 +522,9 @@ export default {
       const closestFp = this.findClosestFpSquare(x, y);
 
       if (closestFp) {
+        // Undo를 위해 현재 상태 저장
+        this.saveStateForUndo();
+
         this.localResponses[closestFp.id] = "disagree";
         this.redrawSquares();
       }
@@ -431,6 +537,9 @@ export default {
         }
         return;
       }
+
+      // Undo를 위해 현재 상태 저장
+      this.saveStateForUndo();
 
       this.currentImageFpSquares.forEach((fp) => {
         this.localResponses[fp.id] = "agree";
@@ -445,6 +554,9 @@ export default {
         }
         return;
       }
+
+      // Undo를 위해 현재 상태 저장
+      this.saveStateForUndo();
 
       this.currentImageFpSquares.forEach((fp) => {
         this.localResponses[fp.id] = "disagree";
@@ -633,6 +745,14 @@ export default {
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault();
         this.commitChanges();
+      } else if (event.ctrlKey && !event.shiftKey && event.key === "z") {
+        // Ctrl+Z: Undo
+        event.preventDefault();
+        this.undo();
+      } else if (event.ctrlKey && event.shiftKey && event.key === "Z") {
+        // Ctrl+Shift+Z: Redo (Shift 누르면 대문자 "Z"가 됨)
+        event.preventDefault();
+        this.redo();
       }
     },
 
@@ -702,6 +822,8 @@ export default {
       immediate: true,
       handler: async function (newVal, oldVal) {
         if (newVal !== oldVal) {
+          // 이미지 변경 시 Undo/Redo 히스토리 초기화
+          this.clearHistory();
           await this.loadBackgroundImage();
           await this.fetchLocalInfo();
           this.resizeCanvas();

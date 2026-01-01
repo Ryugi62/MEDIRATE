@@ -36,7 +36,7 @@
           class="icon-item"
           :class="{
             active: icon.active,
-            disabled: !isRunning,
+            disabled: !isRunning || isIconDisabled(icon.name),
           }"
           @click="handleIconClick(icon)"
           :aria-label="icon.explanation"
@@ -123,6 +123,8 @@ export default {
         { name: "fa-pen", active: false, explanation: "자유곡선" },
         { name: "fa-scissors", active: false, explanation: "잘라내기" },
         { name: "fa-brush", active: false, explanation: "자유 잘라내기" },
+        { name: "fa-rotate-left", active: false, explanation: "되돌리기" },
+        { name: "fa-rotate-right", active: false, explanation: "다시실행" },
         { name: "fa-circle-minus", active: false, explanation: "전체삭제" },
       ],
       localBeforeCanvas: {},
@@ -135,6 +137,10 @@ export default {
       lastFreehandPoint: null,
       // 잘라내기 관련
       currentCutoutPoints: [],
+      // Undo/Redo 관련
+      undoStack: [],
+      redoStack: [],
+      maxHistorySize: 50,
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -160,7 +166,8 @@ export default {
       helpShortcuts: [
         { key: "ESC", description: "취소" },
         { key: "Ctrl+F", description: "자유곡선" },
-        { key: "Ctrl+Z", description: "점 취소" },
+        { key: "Ctrl+Z", description: "되돌리기" },
+        { key: "Ctrl+Shift+Z", description: "다시실행" },
         { key: "Ctrl+D", description: "전체 삭제" },
         { key: "Ctrl+S", description: "저장" },
         { key: "↑/↓", description: "이전/다음" },
@@ -215,7 +222,21 @@ export default {
         }
         return;
       }
+      // 비활성화된 아이콘 클릭 무시
+      if (this.isIconDisabled(icon.name)) {
+        return;
+      }
       this.activateIcon(icon);
+    },
+
+    isIconDisabled(iconName) {
+      if (iconName === "fa-rotate-left") {
+        return this.undoStack.length === 0 && this.currentPoints.length === 0;
+      }
+      if (iconName === "fa-rotate-right") {
+        return this.redoStack.length === 0;
+      }
+      return false;
     },
 
     handleHotkeys(event) {
@@ -229,9 +250,14 @@ export default {
       if (event.ctrlKey && event.key === "s") {
         event.preventDefault();
         this.commitChanges("segment", this.goNext);
-      } else if (event.ctrlKey && event.key === "z") {
+      } else if (event.ctrlKey && event.shiftKey && event.key === "Z") {
+        // Ctrl+Shift+Z: Redo (Shift 누르면 대문자 "Z"가 됨)
         event.preventDefault();
-        this.undoLastPoint();
+        this.redo();
+      } else if (event.ctrlKey && event.key === "z") {
+        // Ctrl+Z: Undo
+        event.preventDefault();
+        this.undo();
       } else if (event.ctrlKey && event.key === "f") {
         event.preventDefault();
         // 자유곡선 모드 토글
@@ -277,11 +303,22 @@ export default {
     },
 
     activateIcon(selectedIcon) {
+      // 즉시 실행 버튼들 (모드 전환 없음)
       if (selectedIcon.name === "fa-circle-minus") {
         if (this.showAlert && !confirm("정말로 모든 폴리곤을 삭제하시겠습니까?")) {
           return;
         }
         this.clearAllPolygons();
+        return;
+      }
+
+      if (selectedIcon.name === "fa-rotate-left") {
+        this.undo();
+        return;
+      }
+
+      if (selectedIcon.name === "fa-rotate-right") {
+        this.redo();
         return;
       }
 
@@ -296,6 +333,7 @@ export default {
     },
 
     clearAllPolygons() {
+      this.saveStateForUndo();
       this.temporaryPolygons = this.temporaryPolygons.filter(
         (p) => p.questionIndex !== this.questionIndex
       );
@@ -308,6 +346,74 @@ export default {
         this.currentPoints.pop();
         this.redrawCanvas();
       }
+    },
+
+    // Undo/Redo 관련 메서드
+    saveStateForUndo() {
+      // 현재 questionIndex의 폴리곤만 스냅샷
+      const snapshot = JSON.parse(JSON.stringify(
+        this.temporaryPolygons.filter(p => p.questionIndex === this.questionIndex)
+      ));
+
+      this.undoStack.push(snapshot);
+      this.redoStack = []; // 새 작업 시 redo 스택 초기화
+
+      // 최대 크기 제한
+      if (this.undoStack.length > this.maxHistorySize) {
+        this.undoStack.shift();
+      }
+    },
+
+    undo() {
+      // 그리는 중이면 점 취소
+      if (this.currentPoints.length > 0) {
+        this.undoLastPoint();
+        return;
+      }
+
+      if (this.undoStack.length === 0) return;
+
+      // 현재 상태를 redo 스택에 저장
+      const currentState = this.temporaryPolygons.filter(
+        p => p.questionIndex === this.questionIndex
+      );
+      this.redoStack.push(JSON.parse(JSON.stringify(currentState)));
+
+      // 이전 상태 복원
+      const previousState = this.undoStack.pop();
+
+      // 다른 question의 폴리곤 유지 + 복원된 폴리곤
+      const otherPolygons = this.temporaryPolygons.filter(
+        p => p.questionIndex !== this.questionIndex
+      );
+      this.temporaryPolygons = [...otherPolygons, ...previousState];
+
+      this.redrawCanvas();
+    },
+
+    redo() {
+      if (this.redoStack.length === 0) return;
+
+      // 현재 상태를 undo 스택에 저장
+      const currentState = this.temporaryPolygons.filter(
+        p => p.questionIndex === this.questionIndex
+      );
+      this.undoStack.push(JSON.parse(JSON.stringify(currentState)));
+
+      // 다음 상태 복원
+      const nextState = this.redoStack.pop();
+
+      const otherPolygons = this.temporaryPolygons.filter(
+        p => p.questionIndex !== this.questionIndex
+      );
+      this.temporaryPolygons = [...otherPolygons, ...nextState];
+
+      this.redrawCanvas();
+    },
+
+    clearHistory() {
+      this.undoStack = [];
+      this.redoStack = [];
     },
 
     async loadBackgroundImage() {
@@ -520,6 +626,7 @@ export default {
         const smoothed = this.smoothPoints(this.currentPoints, 2);
         const simplifiedPoints = this.simplifyPoints(smoothed, 1.5);
 
+        this.saveStateForUndo();
         this.temporaryPolygons.push({
           questionIndex: this.questionIndex,
           points: simplifiedPoints,
@@ -705,6 +812,7 @@ export default {
         return;
       }
 
+      this.saveStateForUndo();
       this.temporaryPolygons.push({
         questionIndex: this.questionIndex,
         points: [...this.currentPoints],
@@ -748,6 +856,8 @@ export default {
         }
         return;
       }
+
+      this.saveStateForUndo();
 
       // 잘라내기 영역을 polygon-clipping 형식으로 변환
       const clipPoly = [this.currentCutoutPoints.map(p => [p.x, p.y])];
@@ -1079,6 +1189,7 @@ export default {
       immediate: true,
       handler: async function (newVal, oldVal) {
         if (newVal !== oldVal) {
+          this.clearHistory(); // 이미지 변경 시 히스토리 초기화
           await this.loadBackgroundImage();
           await this.fetchLocalInfo();
           this.resizeCanvas();

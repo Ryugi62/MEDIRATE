@@ -34,7 +34,7 @@
             active: icon.name === 'fa-robot' ? showAiBoxes : icon.active,
             'ai-active': icon.name === 'fa-robot' && showAiBoxes,
             'ai-inactive': icon.name === 'fa-robot' && !showAiBoxes,
-            disabled: !isRunning,
+            disabled: !isRunning || isIconDisabled(icon.name),
           }"
           @click="handleIconClick(icon)" :aria-label="icon.explanation">
           <i :class="['fas', icon.name]"></i>
@@ -110,6 +110,8 @@ export default {
       iconList: [
         { name: "fa-square", active: true, explanation: "추가" },
         { name: "fa-eraser", active: false, explanation: "선택삭제" },
+        { name: "fa-rotate-left", active: false, explanation: "되돌리기" },
+        { name: "fa-rotate-right", active: false, explanation: "다시실행" },
         { name: "fa-circle-minus", active: false, explanation: "전체삭제" },
         { name: "fa-robot", active: false, explanation: "AI" },
       ],
@@ -123,6 +125,10 @@ export default {
       originalHeight: null,
       showAiAlert: false,
       temporarySquares: [],
+      // Undo/Redo 관련
+      undoStack: [],
+      redoStack: [],
+      maxHistorySize: 50,
       goNext: true,
       timer: 0,
       isRunning: false,
@@ -148,6 +154,8 @@ export default {
         { key: "Ctrl+C", description: "AI Confirm" },
         { key: "Ctrl+Q", description: "박스 추가" },
         { key: "Ctrl+E", description: "선택 삭제" },
+        { key: "Ctrl+Z", description: "되돌리기" },
+        { key: "Ctrl+Shift+Z", description: "다시실행" },
         { key: "Ctrl+D", description: "전체 삭제" },
         { key: "Ctrl+S", description: "저장" },
         { key: "↑/↓", description: "이전/다음" },
@@ -194,12 +202,102 @@ export default {
         }
         return;
       }
+      // 비활성화된 아이콘 클릭 무시
+      if (this.isIconDisabled(icon.name)) {
+        return;
+      }
       // is_ai_use가 true인 경우에만 AI 아이콘 활성화 가능
       if (!this.is_ai_use && icon.name === "fa-robot") {
         alert("AI 기능을 사용할 수 없습니다.");
         return;
       }
       this.activateIcon(icon);
+    },
+
+    isIconDisabled(iconName) {
+      if (iconName === "fa-rotate-left") {
+        return this.undoStack.length === 0;
+      }
+      if (iconName === "fa-rotate-right") {
+        return this.redoStack.length === 0;
+      }
+      return false;
+    },
+
+    // Undo/Redo 메서드
+    saveStateForUndo() {
+      // 현재 questionIndex에 해당하는 박스만 저장
+      const currentSquares = this.temporarySquares.filter(
+        (square) => square.questionIndex === this.questionIndex
+      );
+      const stateSnapshot = JSON.stringify(currentSquares);
+
+      // 이전 상태와 동일하면 저장하지 않음
+      if (this.undoStack.length > 0) {
+        const lastState = this.undoStack[this.undoStack.length - 1];
+        if (lastState === stateSnapshot) {
+          return;
+        }
+      }
+
+      this.undoStack.push(stateSnapshot);
+
+      // 최대 히스토리 크기 제한
+      if (this.undoStack.length > this.maxHistorySize) {
+        this.undoStack.shift();
+      }
+
+      // 새 작업 시 redoStack 초기화
+      this.redoStack = [];
+    },
+
+    undo() {
+      if (this.undoStack.length === 0) return;
+
+      // 현재 상태를 redoStack에 저장
+      const currentSquares = this.temporarySquares.filter(
+        (square) => square.questionIndex === this.questionIndex
+      );
+      this.redoStack.push(JSON.stringify(currentSquares));
+
+      // 이전 상태 복원
+      const previousState = this.undoStack.pop();
+      const restoredSquares = JSON.parse(previousState);
+
+      // 다른 questionIndex의 박스는 유지하고, 현재 questionIndex 박스만 교체
+      this.temporarySquares = this.temporarySquares.filter(
+        (square) => square.questionIndex !== this.questionIndex
+      );
+      this.temporarySquares.push(...restoredSquares);
+
+      this.redrawSquares();
+    },
+
+    redo() {
+      if (this.redoStack.length === 0) return;
+
+      // 현재 상태를 undoStack에 저장
+      const currentSquares = this.temporarySquares.filter(
+        (square) => square.questionIndex === this.questionIndex
+      );
+      this.undoStack.push(JSON.stringify(currentSquares));
+
+      // 다음 상태 복원
+      const nextState = this.redoStack.pop();
+      const restoredSquares = JSON.parse(nextState);
+
+      // 다른 questionIndex의 박스는 유지하고, 현재 questionIndex 박스만 교체
+      this.temporarySquares = this.temporarySquares.filter(
+        (square) => square.questionIndex !== this.questionIndex
+      );
+      this.temporarySquares.push(...restoredSquares);
+
+      this.redrawSquares();
+    },
+
+    clearHistory() {
+      this.undoStack = [];
+      this.redoStack = [];
     },
 
     handleHotkeys(event) {
@@ -239,6 +337,14 @@ export default {
           (icon) => icon.name === "fa-circle-minus"
         );
         this.handleIconClick(circleMinusIcon);
+      } else if (event.ctrlKey && !event.shiftKey && event.key === "z") {
+        // Ctrl+Z: Undo
+        event.preventDefault();
+        this.undo();
+      } else if (event.ctrlKey && event.shiftKey && event.key === "Z") {
+        // Ctrl+Shift+Z: Redo (Shift 누르면 대문자 "Z"가 됨)
+        event.preventDefault();
+        this.redo();
       }
     },
 
@@ -265,6 +371,15 @@ export default {
         return;
       }
 
+      // Undo/Redo 버튼 처리
+      if (selectedIcon.name === "fa-rotate-left") {
+        this.undo();
+        return;
+      } else if (selectedIcon.name === "fa-rotate-right") {
+        this.redo();
+        return;
+      }
+
       if (selectedIcon.name === "fa-circle-minus") {
         // 알람이 활성화 되었다면
         if (
@@ -272,6 +387,9 @@ export default {
           !confirm("정말로 모든 사각형을 삭제하시겠습니까?")
         )
           return;
+
+        // Undo를 위해 현재 상태 저장
+        this.saveStateForUndo();
 
         // 임시로 전체 삭제
         this.temporarySquares = this.temporarySquares.filter(
@@ -639,6 +757,9 @@ export default {
         return; // 너무 가까우면 추가 금지
       }
 
+      // Undo를 위해 현재 상태 저장
+      this.saveStateForUndo();
+
       this.temporarySquares.push({
         x,
         y,
@@ -652,6 +773,9 @@ export default {
       const closestSquare = this.getClosestSquare(mouseX, mouseY);
 
       if (closestSquare) {
+        // Undo를 위해 현재 상태 저장
+        this.saveStateForUndo();
+
         const index = this.temporarySquares.indexOf(closestSquare);
         if (index !== -1) {
           this.temporarySquares.splice(index, 1);
@@ -824,6 +948,9 @@ export default {
     applyMitosis() {
       if (!this.isRunning || !this.is_ai_use) return;
 
+      // Undo를 위해 현재 상태 저장
+      this.saveStateForUndo();
+
       const filter_temporarySquares = this.temporarySquares.filter((s) => {
         // 현재 질문의 박스만 필터링하고, 다른 질문의 박스는 그대로 유지
         if (s.questionIndex !== this.questionIndex) {
@@ -931,6 +1058,8 @@ export default {
       handler: async function (newVal, oldVal) {
         // src가 변경될 때만 실행 (초기 로딩은 mounted에서 처리)
         if (newVal && newVal !== oldVal) {
+          // 이미지 변경 시 Undo/Redo 히스토리 초기화
+          this.clearHistory();
           await this.loadBackgroundImage();
           this.fetchLocalInfo();
           this.resizeCanvas();
