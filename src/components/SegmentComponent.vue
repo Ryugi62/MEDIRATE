@@ -531,11 +531,12 @@ export default {
 
       const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
 
-      // 확대경 크기를 이미지 스케일에 맞춰 조절 (이미지에 그려진 것처럼 비례)
+      // 확대경 크기를 고정값으로 설정 (정사각형 유지)
       const baseZoomSize = 300;
       const zoomLevel = 2.0;
-      const zoomWidth = baseZoomSize * scale;
-      const zoomHeight = baseZoomSize * scale;
+      const zoomSize = 280; // 고정 크기 (정사각형)
+      const zoomWidth = zoomSize;
+      const zoomHeight = zoomSize;
 
       // 캡처 영역은 고정 (스케일과 무관하게 항상 동일한 영역 표시)
       const sourceWidth = baseZoomSize / zoomLevel;
@@ -549,9 +550,9 @@ export default {
 
       if (!this.backgroundImage) return;
 
-      // 확대경 위치: 이미지 우측 끝에서 20px * scale 떨어진 곳
+      // 확대경 위치: 이미지 우측 끝에서 고정 간격으로
       const imageRightEdge = imgX + this.originalWidth * scale;
-      const zoomGap = 20 * scale;
+      const zoomGap = 20;
       const zoomX = imageRightEdge + zoomGap;
 
       ctx.save();

@@ -30,17 +30,17 @@ export default {
     return {
       links: [
         {
-          name: "평가 수행",
-          paths: ["/assignment", "/assignment/:id"],
-          isAdmin: false,
-        },
-        {
           name: "과제 관리",
           paths: ["/evaluation", "/edit-assignment/:id", "/edit-consensus/:id"],
           isAdmin: true,
         },
         {
-          name: "대시보드",
+          name: "평가 수행",
+          paths: ["/assignment", "/assignment/:id"],
+          isAdmin: false,
+        },
+        {
+          name: "평가 결과",
           paths: ["/dashboard", "/dashboard/:id", "/consensus/:id/analysis"],
           isAdmin: true,
         },
@@ -97,8 +97,8 @@ export default {
 
 <style scoped>
 .slide-bar {
-  width: 200px;
-  min-width: 200px;
+  width: 160px;
+  min-width: 160px;
   border-right: 1px solid var(--light-gray);
 }
 
@@ -112,7 +112,7 @@ export default {
 
 .slide-bar li {
   border-bottom: 1px solid var(--light-gray);
-  padding-left: 32px;
+  padding-left: 20px;
   line-height: 60px;
 }
 

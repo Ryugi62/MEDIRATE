@@ -1296,12 +1296,12 @@ th:nth-child(1) {
 
 td.assignment-mode,
 th:nth-child(2) {
-  width: 80px;
+  width: 60px;
 }
 
 td.assignment-title {
   text-align: left;
-  max-width: 300px;
+  min-width: 200px;
 }
 
 td.created-at,
@@ -1382,7 +1382,7 @@ th:nth-child(8) {
 }
 
 td.assignment-mode {
-  width: 90px;
+  width: 60px;
   font-weight: 500;
 }
 

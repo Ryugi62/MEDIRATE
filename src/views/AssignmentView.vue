@@ -80,7 +80,7 @@
         >
           <td v-for="column in columns" :key="column.key" :class="column.class">
             <template v-if="column.key === 'id'">
-              <i v-if="isAssignmentOpened(assignment)" class="fas fa-external-link-alt opened-icon" title="열린 과제"></i>
+              <i v-if="isAssignmentOpened(assignment)" class="fas fa-check opened-icon" title="완료"></i>
               {{ getValue(assignment, column.key) }}
             </template>
             <template v-else>
@@ -847,16 +847,17 @@ tbody > tr:hover {
 
 /* 열린 과제 표시 스타일 */
 .opened-row {
-  background-color: #e3f2fd;
+  /* 하늘색 배경 제거 - 체크 아이콘만 표시 */
+  background-color: transparent;
 }
 
 .opened-row:hover {
-  background-color: #bbdefb;
+  background-color: #f5f5f5;
 }
 
 .opened-icon {
-  color: #1976d2;
+  color: #28a745;
   margin-right: 6px;
-  font-size: 11px;
+  font-size: 12px;
 }
 </style>

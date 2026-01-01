@@ -72,7 +72,7 @@
               @click.stop="toggleProjectExpand(project.key)"
             ></i>
             <i class="fas fa-folder"></i>
-            <span class="item-name">{{ project.name }}</span>
+            <span class="item-name" :title="project.name">{{ project.name }}</span>
             <span class="item-count">{{ project.count }}</span>
           </div>
 
