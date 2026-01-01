@@ -179,17 +179,12 @@ export default {
         return { x: 0, y: 0, scale: 1 };
       }
 
-      const scale = Math.min(
-        canvasWidth / this.originalWidth,
-        canvasHeight / this.originalHeight
-      );
+      // contain 방식: 이미지가 캔버스에 완전히 들어가도록 스케일 계산
+      const scaleX = canvasWidth / this.originalWidth;
+      const scaleY = canvasHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
 
-      // 확대경(우측 상단 300x300)과 겹치지 않도록 이미지를 왼쪽으로 100px 이동
-      const imageOffset = 100;
-      const x = (canvasWidth - this.originalWidth * scale) / 2 - imageOffset;
-      const y = (canvasHeight - this.originalHeight * scale) / 2;
-
-      return { x, y, scale };
+      return { x: 0, y: 0, scale };
     },
 
     drawFpSquares() {

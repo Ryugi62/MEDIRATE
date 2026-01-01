@@ -33,9 +33,6 @@ export const CANVAS_CONSTANTS = {
   // Viewer 관련
   GROUP_DISTANCE_THRESHOLD: 12.5, // 박스 그룹화 거리
 
-  // 이미지 오프셋 (확대경 공간 확보용)
-  IMAGE_OFFSET: 100, // 이미지를 왼쪽으로 100px 이동
-
   // Canvas 색상 상수 (하드코딩된 값 중앙 집중화)
   COLORS: {
     // BBox 관련
@@ -153,7 +150,7 @@ export const canvasEvaluatorMixin = {
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const { x, y, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const { x, y, scale } = this.calculateImagePosition(canvas.width);
       ctx.drawImage(
         this.backgroundImage,
         x,
@@ -167,13 +164,11 @@ export const canvasEvaluatorMixin = {
       if (!this.originalWidth || !this.originalHeight) {
         return { x: 0, y: 0, scale: 1 };
       }
-      const scale = Math.min(
-        canvasWidth / this.originalWidth,
-        canvasHeight / this.originalHeight
-      );
-      const x = (canvasWidth - this.originalWidth * scale) / 2;
-      const y = (canvasHeight - this.originalHeight * scale) / 2;
-      return { x, y, scale };
+      // contain 방식: 이미지가 캔버스에 완전히 들어가도록 스케일 계산
+      const scaleX = canvasWidth / this.originalWidth;
+      const scaleY = canvasHeight / this.originalHeight;
+      const scale = Math.min(scaleX, scaleY);
+      return { x: 0, y: 0, scale };
     },
 
     // Coordinates methods
@@ -218,58 +213,6 @@ export const canvasEvaluatorMixin = {
       };
     },
 
-    // Enlarge methods
-    activeEnlarge(event) {
-      const canvas = this.$refs.canvas;
-      if (!this.backgroundImage || !canvas) return;
-
-      const ctx = canvas.getContext("2d");
-      const { x, y } = this.getCanvasCoordinates(event);
-
-      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
-
-      // 확대경 크기를 고정값으로 설정 (정사각형 유지)
-      const baseZoomSize = 300;
-      const zoomLevel = 2.0;
-      const zoomSize = 280; // 고정 크기 (정사각형)
-      const zoomWidth = zoomSize;
-      const zoomHeight = zoomSize;
-
-      // 캡처 영역은 고정 (스케일과 무관하게 항상 동일한 영역 표시)
-      const sourceWidth = baseZoomSize / zoomLevel;
-      const sourceHeight = baseZoomSize / zoomLevel;
-
-      const mouseXOnImage = (x - imgX) / scale;
-      const mouseYOnImage = (y - imgY) / scale;
-
-      const sourceX = mouseXOnImage - sourceWidth / 2;
-      const sourceY = mouseYOnImage - sourceHeight / 2;
-
-      // 확대경 위치: 이미지 우측 끝에서 고정 간격으로
-      const imageRightEdge = imgX + this.originalWidth * scale;
-      const zoomGap = 20;
-      const zoomX = imageRightEdge + zoomGap;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(zoomX, 0, zoomWidth, zoomHeight);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.drawImage(
-        this.backgroundImage,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        zoomX,
-        0,
-        zoomWidth,
-        zoomHeight
-      );
-
-      ctx.restore();
-    },
   },
 
   beforeUnmount() {

@@ -98,20 +98,6 @@
                 <span class="item-count">{{ cancer.count }}</span>
               </div>
 
-              <!-- 모드 레벨 -->
-              <div v-if="expandedCancers[`${project.key}_${cancer.key}`]" class="children mode-list">
-                <div
-                  v-for="mode in cancer.children"
-                  :key="mode.key"
-                  class="tree-item mode-item"
-                  :class="{ active: isModeActive(project, cancer, mode) }"
-                  @click="selectMode(project, cancer, mode)"
-                >
-                  <i :class="getModeIcon(mode.name)"></i>
-                  <span class="item-name">{{ mode.name }}</span>
-                  <span class="item-count">{{ mode.count }}</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -139,10 +125,6 @@ export default {
     },
     selectedCancer: {
       type: [Number, String],
-      default: null,
-    },
-    selectedMode: {
-      type: String,
       default: null,
     },
     // 태그 관련
@@ -174,13 +156,12 @@ export default {
 
   computed: {
     hasActiveFilter() {
-      return this.selectedProject !== null || this.selectedCancer !== null || this.selectedMode !== null || this.selectedTag !== "all";
+      return this.selectedProject !== null || this.selectedCancer !== null || this.selectedTag !== "all";
     },
     activeFilterCount() {
       let count = 0;
       if (this.selectedProject !== null) count++;
       if (this.selectedCancer !== null) count++;
-      if (this.selectedMode !== null) count++;
       if (this.selectedTag !== "all") count++;
       return count;
     },
@@ -256,22 +237,10 @@ export default {
       this.expandedCancers[key] = true;
     },
 
-    selectMode(project, cancer, mode) {
-      // 모드까지 선택 (id가 null이면 "unclassified"로 전달)
-      const projectId = project.id === null ? "unclassified" : project.id;
-      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
-      this.$emit("filter-change", {
-        projectId: projectId,
-        cancerId: cancerId,
-        mode: mode.name,
-      });
-    },
-
     clearFilter() {
       this.$emit("filter-change", {
         projectId: null,
         cancerId: null,
-        mode: null,
         tag: "all",
       });
       this.showAllTags = false;
@@ -289,28 +258,7 @@ export default {
     isCancerActive(project, cancer) {
       const projectId = project.id === null ? "unclassified" : project.id;
       const cancerId = cancer.id === null ? "unclassified" : cancer.id;
-      return this.selectedProject === projectId && this.selectedCancer === cancerId && this.selectedMode === null;
-    },
-
-    isModeActive(project, cancer, mode) {
-      const projectId = project.id === null ? "unclassified" : project.id;
-      const cancerId = cancer.id === null ? "unclassified" : cancer.id;
-      return this.selectedProject === projectId && this.selectedCancer === cancerId && this.selectedMode === mode.name;
-    },
-
-    getModeIcon(mode) {
-      switch (mode) {
-        case "BBox":
-          return "fas fa-vector-square";
-        case "Segment":
-          return "fas fa-draw-polygon";
-        case "TextBox":
-          return "fas fa-font";
-        case "Consensus":
-          return "fas fa-users";
-        default:
-          return "fas fa-file";
-      }
+      return this.selectedProject === projectId && this.selectedCancer === cancerId;
     },
   },
 };
