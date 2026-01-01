@@ -541,6 +541,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const [canvas] = await db.query(canvasQuery, [assignmentId, userId]);
 
     let squares = [];
+    let polygons = [];
     if (canvas.length > 0) {
       const squaresQuery = `SELECT id, x, y, question_id as questionIndex, isAI, isTemporary FROM squares_info WHERE canvas_id = ? AND user_id = ? AND deleted_at IS NULL;`;
       const [squaresResult] = await db.query(squaresQuery, [
@@ -548,6 +549,23 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         userId,
       ]);
       squares = squaresResult;
+
+      // Segment 모드용 polygon 로드
+      const polygonsQuery = `SELECT id, question_id as questionIndex, coordinates, class_type as classType, isAI, isTemporary FROM polygon_info WHERE canvas_id = ? AND user_id = ?;`;
+      const [polygonsResult] = await db.query(polygonsQuery, [
+        canvas[0].id,
+        userId,
+      ]);
+      // coordinates를 JSON 파싱하여 points로 변환
+      polygons = polygonsResult.map(polygon => {
+        const coordData = JSON.parse(polygon.coordinates);
+        // 기존 데이터 호환성: coordData가 배열이면 그대로, 객체이면 points 추출
+        const points = Array.isArray(coordData) ? coordData : (coordData.points || []);
+        return {
+          ...polygon,
+          points: points,
+        };
+      });
     }
 
     const uniqueQuestionIndex = [
@@ -562,6 +580,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       totalScore,
       beforeCanvas: canvas[0],
       squares,
+      polygons,  // Segment 모드용
     };
 
     res.json(responseData);
@@ -659,6 +678,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     questions,
     beforeCanvas,
     squares,
+    polygons,  // Segment 모드용
     lastQuestionIndex,
     evaluation_time, // 추가된 부분
   } = req.body;
@@ -722,6 +742,33 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
             req.user.id,
             square.isAI ? 1 : 0,
             square.isTemporary ? 1 : 0,
+          ]);
+        })
+      );
+    }
+
+    // Segment 모드용 polygon 저장
+    if (polygons && polygons.length > 0) {
+      // 기존 polygon 삭제
+      const deletePolygonsQuery = `DELETE FROM polygon_info WHERE canvas_id = ? AND user_id = ?;`;
+      await db.query(deletePolygonsQuery, [beforeCanvas.id, req.user.id]);
+
+      // 새 polygon 삽입
+      await Promise.all(
+        polygons.map(async (polygon) => {
+          const insertPolygonQuery = `
+              INSERT INTO polygon_info (canvas_id, question_id, coordinates, class_type, user_id, isAI, isTemporary)
+              VALUES (?, ?, ?, ?, ?, ?, ?);
+          `;
+
+          await db.query(insertPolygonQuery, [
+            beforeCanvas.id,
+            polygon.questionIndex,
+            JSON.stringify(polygon.points),  // points를 JSON으로 저장
+            polygon.classType || 'Tumor',
+            req.user.id,
+            polygon.isAI ? 1 : 0,
+            polygon.isTemporary ? 1 : 0,
           ]);
         })
       );

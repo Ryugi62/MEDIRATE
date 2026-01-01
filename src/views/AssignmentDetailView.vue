@@ -327,6 +327,7 @@ export default {
         ),
         beforeCanvas: this.currentAssignmentDetails.beforeCanvas,
         squares: this.currentAssignmentDetails.squares,
+        polygons: this.currentAssignmentDetails.polygons || [],  // Segment 모드용
         lastQuestionIndex: this.activeQuestionId,
         evaluation_time: evaluation_time, // Always use the new evaluation_time
       };
@@ -353,7 +354,7 @@ export default {
         await this.loadAssignmentDetails(this.currentAssignmentDetails.id);
 
         if (!this.isOut && mode == "textbox") this.$router.push("/assignment");
-        if (!this.isOut && mode == "bbox" && goNext) {
+        if (!this.isOut && (mode == "bbox" || mode == "segment") && goNext) {
           // 다음 문제로 이동, 만약 마지막 문제라면 이동하지 않음
           const currentIndex =
             this.currentAssignmentDetails.questions.findIndex(
@@ -388,9 +389,13 @@ export default {
           const hasSquare = this.currentAssignmentDetails.squares.some(
             (square) => square.questionIndex === question.id
           );
+          // Segment 모드: polygons도 체크
+          const hasPolygon = (this.currentAssignmentDetails.polygons || []).some(
+            (polygon) => polygon.questionIndex === question.id
+          );
           return {
             ...question,
-            isInspected: hasSquare,
+            isInspected: hasSquare || hasPolygon,
           };
         });
 
@@ -485,10 +490,17 @@ export default {
 
     getBBoxCount(questionId) {
       if (this.originalAssignmentDetails) {
-        return this.originalAssignmentDetails.squares.filter(
+        // BBox 개수
+        const squareCount = this.originalAssignmentDetails.squares.filter(
           (square) => square.questionIndex === questionId && !square.isTemporary
         ).length;
+        // Segment 폴리곤 개수
+        const polygonCount = (this.originalAssignmentDetails.polygons || []).filter(
+          (polygon) => polygon.questionIndex === questionId && !polygon.isTemporary
+        ).length;
+        return squareCount + polygonCount;
       }
+      return 0;
     },
 
     onRowClick(question, idx) {

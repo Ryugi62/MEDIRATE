@@ -56,6 +56,8 @@
         <canvas
           ref="canvas"
           @click="handleCanvasClick"
+          @mousedown="handleCanvasMouseDown"
+          @mouseup="handleCanvasMouseUp"
           @mousemove="handleCanvasMouseMove"
           @mouseleave="handleCanvasMouseLeave"
           @contextmenu.prevent="handleRightClick"
@@ -86,6 +88,7 @@
 <script>
 import ZoomLens from "./ZoomLens.vue";
 import ShortcutHelp from "./ShortcutHelp.vue";
+import polygonClipping from "polygon-clipping";
 
 export default {
   name: "SegmentComponent",
@@ -116,14 +119,22 @@ export default {
   data() {
     return {
       iconList: [
-        { name: "fa-draw-polygon", active: true, explanation: "그리기" },
-        { name: "fa-eraser", active: false, explanation: "삭제" },
+        { name: "fa-draw-polygon", active: true, explanation: "점 찍기" },
+        { name: "fa-pen", active: false, explanation: "자유곡선" },
+        { name: "fa-scissors", active: false, explanation: "잘라내기" },
+        { name: "fa-brush", active: false, explanation: "자유 잘라내기" },
         { name: "fa-circle-minus", active: false, explanation: "전체삭제" },
       ],
       localBeforeCanvas: {},
       localPolygons: [],
       temporaryPolygons: [],
       currentPoints: [], // 현재 그리고 있는 폴리곤의 점들
+      // 자유곡선 관련
+      isDrawingFreehand: false,
+      freehandSampleDistance: 8, // 매 8px마다 점 추가 (더 부드러운 곡선)
+      lastFreehandPoint: null,
+      // 잘라내기 관련
+      currentCutoutPoints: [],
       backgroundImage: null,
       originalWidth: null,
       originalHeight: null,
@@ -143,10 +154,12 @@ export default {
       // 단축키 도움말
       helpOperations: [
         { action: "왼클릭", description: "점 추가" },
-        { action: "더블클릭", description: "폴리곤 완성" },
+        { action: "드래그", description: "자유곡선 그리기" },
         { action: "우클릭", description: "폴리곤 완성" },
       ],
       helpShortcuts: [
+        { key: "ESC", description: "취소" },
+        { key: "Ctrl+F", description: "자유곡선" },
         { key: "Ctrl+Z", description: "점 취소" },
         { key: "Ctrl+D", description: "전체 삭제" },
         { key: "Ctrl+S", description: "저장" },
@@ -157,9 +170,19 @@ export default {
   },
 
   computed: {
-    eraserActive() {
+    freehandActive() {
       return this.iconList.some(
-        (icon) => icon.name === "fa-eraser" && icon.active
+        (icon) => icon.name === "fa-pen" && icon.active
+      );
+    },
+    cutoutActive() {
+      return this.iconList.some(
+        (icon) => icon.name === "fa-scissors" && icon.active
+      );
+    },
+    freehandCutoutActive() {
+      return this.iconList.some(
+        (icon) => icon.name === "fa-brush" && icon.active
       );
     },
     fileName() {
@@ -196,16 +219,51 @@ export default {
     },
 
     handleHotkeys(event) {
+      // ESC: 현재 그리기 작업 취소
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.cancelCurrentDrawing();
+        return;
+      }
+
       if (event.ctrlKey && event.key === "s") {
         event.preventDefault();
         this.commitChanges("segment", this.goNext);
       } else if (event.ctrlKey && event.key === "z") {
         event.preventDefault();
         this.undoLastPoint();
+      } else if (event.ctrlKey && event.key === "f") {
+        event.preventDefault();
+        // 자유곡선 모드 토글
+        const penIcon = this.iconList.find((icon) => icon.name === "fa-pen");
+        if (penIcon) {
+          this.handleIconClick(penIcon);
+        }
       } else if (event.ctrlKey && event.key === "d") {
         event.preventDefault();
         this.clearAllPolygons();
       }
+    },
+
+    // 현재 그리기 작업 취소
+    cancelCurrentDrawing() {
+      // 자유곡선 드래그 중이면 중단
+      if (this.isDrawingFreehand) {
+        this.isDrawingFreehand = false;
+        this.lastFreehandPoint = null;
+      }
+
+      // 점 찍기 중이면 취소
+      if (this.currentPoints.length > 0) {
+        this.currentPoints = [];
+      }
+
+      // 잘라내기 중이면 취소
+      if (this.currentCutoutPoints.length > 0) {
+        this.currentCutoutPoints = [];
+      }
+
+      this.redrawCanvas();
     },
 
     async fetchLocalInfo() {
@@ -226,6 +284,9 @@ export default {
         this.clearAllPolygons();
         return;
       }
+
+      // 모드 전환 시 진행 중인 작업 취소
+      this.cancelCurrentDrawing();
 
       this.iconList = this.iconList.map((icon) => ({
         ...icon,
@@ -372,6 +433,9 @@ export default {
         return;
       }
 
+      // 자유곡선/자유잘라내기 모드에서는 click 이벤트 무시 (mousedown/up으로 처리)
+      if (this.freehandActive || this.freehandCutoutActive) return;
+
       const { x, y } = this.getCanvasCoordinates(event);
 
       // 이미지 영역 밖 클릭 방지
@@ -384,11 +448,219 @@ export default {
         return; // 이미지 영역 밖이면 무시
       }
 
-      if (this.eraserActive) {
-        this.erasePolygon(x, y);
+      if (this.cutoutActive) {
+        this.addCutoutPoint(x, y);
       } else {
         this.addPoint(x, y);
       }
+    },
+
+    handleCanvasMouseDown(event) {
+      if (!this.isRunning) return;
+      // 자유곡선 또는 자유 잘라내기 모드에서만 처리
+      if (!this.freehandActive && !this.freehandCutoutActive) return;
+
+      // 왼쪽 클릭만 처리
+      if (event.button !== 0) return;
+
+      const { x, y } = this.getCanvasCoordinates(event);
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imgWidth = this.originalWidth * scale;
+      const imgHeight = this.originalHeight * scale;
+
+      // 이미지 영역 밖이면 무시
+      if (x < imgX || x > imgX + imgWidth || y < imgY || y > imgY + imgHeight) {
+        return;
+      }
+
+      // 자유곡선 잘라내기 모드
+      if (this.freehandCutoutActive) {
+        this.isDrawingFreehand = true;
+        this.currentCutoutPoints = [];
+        this.lastFreehandPoint = null;
+        this.addFreehandCutoutPoint(x, y);
+        return;
+      }
+
+      // 자유곡선 모드
+      this.isDrawingFreehand = true;
+      this.currentPoints = [];
+      this.lastFreehandPoint = null;
+      this.addFreehandPoint(x, y);
+    },
+
+    handleCanvasMouseUp() {
+      if (!this.isDrawingFreehand) return;
+
+      this.isDrawingFreehand = false;
+
+      // 자유곡선 잘라내기 모드
+      if (this.freehandCutoutActive) {
+        if (this.currentCutoutPoints.length >= 3) {
+          // 스무딩 후 단순화
+          const smoothed = this.smoothPoints(this.currentCutoutPoints, 2);
+          const simplified = this.simplifyPoints(smoothed, 1.5);
+          this.currentCutoutPoints = simplified;
+          this.completeCutout();
+        } else {
+          this.currentCutoutPoints = [];
+        }
+        this.lastFreehandPoint = null;
+        this.redrawCanvas();
+        return;
+      }
+
+      // 자유곡선 모드
+      if (!this.freehandActive) return;
+
+      // 폴리곤 완성 (최소 3점 필요)
+      if (this.currentPoints.length >= 3) {
+        // 스무딩 후 단순화
+        const smoothed = this.smoothPoints(this.currentPoints, 2);
+        const simplifiedPoints = this.simplifyPoints(smoothed, 1.5);
+
+        this.temporaryPolygons.push({
+          questionIndex: this.questionIndex,
+          points: simplifiedPoints,
+          isTemporary: false,
+        });
+      }
+
+      this.currentPoints = [];
+      this.lastFreehandPoint = null;
+      this.redrawCanvas();
+    },
+
+    addFreehandPoint(canvasX, canvasY) {
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 캔버스 좌표를 원본 이미지 좌표로 변환
+      const originalX = (canvasX - imgX) / scale;
+      const originalY = (canvasY - imgY) / scale;
+
+      // 마지막 점과의 거리 체크 (샘플링)
+      if (this.lastFreehandPoint) {
+        const dist = Math.hypot(
+          originalX - this.lastFreehandPoint.x,
+          originalY - this.lastFreehandPoint.y
+        );
+        if (dist < this.freehandSampleDistance) return;
+      }
+
+      this.currentPoints.push({ x: originalX, y: originalY });
+      this.lastFreehandPoint = { x: originalX, y: originalY };
+      this.redrawCanvas();
+    },
+
+    // 자유곡선 잘라내기용 점 추가
+    addFreehandCutoutPoint(canvasX, canvasY) {
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 캔버스 좌표를 원본 이미지 좌표로 변환
+      const originalX = (canvasX - imgX) / scale;
+      const originalY = (canvasY - imgY) / scale;
+
+      // 마지막 점과의 거리 체크 (샘플링)
+      if (this.lastFreehandPoint) {
+        const dist = Math.hypot(
+          originalX - this.lastFreehandPoint.x,
+          originalY - this.lastFreehandPoint.y
+        );
+        if (dist < this.freehandSampleDistance) return;
+      }
+
+      this.currentCutoutPoints.push({ x: originalX, y: originalY });
+      this.lastFreehandPoint = { x: originalX, y: originalY };
+      this.redrawCanvas();
+    },
+
+    // Douglas-Peucker 알고리즘으로 점 단순화
+    simplifyPoints(points, tolerance = 2) {
+      if (points.length <= 3) return points;
+
+      const findFurthest = (start, end, points) => {
+        let maxDist = 0;
+        let index = -1;
+        const line = { x1: points[start].x, y1: points[start].y, x2: points[end].x, y2: points[end].y };
+
+        for (let i = start + 1; i < end; i++) {
+          const dist = this.pointToLineDistance(points[i], line);
+          if (dist > maxDist) {
+            maxDist = dist;
+            index = i;
+          }
+        }
+        return { index, dist: maxDist };
+      };
+
+      const simplify = (start, end, points, result) => {
+        const { index, dist } = findFurthest(start, end, points);
+
+        if (dist > tolerance && index !== -1) {
+          simplify(start, index, points, result);
+          result.push(points[index]);
+          simplify(index, end, points, result);
+        }
+      };
+
+      const result = [points[0]];
+      simplify(0, points.length - 1, points, result);
+      result.push(points[points.length - 1]);
+
+      return result;
+    },
+
+    pointToLineDistance(point, line) {
+      const { x1, y1, x2, y2 } = line;
+      const A = point.x - x1;
+      const B = point.y - y1;
+      const C = x2 - x1;
+      const D = y2 - y1;
+
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = lenSq !== 0 ? dot / lenSq : -1;
+
+      let xx, yy;
+      if (param < 0) {
+        xx = x1;
+        yy = y1;
+      } else if (param > 1) {
+        xx = x2;
+        yy = y2;
+      } else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+      }
+
+      return Math.hypot(point.x - xx, point.y - yy);
+    },
+
+    // 스무딩: 이동 평균 필터로 곡선을 부드럽게
+    smoothPoints(points, iterations = 2) {
+      if (points.length < 3) return points;
+
+      let result = [...points];
+
+      for (let iter = 0; iter < iterations; iter++) {
+        const smoothed = [result[0]]; // 첫 점 유지
+
+        for (let i = 1; i < result.length - 1; i++) {
+          // 이전, 현재, 다음 점의 가중 평균
+          smoothed.push({
+            x: result[i - 1].x * 0.25 + result[i].x * 0.5 + result[i + 1].x * 0.25,
+            y: result[i - 1].y * 0.25 + result[i].y * 0.5 + result[i + 1].y * 0.25,
+          });
+        }
+
+        smoothed.push(result[result.length - 1]); // 마지막 점 유지
+        result = smoothed;
+      }
+
+      return result;
     },
 
     handleRightClick() {
@@ -441,6 +713,99 @@ export default {
 
       this.currentPoints = [];
       this.redrawCanvas();
+    },
+
+    // 잘라내기 점 추가 (점 찍기 모드)
+    addCutoutPoint(canvasX, canvasY) {
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+
+      // 캔버스 좌표를 원본 이미지 좌표로 변환
+      const originalX = (canvasX - imgX) / scale;
+      const originalY = (canvasY - imgY) / scale;
+
+      // 첫 점 근처를 클릭하면 잘라내기 완성
+      if (this.currentCutoutPoints.length >= 3) {
+        const CUTOUT_CLOSE_THRESHOLD = 15;
+        const firstPoint = this.currentCutoutPoints[0];
+        const distance = Math.hypot(firstPoint.x - originalX, firstPoint.y - originalY);
+        if (distance < CUTOUT_CLOSE_THRESHOLD) {
+          this.completeCutout();
+          return;
+        }
+      }
+
+      // 점 추가
+      this.currentCutoutPoints.push({ x: originalX, y: originalY });
+      this.redrawCanvas();
+    },
+
+    // 잘라내기 완성 - 모든 폴리곤에 빼기 연산 적용
+    completeCutout() {
+      if (this.currentCutoutPoints.length < 3) {
+        if (this.showAlert) {
+          alert("잘라내기 영역은 최소 3개의 점이 필요합니다.");
+        }
+        return;
+      }
+
+      // 잘라내기 영역을 polygon-clipping 형식으로 변환
+      const clipPoly = [this.currentCutoutPoints.map(p => [p.x, p.y])];
+
+      // 현재 questionIndex에 해당하는 폴리곤들만 처리
+      const newPolygons = [];
+      const otherPolygons = [];
+
+      this.temporaryPolygons.forEach(polygon => {
+        if (polygon.questionIndex !== this.questionIndex) {
+          // 다른 질문의 폴리곤은 그대로 유지
+          otherPolygons.push(polygon);
+          return;
+        }
+
+        // polygon-clipping 형식으로 변환
+        const subjectPoly = [polygon.points.map(p => [p.x, p.y])];
+
+        try {
+          // 폴리곤 빼기 연산 (difference)
+          const result = polygonClipping.difference(subjectPoly, clipPoly);
+
+          // 결과 폴리곤들 추가 (여러 개가 될 수 있음)
+          result.forEach(multiPoly => {
+            const outerRing = multiPoly[0];
+            if (outerRing && outerRing.length >= 3) {
+              newPolygons.push({
+                questionIndex: this.questionIndex,
+                points: outerRing.map(coord => ({ x: coord[0], y: coord[1] })),
+                isTemporary: false,
+              });
+            }
+          });
+        } catch (error) {
+          console.error("폴리곤 잘라내기 오류:", error);
+          // 오류 시 원본 유지
+          newPolygons.push(polygon);
+        }
+      });
+
+      // 폴리곤 배열 업데이트
+      this.temporaryPolygons = [...otherPolygons, ...newPolygons];
+
+      // 상태 초기화
+      this.currentCutoutPoints = [];
+      this.redrawCanvas();
+    },
+
+    // 특정 좌표에 있는 폴리곤 인덱스 찾기
+    findPolygonAtPoint(x, y) {
+      for (let i = this.temporaryPolygons.length - 1; i >= 0; i--) {
+        const polygon = this.temporaryPolygons[i];
+        if (polygon.questionIndex !== this.questionIndex) continue;
+        if (this.isPointInPolygon(x, y, polygon.points)) {
+          return i;
+        }
+      }
+      return null;
     },
 
     erasePolygon(canvasX, canvasY) {
@@ -508,15 +873,31 @@ export default {
         }));
         this.drawPolygon(ctx, canvasPoints, "#00FF00", false, scale);
 
-        // 각 점에 원 표시
-        canvasPoints.forEach((point, index) => {
+        // 각 점에 원 표시 (첫 점만 표시)
+        if (canvasPoints.length > 0) {
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 5 * scale, 0, Math.PI * 2);
-          ctx.fillStyle = index === 0 ? "#FFFF00" : "#00FF00";
+          ctx.arc(canvasPoints[0].x, canvasPoints[0].y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#FFFF00";
           ctx.fill();
-        });
+        }
       }
 
+      // 현재 그리고 있는 잘라내기 영역 그리기
+      if (this.currentCutoutPoints.length > 0) {
+        const canvasPoints = this.currentCutoutPoints.map(p => ({
+          x: imgX + p.x * scale,
+          y: imgY + p.y * scale
+        }));
+        this.drawPolygon(ctx, canvasPoints, "#FFA500", false, scale); // 주황색
+
+        // 각 점에 원 표시 (첫 점만 표시)
+        if (canvasPoints.length > 0) {
+          ctx.beginPath();
+          ctx.arc(canvasPoints[0].x, canvasPoints[0].y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#FFFF00";
+          ctx.fill();
+        }
+      }
     },
 
     drawPolygon(ctx, canvasPoints, color, closed, scale = 1) {
@@ -563,10 +944,22 @@ export default {
         this.isZoomActive = false;
       }
 
+      // 자유곡선 모드: 드래그 중이면 점 추가
+      if (this.freehandActive && this.isDrawingFreehand) {
+        this.addFreehandPoint(x, y);
+        return; // 미리보기 선 필요 없음
+      }
+
+      // 자유곡선 잘라내기 모드: 드래그 중이면 점 추가
+      if (this.freehandCutoutActive && this.isDrawingFreehand) {
+        this.addFreehandCutoutPoint(x, y);
+        return; // 미리보기 선 필요 없음
+      }
+
       this.redrawCanvas();
 
-      // 현재 그리고 있는 폴리곤의 미리보기 선
-      if (this.currentPoints.length > 0) {
+      // 현재 그리고 있는 폴리곤의 미리보기 선 (점 찍기 모드에서만)
+      if (this.currentPoints.length > 0 && !this.freehandActive) {
         const ctx = canvas.getContext("2d");
 
         // 마지막 점을 원본 좌표에서 캔버스 좌표로 변환
@@ -626,6 +1019,13 @@ export default {
       }
     },
 
+    // 전역 mouseup 핸들러 (캔버스 밖에서 마우스 놓아도 처리)
+    handleGlobalMouseUp() {
+      if (this.isDrawingFreehand) {
+        this.handleCanvasMouseUp();
+      }
+    },
+
     commitChanges(type, goNext) {
       this.localPolygons = [...this.temporaryPolygons];
       this.$emit("update:polygons", this.localPolygons);
@@ -638,6 +1038,7 @@ export default {
     this.loadBackgroundImage();
     window.addEventListener("resize", this.resizeCanvas);
     window.addEventListener("keydown", this.handleHotkeys);
+    window.addEventListener("mouseup", this.handleGlobalMouseUp);
 
     if (this.evaluation_time) {
       this.timer = this.evaluation_time;
@@ -653,6 +1054,7 @@ export default {
     this.currentLoadId++;  // 진행 중인 로드 무효화
     window.removeEventListener("resize", this.resizeCanvas);
     window.removeEventListener("keydown", this.handleHotkeys);
+    window.removeEventListener("mouseup", this.handleGlobalMouseUp);
     this.clearTimerInterval();
   },
 
