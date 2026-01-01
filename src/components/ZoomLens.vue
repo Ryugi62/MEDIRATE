@@ -24,8 +24,13 @@ export default {
       type: Number,
       default: 0,
     },
-    // 확대경 크기 (정사각형)
-    size: {
+    // 확대경 너비
+    width: {
+      type: Number,
+      default: 280,
+    },
+    // 확대경 높이
+    height: {
       type: Number,
       default: 280,
     },
@@ -51,6 +56,14 @@ export default {
     image() {
       this.initCanvas();
     },
+    width() {
+      this.initCanvas();
+      this.drawZoom();
+    },
+    height() {
+      this.initCanvas();
+      this.drawZoom();
+    },
     isActive(newVal) {
       if (newVal) {
         this.$nextTick(() => {
@@ -69,8 +82,8 @@ export default {
     initCanvas() {
       const canvas = this.$refs.zoomCanvas;
       if (!canvas) return;
-      canvas.width = this.size;
-      canvas.height = this.size;
+      canvas.width = this.width;
+      canvas.height = this.height;
     },
 
     drawZoom() {
@@ -78,26 +91,27 @@ export default {
       if (!canvas || !this.image) return;
 
       const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, this.size, this.size);
+      ctx.clearRect(0, 0, this.width, this.height);
 
-      // 캡처할 원본 이미지 영역 크기
-      const sourceSize = this.size / this.zoomLevel;
+      // 캡처할 원본 이미지 영역 크기 (너비 기준)
+      const sourceWidth = this.width / this.zoomLevel;
+      const sourceHeight = this.height / this.zoomLevel;
 
       // 원본 이미지에서 캡처할 영역 (마우스 위치 중심)
-      const sourceX = this.mouseX - sourceSize / 2;
-      const sourceY = this.mouseY - sourceSize / 2;
+      const sourceX = this.mouseX - sourceWidth / 2;
+      const sourceY = this.mouseY - sourceHeight / 2;
 
       // 확대된 이미지 그리기
       ctx.drawImage(
         this.image,
         sourceX,
         sourceY,
-        sourceSize,
-        sourceSize,
+        sourceWidth,
+        sourceHeight,
         0,
         0,
-        this.size,
-        this.size
+        this.width,
+        this.height
       );
 
       // 중앙 십자선 그리기
@@ -105,7 +119,8 @@ export default {
     },
 
     drawCrosshair(ctx) {
-      const center = this.size / 2;
+      const centerX = this.width / 2;
+      const centerY = this.height / 2;
       const lineLength = 20;
 
       ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
@@ -113,14 +128,14 @@ export default {
 
       // 가로선
       ctx.beginPath();
-      ctx.moveTo(center - lineLength, center);
-      ctx.lineTo(center + lineLength, center);
+      ctx.moveTo(centerX - lineLength, centerY);
+      ctx.lineTo(centerX + lineLength, centerY);
       ctx.stroke();
 
       // 세로선
       ctx.beginPath();
-      ctx.moveTo(center, center - lineLength);
-      ctx.lineTo(center, center + lineLength);
+      ctx.moveTo(centerX, centerY - lineLength);
+      ctx.lineTo(centerX, centerY + lineLength);
       ctx.stroke();
     },
   },

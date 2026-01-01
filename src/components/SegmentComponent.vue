@@ -66,7 +66,8 @@
         :mouseX="zoomMouseX"
         :mouseY="zoomMouseY"
         :isActive="isZoomActive"
-        :size="280"
+        :width="zoomSize"
+        :height="zoomSize"
         :zoomLevel="2.0"
       />
     </div>
@@ -139,6 +140,7 @@ export default {
       zoomMouseX: 0,
       zoomMouseY: 0,
       isZoomActive: false,
+      canvasHeight: 280,
     };
   },
 
@@ -162,6 +164,11 @@ export default {
       return this.temporaryPolygons.filter(
         (p) => p.questionIndex === this.questionIndex && p.points.length >= 3
       ).length;
+    },
+    // 확대경 크기 (캔버스 높이의 40%, min 200px ~ max 350px)
+    zoomSize() {
+      const size = Math.floor(this.canvasHeight * 0.4);
+      return Math.max(200, Math.min(350, size));
     },
   },
 
@@ -283,16 +290,14 @@ export default {
       );
     },
 
-    calculateImagePosition(canvasWidth, canvasHeight) {
+    calculateImagePosition(canvasWidth) {
       // 0으로 나누기 방지
       if (!this.originalWidth || !this.originalHeight) {
         return { x: 0, y: 0, scale: 1 };
       }
 
-      // contain 방식: 이미지가 캔버스에 완전히 들어가도록 스케일 계산
-      const scaleX = canvasWidth / this.originalWidth;
-      const scaleY = canvasHeight / this.originalHeight;
-      const scale = Math.min(scaleX, scaleY);
+      // 캔버스가 이미지 크기에 맞춰져 있으므로 scale = canvasWidth / originalWidth
+      const scale = canvasWidth / this.originalWidth;
       return { x: 0, y: 0, scale };
     },
 
@@ -307,12 +312,21 @@ export default {
       if (!canvasContainer) return;
       const containerRect = canvasContainer.getBoundingClientRect();
 
-      // 캔버스 크기 = 컨테이너 크기 (스크롤 없이 contain 방식)
-      canvas.width = containerRect.width;
-      canvas.height = containerRect.height;
+      // 이미지 비율에 맞게 캔버스 크기 계산 (빈 공간 없이 딱 맞게)
+      if (this.originalWidth && this.originalHeight) {
+        const scaleX = containerRect.width / this.originalWidth;
+        const scaleY = containerRect.height / this.originalHeight;
+        const scale = Math.min(scaleX, scaleY);
+        canvas.width = Math.floor(this.originalWidth * scale);
+        canvas.height = Math.floor(this.originalHeight * scale);
+      } else {
+        canvas.width = containerRect.width;
+        canvas.height = containerRect.height;
+      }
 
       this.localBeforeCanvas.width = canvas.width;
       this.localBeforeCanvas.height = canvas.height;
+      this.canvasHeight = canvas.height;
 
       this.drawBackgroundImage();
       this.redrawCanvas();
@@ -718,15 +732,21 @@ export default {
   gap: 10px;
   min-height: 0;
   overflow: hidden;
+  align-items: flex-start;
 }
 
 .canvas-container {
   flex: 1;
   display: flex;
   align-items: flex-start;
+  justify-content: flex-start;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.zoom-lens {
+  flex-shrink: 0;
 }
 
 canvas {
