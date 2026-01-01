@@ -771,14 +771,20 @@ export default {
           const result = polygonClipping.difference(subjectPoly, clipPoly);
 
           // 결과 폴리곤들 추가 (여러 개가 될 수 있음)
+          const MIN_POLYGON_AREA = 100; // 최소 면적 (픽셀²) - 이보다 작으면 파편으로 간주
           result.forEach(multiPoly => {
             const outerRing = multiPoly[0];
             if (outerRing && outerRing.length >= 3) {
-              newPolygons.push({
-                questionIndex: this.questionIndex,
-                points: outerRing.map(coord => ({ x: coord[0], y: coord[1] })),
-                isTemporary: false,
-              });
+              const points = outerRing.map(coord => ({ x: coord[0], y: coord[1] }));
+              const area = this.calculatePolygonArea(points);
+              // 최소 면적 이상인 폴리곤만 추가
+              if (area >= MIN_POLYGON_AREA) {
+                newPolygons.push({
+                  questionIndex: this.questionIndex,
+                  points: points,
+                  isTemporary: false,
+                });
+              }
             }
           });
         } catch (error) {
@@ -845,6 +851,16 @@ export default {
         }
       }
       return inside;
+    },
+
+    // 폴리곤 면적 계산 (Shoelace formula)
+    calculatePolygonArea(points) {
+      if (points.length < 3) return 0;
+      let area = 0;
+      for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        area += (points[j].x + points[i].x) * (points[j].y - points[i].y);
+      }
+      return Math.abs(area / 2);
     },
 
     redrawCanvas() {
