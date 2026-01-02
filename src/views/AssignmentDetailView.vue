@@ -725,10 +725,11 @@ td {
 }
 
 .isInspected {
-  background-color: #a8d4ff;
+  /* 하늘색 배경 제거 - 체크 아이콘만 표시 */
+  background-color: transparent;
 }
 .isInspected:hover {
-  background-color: #8bc4ff;
+  background-color: #f5f5f5;
 }
 
 /* BBox 개수 셀에 대한 스타일 추가 */
