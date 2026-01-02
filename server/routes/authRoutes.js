@@ -14,16 +14,24 @@ function verifyPassword(inputPassword, storedHash) {
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
+  console.log("=== LOGIN ATTEMPT ===");
+  console.log("Username:", username);
+  console.log("Password provided:", password ? "yes" : "no");
+
   try {
     // 삭제되지 않은 사용자만 로그인 허용
     const query = "SELECT * FROM users WHERE username = TRIM(?) AND deleted_at IS NULL";
     const [rows] = await db.query(query, [username.trim()]);
+    console.log("User found:", rows.length > 0 ? "yes" : "no");
 
     if (rows.length === 0) {
       return res.status(401).send("Invalid username or password.");
     }
 
     const user = rows[0];
+    console.log("DB password:", user.password);
+    console.log("Input password:", password);
+    console.log("Password match:", verifyPassword(password, user.password));
     if (!verifyPassword(password, user.password)) {
       return res.status(401).send("Invalid username or password.");
     }
