@@ -20,7 +20,14 @@
       <!-- 대시보드 헤더 -->
       <div class="dashboard-header">
     <div class="header-row">
-      <h1 class="header-title">대시 보드</h1>
+      <!-- 경로 표시 -->
+      <div class="breadcrumb-path">
+        <span class="path-item current">평가 결과</span>
+        <span v-if="filterProjectName" class="path-separator">&gt;</span>
+        <span v-if="filterProjectName" class="path-item">{{ filterProjectName }}</span>
+        <span v-if="filterCancerName" class="path-separator">&gt;</span>
+        <span v-if="filterCancerName" class="path-item">{{ filterCancerName }}</span>
+      </div>
 
       <!-- 일괄 작업 영역 (선택된 항목이 있을 때 표시) -->
       <div v-if="selectedItems.length > 0" class="bulk-actions">
@@ -335,6 +342,9 @@ export default {
       filterProjectId: this.$store.getters.getDashboardFilterProjectId,
       filterCancerId: this.$store.getters.getDashboardFilterCancerId,
       filterMode: this.$store.getters.getDashboardFilterMode,
+      // 프로젝트/암종 이름 (경로 표시용)
+      filterProjectName: null,
+      filterCancerName: null,
       allTags: [], // 서버에서 받은 태그 목록
       // 일괄 작업 관련
       selectedItems: [],
@@ -398,16 +408,16 @@ export default {
       return [
         { name: "ID", key: "id", sortable: true, class: "id" },
         {
-          name: "모드",
-          key: "mode",
-          sortable: true,
-          class: "assignment-mode",
-        },
-        {
           name: "제목",
           key: "title",
           sortable: false,
           class: "assignment-title",
+        },
+        {
+          name: "모드",
+          key: "mode",
+          sortable: true,
+          class: "assignment-mode",
         },
         { name: "생성", key: "createdAt", sortable: true, class: "created-at" },
         { name: "종료", key: "endAt", sortable: true, class: "end-at" },
@@ -602,12 +612,15 @@ export default {
     },
 
     // 프로젝트/암종 필터 변경
-    onTreeFilterChange({ projectId, cancerId, mode, tag }) {
-      console.log("[DashboardView] onTreeFilterChange:", { projectId, cancerId, mode, tag });
+    onTreeFilterChange({ projectId, projectName, cancerId, cancerName, mode, tag }) {
+      console.log("[DashboardView] onTreeFilterChange:", { projectId, projectName, cancerId, cancerName, mode, tag });
       this.filterProjectId = projectId;
       this.filterCancerId = cancerId;
       this.filterMode = mode;
       this.selectedMode = mode || "all";
+      // 프로젝트/암종 이름 저장 (경로 표시용)
+      this.filterProjectName = projectName;
+      this.filterCancerName = cancerName;
 
       // Vuex에 필터 상태 저장
       this.$store.commit("setDashboardFilterProjectId", projectId);
@@ -1076,6 +1089,28 @@ export default {
   overflow: hidden;
 }
 
+/* 경로(브레드크럼) 스타일 */
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.path-separator {
+  color: #6c757d;
+}
+
+.path-item {
+  color: #495057;
+}
+
+.path-item.current {
+  font-weight: 600;
+  color: #212529;
+}
+
 /* 전체 페이지 좌우 스크롤 방지 */
 :deep(.dashboard-view) {
   overflow-x: hidden;
@@ -1300,17 +1335,17 @@ th:nth-child(2) {
   width: 45px;
 }
 
-/* 모드 열 */
-td.assignment-mode,
-th:nth-child(3) {
-  width: 80px;
-}
-
 /* 제목 열 - 너비 미지정으로 나머지 공간 차지 */
 td.assignment-title {
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 모드 열 */
+td.assignment-mode,
+th:nth-child(4) {
+  width: 80px;
 }
 
 /* 생성/종료 날짜 열 */

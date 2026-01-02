@@ -13,10 +13,16 @@
     />
 
     <div class="assignment-main">
-      <!-- 평가 수행 제목 -->
+      <!-- 평가 수행 헤더 -->
       <div class="assignment-header">
-    <h1 class="header-title">평가 수행</h1>
-
+    <!-- 경로 표시 -->
+    <div class="breadcrumb-path">
+      <span class="path-item current">평가 수행</span>
+      <span v-if="filterProjectName" class="path-separator">&gt;</span>
+      <span v-if="filterProjectName" class="path-item">{{ filterProjectName }}</span>
+      <span v-if="filterCancerName" class="path-separator">&gt;</span>
+      <span v-if="filterCancerName" class="path-item">{{ filterCancerName }}</span>
+    </div>
     <div class="header-controls">
       <!-- 과제 리스트에서 제목으로 검색 -->
       <div
@@ -153,6 +159,9 @@ export default {
       filterProjectId: null,
       filterCancerId: null,
       filterMode: null,
+      // 프로젝트/암종 이름 (브레드크럼용)
+      filterProjectName: null,
+      filterCancerName: null,
       assignments: [], // 현재 페이지 데이터
       current: this.$store.getters.getAssignmentCurrentPage || 1,
       perPage: 15,
@@ -173,16 +182,16 @@ export default {
       return [
         { name: "ID", key: "id", sortable: true, class: "assignment-id" },
         {
-          name: "모드",
-          key: "mode",
-          sortable: true,
-          class: "assignment-mode",
-        },
-        {
           name: "제목",
           key: "title",
           sortable: true,
           class: "assignment-title",
+        },
+        {
+          name: "모드",
+          key: "mode",
+          sortable: true,
+          class: "assignment-mode",
         },
         {
           name: "생성",
@@ -585,9 +594,11 @@ export default {
     },
 
     // 트리 필터 변경 처리
-    onTreeFilterChange({ projectId, cancerId, mode, tag }) {
+    onTreeFilterChange({ projectId, projectName, cancerId, cancerName, mode, tag }) {
       this.filterProjectId = projectId;
+      this.filterProjectName = projectName;
       this.filterCancerId = cancerId;
+      this.filterCancerName = cancerName;
       this.filterMode = mode;
 
       // 트리에서 모드를 선택한 경우 모드 필터도 동기화
@@ -627,6 +638,28 @@ export default {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+}
+
+/* 경로(브레드크럼) 스타일 */
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.path-separator {
+  color: #6c757d;
+}
+
+.path-item {
+  color: #495057;
+}
+
+.path-item.current {
+  font-weight: 600;
+  color: #212529;
 }
 
 .assignment-header {
@@ -759,18 +792,18 @@ th:nth-child(1) {
   width: 55px;
 }
 
-/* 모드 열 */
-.assignment-mode,
-th:nth-child(2) {
-  width: 80px;
-  font-weight: 500;
-}
-
 /* 제목 열 - 너비 미지정으로 나머지 공간 차지 */
 .assignment-title {
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 모드 열 */
+.assignment-mode,
+th:nth-child(3) {
+  width: 80px;
+  font-weight: 500;
 }
 
 /* 생성/종료 날짜 열 */

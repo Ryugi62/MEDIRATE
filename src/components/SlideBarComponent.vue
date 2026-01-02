@@ -97,8 +97,8 @@ export default {
 
 <style scoped>
 .slide-bar {
-  width: 160px;
-  min-width: 160px;
+  width: 112px;      /* 160px * 70% = 112px */
+  min-width: 112px;
   border-right: 1px solid var(--light-gray);
 }
 
@@ -112,8 +112,9 @@ export default {
 
 .slide-bar li {
   border-bottom: 1px solid var(--light-gray);
-  padding-left: 20px;
-  line-height: 60px;
+  padding-left: 0;
+  line-height: 42px;  /* 60px * 70% = 42px */
+  text-align: center;
 }
 
 .slide-bar li.active,

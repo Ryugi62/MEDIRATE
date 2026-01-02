@@ -4,9 +4,15 @@
   <div v-if="currentAssignmentDetails" class="assignment-detail-view">
     <div class="assignment-overview">
       <div class="assignment-metadata">
-        <h2 class="metadata-assignment-title">
-          {{ currentAssignmentDetails.FileName }}
-        </h2>
+        <div class="breadcrumb-path">
+          <router-link to="/assignment" class="path-link">평가 수행</router-link>
+          <span v-if="currentAssignmentDetails.projectName" class="path-separator">&gt;</span>
+          <span v-if="currentAssignmentDetails.projectName" class="path-item">{{ currentAssignmentDetails.projectName }}</span>
+          <span v-if="currentAssignmentDetails.cancerTypeName" class="path-separator">&gt;</span>
+          <span v-if="currentAssignmentDetails.cancerTypeName" class="path-item">{{ currentAssignmentDetails.cancerTypeName }}</span>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item current">{{ currentAssignmentDetails.FileName }}</span>
+        </div>
         <span class="metadata-student-name">
           {{ currentAssignmentDetails.studentName }}
         </span>
@@ -586,6 +592,36 @@ export default {
   padding-left: 12px;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* 경로(브레드크럼) 스타일 */
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.path-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.path-link:hover {
+  text-decoration: underline;
+}
+
+.path-separator {
+  color: #6c757d;
+}
+
+.path-item {
+  color: #495057;
+}
+
+.path-item.current {
+  font-weight: 600;
+  color: #212529;
 }
 
 .metadata-assignment-title {

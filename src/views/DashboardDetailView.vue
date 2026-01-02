@@ -5,7 +5,6 @@
     <div v-if="isExporting" class="exporting-message">
       {{ exportingMessage }}
     </div>
-    <h1 class="title">대시보드</h1>
     <div class="dashboard-content">
       <div class="table-box">
         <div class="table-header">
@@ -1122,17 +1121,6 @@ export default {
   overflow: hidden;
 }
 
-.title {
-  font-size: 18px;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  padding-left: 16px;
-  font-weight: 500;
-  margin: 0;
-  border-bottom: 1px solid var(--light-gray);
-  flex-shrink: 0;
-}
 
 .dashboard-content {
   flex: 1;

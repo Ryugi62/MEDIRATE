@@ -60,19 +60,18 @@
         </div>
 
         <!-- 프로젝트 레벨 -->
-        <div v-for="project in sortedTreeData" :key="project.key" class="tree-node project-node">
+        <div v-for="project in treeData" :key="project.key" class="tree-node project-node">
           <div
             class="tree-item project-item"
-            :class="{ active: isProjectActive(project), expanded: expandedProjects[project.key], unclassified: project.id === null }"
+            :class="{ active: isProjectActive(project), expanded: expandedProjects[project.key] }"
             @click="toggleProject(project)"
-            @contextmenu.prevent="showContextMenu($event, 'project', project)"
           >
             <i
               class="expand-icon fas"
               :class="expandedProjects[project.key] ? 'fa-chevron-down' : 'fa-chevron-right'"
               @click.stop="toggleProjectExpand(project.key)"
             ></i>
-            <i :class="project.id === null ? 'fas fa-folder-open unclassified-icon' : 'fas fa-folder'"></i>
+            <i class="fas fa-folder"></i>
             <span class="item-name" :title="project.name">{{ project.name }}</span>
             <span class="item-count">{{ project.count }}</span>
           </div>
@@ -80,22 +79,21 @@
           <!-- 암종 레벨 -->
           <div v-if="expandedProjects[project.key]" class="children cancer-list">
             <div
-              v-for="cancer in sortedCancerTypes(project.children)"
+              v-for="cancer in project.children"
               :key="cancer.key"
               class="tree-node cancer-node"
             >
               <div
                 class="tree-item cancer-item"
-                :class="{ active: isCancerActive(project, cancer), expanded: expandedCancers[`${project.key}_${cancer.key}`], unclassified: cancer.id === null }"
+                :class="{ active: isCancerActive(project, cancer), expanded: expandedCancers[`${project.key}_${cancer.key}`] }"
                 @click="toggleCancer(project, cancer)"
-                @contextmenu.prevent="showContextMenu($event, 'cancer', cancer, project)"
               >
                 <i
                   class="expand-icon fas"
                   :class="expandedCancers[`${project.key}_${cancer.key}`] ? 'fa-chevron-down' : 'fa-chevron-right'"
                   @click.stop="toggleCancerExpand(project.key, cancer.key)"
                 ></i>
-                <i :class="cancer.id === null ? 'fas fa-question-circle unclassified-icon' : 'fas fa-dna'"></i>
+                <i class="fas fa-dna"></i>
                 <span class="item-name">{{ cancer.name }}</span>
                 <span class="item-count">{{ cancer.count }}</span>
               </div>
@@ -110,57 +108,6 @@
         <button class="clear-filter-btn" @click="clearFilter">
           <i class="fas fa-times"></i> 필터 초기화
         </button>
-      </div>
-    </div>
-
-    <!-- 컨텍스트 메뉴 -->
-    <div
-      v-if="contextMenu.visible"
-      class="context-menu"
-      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-      @click.stop
-    >
-      <div class="context-menu-item" @click="startRename">
-        <i class="fas fa-edit"></i>
-        <span>이름 변경</span>
-      </div>
-      <div class="context-menu-item danger" @click="confirmDelete">
-        <i class="fas fa-trash"></i>
-        <span>삭제</span>
-      </div>
-    </div>
-
-    <!-- 이름 변경 모달 -->
-    <div v-if="editModal.visible" class="modal-overlay" @click="cancelEdit">
-      <div class="modal-content" @click.stop>
-        <h3>{{ editModal.type === 'project' ? '프로젝트' : '암종' }} 이름 변경</h3>
-        <input
-          v-model="editModal.newName"
-          type="text"
-          class="edit-input"
-          @keyup.enter="saveRename"
-          @keyup.escape="cancelEdit"
-          ref="editInput"
-        />
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="cancelEdit">취소</button>
-          <button class="btn-save" @click="saveRename">저장</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 삭제 확인 모달 -->
-    <div v-if="deleteModal.visible" class="modal-overlay" @click="cancelDelete">
-      <div class="modal-content" @click.stop>
-        <h3>삭제 확인</h3>
-        <p>
-          "{{ deleteModal.item?.name }}" {{ deleteModal.type === 'project' ? '프로젝트를' : '암종을' }} 삭제하시겠습니까?
-        </p>
-        <p class="warning-text">이 작업은 되돌릴 수 없습니다.</p>
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="cancelDelete">취소</button>
-          <button class="btn-delete" @click="executeDelete">삭제</button>
-        </div>
       </div>
     </div>
   </div>
@@ -204,30 +151,6 @@ export default {
       expandedProjects: {},
       expandedCancers: {},
       showAllTags: false,
-      // 컨텍스트 메뉴 상태
-      contextMenu: {
-        visible: false,
-        x: 0,
-        y: 0,
-        type: null, // 'project' | 'cancer'
-        item: null,
-        parentProject: null, // cancer인 경우 부모 프로젝트
-      },
-      // 이름 변경 모달
-      editModal: {
-        visible: false,
-        type: null,
-        item: null,
-        newName: "",
-        parentProject: null,
-      },
-      // 삭제 확인 모달
-      deleteModal: {
-        visible: false,
-        type: null,
-        item: null,
-        parentProject: null,
-      },
     };
   },
 
@@ -251,15 +174,6 @@ export default {
       }
       return this.allTags.slice(0, 5);
     },
-    // 미분류 항목을 맨 위로 정렬
-    sortedTreeData() {
-      return [...this.treeData].sort((a, b) => {
-        // 미분류(id === null)를 맨 위로
-        if (a.id === null && b.id !== null) return -1;
-        if (a.id !== null && b.id === null) return 1;
-        return 0;
-      });
-    },
   },
 
   async mounted() {
@@ -281,16 +195,6 @@ export default {
       } finally {
         this.loading = false;
       }
-    },
-
-    // 암종 목록에서 미분류를 맨 위로 정렬
-    sortedCancerTypes(children) {
-      if (!children) return [];
-      return [...children].sort((a, b) => {
-        if (a.id === null && b.id !== null) return -1;
-        if (a.id !== null && b.id === null) return 1;
-        return 0;
-      });
     },
 
     toggleCollapse() {
@@ -361,136 +265,6 @@ export default {
       const projectId = project.id === null ? "unclassified" : project.id;
       const cancerId = cancer.id === null ? "unclassified" : cancer.id;
       return this.selectedProject === projectId && this.selectedCancer === cancerId;
-    },
-
-    // 컨텍스트 메뉴 표시
-    showContextMenu(event, type, item, parentProject = null) {
-      // unclassified 항목은 수정/삭제 불가
-      if (item.id === null) {
-        return;
-      }
-      this.contextMenu = {
-        visible: true,
-        x: event.clientX,
-        y: event.clientY,
-        type,
-        item,
-        parentProject,
-      };
-      // 클릭 시 메뉴 닫기 이벤트 등록
-      document.addEventListener("click", this.hideContextMenu);
-    },
-
-    // 컨텍스트 메뉴 숨기기
-    hideContextMenu() {
-      this.contextMenu.visible = false;
-      document.removeEventListener("click", this.hideContextMenu);
-    },
-
-    // 이름 변경 시작
-    startRename() {
-      this.editModal = {
-        visible: true,
-        type: this.contextMenu.type,
-        item: this.contextMenu.item,
-        newName: this.contextMenu.item.name,
-        parentProject: this.contextMenu.parentProject,
-      };
-      this.hideContextMenu();
-      this.$nextTick(() => {
-        if (this.$refs.editInput) {
-          this.$refs.editInput.focus();
-          this.$refs.editInput.select();
-        }
-      });
-    },
-
-    // 이름 변경 취소
-    cancelEdit() {
-      this.editModal.visible = false;
-    },
-
-    // 이름 변경 저장
-    async saveRename() {
-      if (!this.editModal.newName.trim()) {
-        alert("이름을 입력해주세요.");
-        return;
-      }
-
-      try {
-        const headers = {
-          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
-        };
-
-        if (this.editModal.type === "project") {
-          await this.$axios.put(
-            `/api/projects/${this.editModal.item.id}`,
-            { name: this.editModal.newName.trim() },
-            { headers }
-          );
-        } else {
-          await this.$axios.put(
-            `/api/projects/cancer-types/${this.editModal.item.id}`,
-            { name: this.editModal.newName.trim() },
-            { headers }
-          );
-        }
-
-        // 트리 데이터 새로고침
-        await this.loadTreeData();
-        this.editModal.visible = false;
-        this.$emit("data-updated");
-      } catch (error) {
-        console.error("이름 변경 오류:", error);
-        alert("이름 변경에 실패했습니다.");
-      }
-    },
-
-    // 삭제 확인
-    confirmDelete() {
-      this.deleteModal = {
-        visible: true,
-        type: this.contextMenu.type,
-        item: this.contextMenu.item,
-        parentProject: this.contextMenu.parentProject,
-      };
-      this.hideContextMenu();
-    },
-
-    // 삭제 취소
-    cancelDelete() {
-      this.deleteModal.visible = false;
-    },
-
-    // 삭제 실행
-    async executeDelete() {
-      try {
-        const headers = {
-          Authorization: `Bearer ${this.$store.getters.getUser.token}`,
-        };
-
-        if (this.deleteModal.type === "project") {
-          await this.$axios.delete(
-            `/api/projects/${this.deleteModal.item.id}`,
-            { headers }
-          );
-        } else {
-          await this.$axios.delete(
-            `/api/projects/cancer-types/${this.deleteModal.item.id}`,
-            { headers }
-          );
-        }
-
-        // 트리 데이터 새로고침
-        await this.loadTreeData();
-        this.deleteModal.visible = false;
-        // 필터 초기화 (삭제된 항목 필터링 중이었을 수 있음)
-        this.clearFilter();
-        this.$emit("data-updated");
-      } catch (error) {
-        console.error("삭제 오류:", error);
-        alert("삭제에 실패했습니다.");
-      }
     },
   },
 };
@@ -626,20 +400,6 @@ export default {
   color: #28a745;
 }
 
-/* 미분류 아이콘 스타일 */
-.unclassified-icon {
-  color: #6c757d !important;
-}
-
-.tree-item.unclassified {
-  background: #f8f9fa;
-  border-left: 3px solid #6c757d;
-}
-
-.tree-item.unclassified:hover {
-  background: #e9ecef;
-}
-
 .mode-item i {
   color: #6c757d;
 }
@@ -741,135 +501,5 @@ export default {
 .collapsed .tree-header {
   justify-content: center;
   padding: 12px 8px;
-}
-
-/* 컨텍스트 메뉴 */
-.context-menu {
-  position: fixed;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 120px;
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.15s;
-}
-
-.context-menu-item:hover {
-  background: #f8f9fa;
-}
-
-.context-menu-item.danger {
-  color: #dc3545;
-}
-
-.context-menu-item.danger:hover {
-  background: #fff5f5;
-}
-
-/* 모달 오버레이 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1001;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  min-width: 300px;
-  max-width: 400px;
-}
-
-.modal-content h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #212529;
-}
-
-.modal-content p {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #495057;
-}
-
-.warning-text {
-  color: #dc3545 !important;
-  font-size: 12px !important;
-}
-
-.edit-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-bottom: 16px;
-  box-sizing: border-box;
-}
-
-.edit-input:focus {
-  outline: none;
-  border-color: #007bff;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.btn-cancel,
-.btn-save,
-.btn-delete {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-cancel {
-  background: #e9ecef;
-  color: #495057;
-}
-
-.btn-cancel:hover {
-  background: #dee2e6;
-}
-
-.btn-save {
-  background: #007bff;
-  color: white;
-}
-
-.btn-save:hover {
-  background: #0056b3;
-}
-
-.btn-delete {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-delete:hover {
-  background: #c82333;
 }
 </style>
