@@ -480,8 +480,9 @@ export default {
       };
 
       try {
-        // Consensus 모드일 경우 별도 처리
-        if (this.selectedMode === "Consensus") {
+        // "all" 모드 또는 "Consensus" 모드: 클라이언트 측 통합 페이지네이션
+        if (this.selectedMode === "all" || this.selectedMode === "Consensus") {
+          // 1. Consensus 데이터 조회
           const consensusRes = await this.$axios.get("/api/consensus?all=true", { headers });
           let consensusData = consensusRes.data.map((c) => ({
             id: `C${c.id}`,
@@ -499,14 +500,40 @@ export default {
             cancer_type_id: c.cancer_type_id,
           }));
 
-          // 검색어 필터 (클라이언트)
+          // 2. "all" 모드일 때 일반 과제도 조회
+          let regularData = [];
+          let allTags = [];
+          if (this.selectedMode === "all") {
+            const regularParams = {
+              page: 1,
+              limit: 9999, // 전체 조회
+              search: this.searchQuery || "",
+              mode: "all",
+              tag: this.selectedTag,
+              sortBy: this.sortColumn,
+              sortDir: this.sortDirection,
+              projectId: this.filterProjectId,
+              cancerId: this.filterCancerId,
+            };
+            const regularRes = await this.$axios.get("/api/dashboard/paginated", { headers, params: regularParams });
+            regularData = regularRes.data.data.map((item) => ({
+              ...item,
+              mode: item.assignmentMode || "BBox",
+              tags: item.tags || [],
+              isConsensus: false,
+            }));
+            allTags = regularRes.data.allTags || [];
+          }
+
+          // 3. Consensus 필터링 (클라이언트)
+          // 검색어 필터
           if (this.searchQuery) {
             consensusData = consensusData.filter((item) =>
               item.title.toLowerCase().startsWith(this.searchQuery.toLowerCase())
             );
           }
 
-          // 태그 필터 (클라이언트)
+          // 태그 필터
           if (this.selectedTag !== "all") {
             consensusData = consensusData.filter((item) => {
               if (!item.tags || item.tags.length === 0) return false;
@@ -514,7 +541,7 @@ export default {
             });
           }
 
-          // 프로젝트 필터 (클라이언트)
+          // 프로젝트 필터
           if (this.filterProjectId !== null) {
             if (this.filterProjectId === "unclassified") {
               consensusData = consensusData.filter((item) => item.project_id === null);
@@ -523,7 +550,7 @@ export default {
             }
           }
 
-          // 암종 필터 (클라이언트)
+          // 암종 필터
           if (this.filterCancerId !== null) {
             if (this.filterCancerId === "unclassified") {
               consensusData = consensusData.filter((item) => item.cancer_type_id === null);
@@ -532,10 +559,20 @@ export default {
             }
           }
 
-          // 정렬 (클라이언트)
-          consensusData.sort((a, b) => {
+          // 4. 데이터 통합
+          let combinedData = this.selectedMode === "all"
+            ? [...regularData, ...consensusData]
+            : consensusData;
+
+          // 5. 정렬 (클라이언트)
+          combinedData.sort((a, b) => {
             let aValue = a[this.sortColumn];
             let bValue = b[this.sortColumn];
+            // ID 정렬 시 숫자 부분만 비교 (C123 -> 123)
+            if (this.sortColumn === "id") {
+              aValue = typeof aValue === "string" ? parseInt(aValue.replace(/\D/g, "")) : aValue;
+              bValue = typeof bValue === "string" ? parseInt(bValue.replace(/\D/g, "")) : bValue;
+            }
             if (typeof aValue === "string" && aValue.includes("%")) {
               aValue = parseFloat(aValue.replace("%", ""));
             }
@@ -546,27 +583,31 @@ export default {
             return this.sortDirection === "up" ? comparison : -comparison;
           });
 
-          // 페이지네이션 (클라이언트)
-          this.total = consensusData.length;
+          // 6. 클라이언트 측 페이지네이션
+          this.total = combinedData.length;
           this.totalPages = Math.ceil(this.total / this.itemsPerPage) || 1;
           const start = (this.current - 1) * this.itemsPerPage;
           const end = start + this.itemsPerPage;
-          this.data = consensusData.slice(start, end);
+          this.data = combinedData.slice(start, end);
 
-          // 태그 목록 수집
-          const tagCount = {};
-          consensusRes.data.forEach((c) => {
-            if (c.tags) {
-              c.tags.forEach((tag) => {
-                tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
-              });
-            }
-          });
-          this.allTags = Object.entries(tagCount)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
+          // 태그 목록 (all 모드는 서버에서, Consensus 모드는 클라이언트에서)
+          if (this.selectedMode === "all") {
+            this.allTags = allTags;
+          } else {
+            const tagCount = {};
+            consensusRes.data.forEach((c) => {
+              if (c.tags) {
+                c.tags.forEach((tag) => {
+                  tagCount[tag.name] = (tagCount[tag.name] || 0) + 1;
+                });
+              }
+            });
+            this.allTags = Object.entries(tagCount)
+              .map(([name, count]) => ({ name, count }))
+              .sort((a, b) => b.count - a.count);
+          }
         } else {
-          // 일반 대시보드 서버 페이지네이션
+          // 특정 모드 (BBox, TextBox, Segment): 서버 페이지네이션 사용
           const params = {
             page: this.current,
             limit: this.itemsPerPage,

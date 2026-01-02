@@ -36,7 +36,7 @@ export default {
         },
         {
           name: "평가 수행",
-          paths: ["/assignment", "/assignment/:id"],
+          paths: ["/assignment", "/assignment/:id", "/consensus", "/consensus/:id"],
           isAdmin: false,
         },
         {

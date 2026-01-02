@@ -268,11 +268,16 @@ router.get("/", async (_req, res) => {
 router.get("/:assignmentId", authenticateToken, async (req, res) => {
   const { assignmentId } = req.params;
   try {
-    // 삭제되지 않은 과제만 조회
-    const [[{ assignment_mode }]] = await db.query(
-      `SELECT assignment_mode FROM assignments WHERE id = ? AND deleted_at IS NULL`,
+    // 삭제되지 않은 과제 조회 (프로젝트, 암종 정보 포함)
+    const [[assignmentInfo]] = await db.query(
+      `SELECT a.assignment_mode, p.name AS projectName, ct.name_ko AS cancerTypeName
+       FROM assignments a
+       LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
+       WHERE a.id = ? AND a.deleted_at IS NULL`,
       [assignmentId]
     );
+    const assignment_mode = assignmentInfo.assignment_mode;
     console.log("[DEBUG] dashboard/:id - assignment_mode from DB:", assignment_mode);
 
     // 삭제되지 않은 데이터만 조회
@@ -373,6 +378,8 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       assignment: Object.values(structuredData),
       assignmentMode: assignment_mode,
       FileName: fileName,
+      projectName: assignmentInfo.projectName || null,
+      cancerTypeName: assignmentInfo.cancerTypeName || null,
     });
   } catch (error) {
     console.error("Error fetching data:", error);

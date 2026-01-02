@@ -2,7 +2,18 @@
 
 <template>
   <div v-if="currentConsensusDetails" class="consensus-detail-view">
-    <h1 class="header-title">합의 평가</h1>
+    <!-- Breadcrumb 경로 -->
+    <div class="consensus-breadcrumb">
+      <div class="breadcrumb-path">
+        <router-link to="/assignment" class="path-link">평가 수행</router-link>
+        <span class="path-separator">&gt;</span>
+        <span class="path-item">{{ currentConsensusDetails.projectName || '미지정' }}</span>
+        <span class="path-separator">&gt;</span>
+        <span class="path-item">{{ currentConsensusDetails.cancerTypeName || '미분류' }}</span>
+        <span class="path-separator">&gt;</span>
+        <span class="path-item current">{{ currentConsensusDetails.title }}</span>
+      </div>
+    </div>
 
     <div class="consensus-overview">
       <div class="consensus-metadata">
@@ -451,6 +462,45 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Breadcrumb 스타일 */
+.consensus-breadcrumb {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  height: 50px;
+  border-bottom: 1px solid var(--light-gray);
+  flex-shrink: 0;
+}
+
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.path-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.path-link:hover {
+  text-decoration: underline;
+}
+
+.path-separator {
+  color: #6c757d;
+}
+
+.path-item {
+  color: #495057;
+}
+
+.path-item.current {
+  font-weight: 600;
+  color: #212529;
 }
 
 .header-title {

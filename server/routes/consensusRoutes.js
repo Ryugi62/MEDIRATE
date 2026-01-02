@@ -122,10 +122,12 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
     const { consensusId } = req.params;
     const userId = req.user.id;
 
-    // 1. 과제 정보 조회 (할당 여부 무관하게 조회)
+    // 1. 과제 정보 조회 (할당 여부 무관하게 조회, 프로젝트/암종 정보 포함)
     const [assignmentResult] = await db.query(
-      `SELECT ca.*
+      `SELECT ca.*, p.name AS projectName, ct.name_ko AS cancerTypeName
        FROM consensus_assignments ca
+       LEFT JOIN projects p ON ca.project_id = p.id AND p.deleted_at IS NULL
+       LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
        WHERE ca.id = ? AND ca.deleted_at IS NULL`,
       [consensusId]
     );

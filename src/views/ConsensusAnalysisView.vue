@@ -3,10 +3,23 @@
 
 <template>
   <div v-if="consensusData" class="dashboard">
+    <!-- Breadcrumb 경로 -->
+    <div class="dashboard-overview">
+      <div class="dashboard-metadata">
+        <div class="breadcrumb-path">
+          <router-link to="/dashboard" class="path-link">평가 결과</router-link>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item">{{ consensusData.projectName || '미지정' }}</span>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item">{{ consensusData.cancerTypeName || '미분류' }}</span>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item current">{{ consensusData.title }}</span>
+        </div>
+      </div>
+    </div>
     <div v-if="isExporting" class="exporting-message">
       {{ exportingMessage }}
     </div>
-    <h1 class="title">Consensus 분석</h1>
     <div class="dashboard-content">
       <div class="table-box">
         <div class="table-header">
@@ -695,6 +708,51 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Breadcrumb 스타일 */
+.dashboard-overview {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--light-gray);
+  height: 50px;
+  flex-shrink: 0;
+}
+
+.dashboard-metadata {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  gap: 8px;
+}
+
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.path-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.path-link:hover {
+  text-decoration: underline;
+}
+
+.path-separator {
+  color: #6c757d;
+}
+
+.path-item {
+  color: #495057;
+}
+
+.path-item.current {
+  font-weight: 600;
+  color: #212529;
 }
 
 .title {

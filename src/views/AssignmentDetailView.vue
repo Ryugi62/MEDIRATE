@@ -6,10 +6,10 @@
       <div class="assignment-metadata">
         <div class="breadcrumb-path">
           <router-link to="/assignment" class="path-link">평가 수행</router-link>
-          <span v-if="currentAssignmentDetails.projectName" class="path-separator">&gt;</span>
-          <span v-if="currentAssignmentDetails.projectName" class="path-item">{{ currentAssignmentDetails.projectName }}</span>
-          <span v-if="currentAssignmentDetails.cancerTypeName" class="path-separator">&gt;</span>
-          <span v-if="currentAssignmentDetails.cancerTypeName" class="path-item">{{ currentAssignmentDetails.cancerTypeName }}</span>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item">{{ currentAssignmentDetails.projectName || '미지정' }}</span>
+          <span class="path-separator">&gt;</span>
+          <span class="path-item">{{ currentAssignmentDetails.cancerTypeName || '미분류' }}</span>
           <span class="path-separator">&gt;</span>
           <span class="path-item current">{{ currentAssignmentDetails.FileName }}</span>
         </div>

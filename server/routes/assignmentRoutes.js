@@ -471,10 +471,14 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
         a.assignment_mode AS assignmentMode,
         a.assignment_type AS assignmentType,
         a.is_score,
-        a.is_ai_use
+        a.is_ai_use,
+        p.name AS projectName,
+        ct.name_ko AS cancerTypeName
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
       JOIN users u ON au.user_id = u.id AND u.deleted_at IS NULL
+      LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
+      LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
       WHERE a.id = ? AND u.id = ? AND a.deleted_at IS NULL;
     `;
     const [assignment] = await db.query(assignmentQuery, [
