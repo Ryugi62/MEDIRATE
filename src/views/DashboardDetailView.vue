@@ -151,6 +151,14 @@
     </div>
     <img src="../assets/dashboard_detial_guide.png" alt="" width="600" />
   </div>
+  <div v-else-if="loadError" class="error-message">
+    <i class="fas fa-exclamation-triangle"></i>
+    <h2>과제를 불러올 수 없습니다</h2>
+    <p>{{ loadError }}</p>
+    <button class="retry-button" @click="$router.go(-1)">
+      <i class="fas fa-arrow-left"></i> 뒤로 가기
+    </button>
+  </div>
   <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
@@ -182,6 +190,7 @@ export default {
       activeQuestionIndex: null,
       assignmentTitle: "",
       assignmentMode: "",
+      loadError: null,
       colorList: [
         { backgroundColor: "#00838F", color: "white" },
         { backgroundColor: "#36A2EB", color: "white" },
@@ -208,6 +217,7 @@ export default {
 
   async created() {
     this.isExporting = true;
+    this.loadError = null;
 
     try {
       await this.loadData();
@@ -217,6 +227,7 @@ export default {
       await this.collectMetadataKeys();
     } catch (error) {
       console.error("Failed to load data:", error);
+      this.loadError = error.response?.data?.message || error.message || "과제를 불러오는 중 오류가 발생했습니다.";
     } finally {
       this.isExporting = false;
     }
@@ -1293,6 +1304,52 @@ tfoot > tr > th {
   justify-content: center;
   font-size: 14px;
   color: #666;
+}
+
+.error-message {
+  height: calc(100vh - 71px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #666;
+}
+
+.error-message i.fa-exclamation-triangle {
+  font-size: 48px;
+  color: #dc3545;
+}
+
+.error-message h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.error-message p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  max-width: 400px;
+  text-align: center;
+}
+
+.error-message .retry-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.error-message .retry-button:hover {
+  background-color: #5a6268;
 }
 
 /* 가이드 이미지 숨김 */

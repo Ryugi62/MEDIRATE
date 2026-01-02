@@ -1289,38 +1289,50 @@ td {
   white-space: nowrap;
 }
 
+/* 체크박스 열 */
+.checkbox-col {
+  width: 36px;
+}
+
+/* ID 열 */
 td.id,
-th:nth-child(1) {
-  width: 50px;
-}
-
-td.assignment-mode,
 th:nth-child(2) {
-  width: 60px;
+  width: 45px;
 }
 
+/* 모드 열 */
+td.assignment-mode,
+th:nth-child(3) {
+  width: 80px;
+}
+
+/* 제목 열 - 너비 미지정으로 나머지 공간 차지 */
 td.assignment-title {
   text-align: left;
-  min-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 생성/종료 날짜 열 */
 td.created-at,
 td.end-at,
-th:nth-child(4),
-th:nth-child(5) {
-  width: 90px;
+th:nth-child(5),
+th:nth-child(6) {
+  width: 85px;
 }
 
+/* 평가자 수 열 */
 td.evaluator,
-th:nth-child(6) {
+th:nth-child(7) {
   width: 70px;
 }
 
+/* 답변완료율/미답변율 열 */
 td.answer-rate,
 td.unanswered-rate,
-th:nth-child(7),
-th:nth-child(8) {
-  width: 80px;
+th:nth-child(8),
+th:nth-child(9) {
+  width: 75px;
 }
 
 .pagination-nav {
@@ -1382,7 +1394,6 @@ th:nth-child(8) {
 }
 
 td.assignment-mode {
-  width: 60px;
   font-weight: 500;
 }
 

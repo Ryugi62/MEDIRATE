@@ -268,8 +268,8 @@ export default {
 .project-tree-filter {
   background: #f8f9fa;
   border-right: 1px solid #e0e0e0;
-  width: 240px;
-  min-width: 240px;
+  width: 280px;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
   transition: width 0.2s;

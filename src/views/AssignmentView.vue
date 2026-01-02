@@ -753,30 +753,44 @@ tbody > tr:hover {
   cursor: pointer;
 }
 
-.assignment-id {
-  width: 50px;
+/* ID 열 */
+.assignment-id,
+th:nth-child(1) {
+  width: 55px;
 }
 
-.assignment-mode {
+/* 모드 열 */
+.assignment-mode,
+th:nth-child(2) {
   width: 80px;
   font-weight: 500;
 }
 
+/* 제목 열 - 너비 미지정으로 나머지 공간 차지 */
 .assignment-title {
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 생성/종료 날짜 열 */
 .assignment-creation-date,
-.assignment-due-date {
-  width: 90px;
+.assignment-due-date,
+th:nth-child(4),
+th:nth-child(5) {
+  width: 85px;
 }
 
-.assignment-status {
+/* 상태 열 */
+.assignment-status,
+th:nth-child(6) {
+  width: 55px;
+}
+
+/* 진행 열 */
+.assignment-progress,
+th:nth-child(7) {
   width: 70px;
-}
-
-.assignment-progress {
-  width: 80px;
 }
 
 .assignment-progress strong {
@@ -848,11 +862,11 @@ tbody > tr:hover {
 /* 열린 과제 표시 스타일 */
 .opened-row {
   /* 하늘색 배경 제거 - 체크 아이콘만 표시 */
-  background-color: transparent;
+  background-color: transparent !important;
 }
 
 .opened-row:hover {
-  background-color: #f5f5f5;
+  background-color: #f5f5f5 !important;
 }
 
 .opened-icon {
