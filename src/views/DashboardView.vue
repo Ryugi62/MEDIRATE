@@ -410,7 +410,7 @@ export default {
         {
           name: "제목",
           key: "title",
-          sortable: false,
+          sortable: true,
           class: "assignment-title",
         },
         {
