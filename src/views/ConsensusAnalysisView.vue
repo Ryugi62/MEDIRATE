@@ -143,7 +143,6 @@
       <span class="legend-item agree">마이토시스</span>
       <span class="legend-item disagree">논 마이토시스</span>
       <span class="legend-item pending">미응답</span>
-      <span class="legend-item gs">GS_FP</span>
     </div>
 
   </div>
