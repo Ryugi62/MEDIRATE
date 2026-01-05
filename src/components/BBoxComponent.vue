@@ -143,6 +143,9 @@ export default {
       zoomMouseY: 0,
       isZoomActive: false,
       canvasHeight: 280,
+      // AI 데이터 캐시 (이미지별로 저장)
+      aiDataCache: {},
+      isLoadingAi: false,
       // 단축키 도움말
       helpOperations: [
         { action: "왼클릭", description: "박스 추가" },
@@ -414,25 +417,39 @@ export default {
     },
 
     async showTempAIBox() {
-      if (!this.is_ai_use) return; // is_ai_use가 false인 경우 실행하지 않음
+      if (!this.is_ai_use || this.isLoadingAi) return;
+
+      const cacheKey = this.src.split("/").pop();
 
       try {
-        const response = await this.$axios.get("/api/assignments/ai/", {
-          headers: {
-            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
-          },
-          params: {
-            src: this.src.split("/").pop(),
-            assignmentType: this.assignmentType,
-            questionIndex: this.questionIndex,
-          },
-        });
+        this.isLoadingAi = true;
+        let aiData;
 
-        if (response.data.length === 0 && this.showAiAlert) {
+        // 캐시에서 먼저 확인
+        if (this.aiDataCache[cacheKey]) {
+          aiData = this.aiDataCache[cacheKey];
+        } else {
+          // 캐시에 없으면 API 호출
+          const response = await this.$axios.get("/api/assignments/ai/", {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+            params: {
+              src: cacheKey,
+              assignmentType: this.assignmentType,
+              questionIndex: this.questionIndex,
+            },
+          });
+          aiData = response.data;
+          // 캐시에 저장
+          this.aiDataCache[cacheKey] = aiData;
+        }
+
+        if (aiData.length === 0 && this.showAiAlert) {
           alert("AI 데이터가 없습니다.");
         }
 
-        let newAiSquares = response.data.map((e) => ({
+        let newAiSquares = aiData.map((e) => ({
           x: e.x + 12.5,
           y: e.y + 12.5,
           questionIndex: this.questionIndex,
@@ -483,6 +500,32 @@ export default {
           alert("AI 데이터 파일이 존재하는지 확인해주세요.");
         }
         console.error(error);
+      } finally {
+        this.isLoadingAi = false;
+      }
+    },
+
+    // AI 데이터 프리페치 (백그라운드에서 다음/이전 이미지 데이터 미리 로드)
+    async prefetchAiData(imageSrc) {
+      if (!this.is_ai_use) return;
+
+      const cacheKey = imageSrc.split("/").pop();
+      if (this.aiDataCache[cacheKey]) return; // 이미 캐시됨
+
+      try {
+        const response = await this.$axios.get("/api/assignments/ai/", {
+          headers: {
+            Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+          },
+          params: {
+            src: cacheKey,
+            assignmentType: this.assignmentType,
+            questionIndex: this.questionIndex,
+          },
+        });
+        this.aiDataCache[cacheKey] = response.data;
+      } catch (error) {
+        // 프리페치 실패는 조용히 무시
       }
     },
 
