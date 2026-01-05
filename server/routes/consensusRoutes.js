@@ -96,16 +96,35 @@ router.get("/", authenticateToken, async (req, res) => {
 
     const [assignments] = await db.query(query, params);
 
-    // 각 과제의 태그 조회
-    for (const assignment of assignments) {
-      const [tags] = await db.query(
-        `SELECT t.id, t.name, t.color
+    // 배치 쿼리: 모든 과제의 태그를 한 번에 조회
+    if (assignments.length > 0) {
+      const assignmentIds = assignments.map(a => a.id);
+      const placeholders = assignmentIds.map(() => '?').join(',');
+      const [allTags] = await db.query(
+        `SELECT cat.consensus_assignment_id, t.id, t.name, t.color
          FROM tags t
          JOIN consensus_assignment_tags cat ON t.id = cat.tag_id
-         WHERE cat.consensus_assignment_id = ? AND t.deleted_at IS NULL`,
-        [assignment.id]
+         WHERE cat.consensus_assignment_id IN (${placeholders}) AND t.deleted_at IS NULL`,
+        assignmentIds
       );
-      assignment.tags = tags;
+
+      // 태그를 과제 ID별로 그룹화
+      const tagsByAssignmentId = {};
+      allTags.forEach(tag => {
+        if (!tagsByAssignmentId[tag.consensus_assignment_id]) {
+          tagsByAssignmentId[tag.consensus_assignment_id] = [];
+        }
+        tagsByAssignmentId[tag.consensus_assignment_id].push({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color
+        });
+      });
+
+      // 각 과제에 태그 매핑
+      for (const assignment of assignments) {
+        assignment.tags = tagsByAssignmentId[assignment.id] || [];
+      }
     }
 
     res.json(assignments);

@@ -33,6 +33,7 @@
             <strong>{{ completedCount }}/{{ questionList.length }}</strong> 완료
           </span>
           <button class="action-button action-button--blue" @click="openEditModal">과제수정</button>
+          <button v-if="isAdmin" class="action-button action-button--blue" @click="showBulkAssignModal = true">평가자 변경</button>
           <button class="action-button action-button--red" @click="deleteConsensus">과제삭제</button>
           <button class="action-button action-button--green" @click="exportToExcel">내보내기</button>
           <button class="action-button action-button--blue" @click="downloadImages">이미지 다운로드</button>
@@ -145,6 +146,14 @@
       <span class="legend-item pending">미응답</span>
     </div>
 
+    <!-- 평가자 변경 모달 -->
+    <BulkAssignModal
+      v-if="showBulkAssignModal"
+      :regularAssignmentIds="[]"
+      :assignmentIds="[parseInt(consensusId)]"
+      @close="showBulkAssignModal = false"
+      @assigned="handleAssignmentComplete"
+    />
   </div>
   <div v-else class="loading-message">
     <p>Consensus 데이터를 불러오는 중입니다...</p>
@@ -153,6 +162,7 @@
 
 <script>
 import ConsensusViewerComponent from "@/components/ConsensusViewerComponent.vue";
+import BulkAssignModal from "@/components/BulkAssignModal.vue";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { format } from "date-fns";
@@ -163,6 +173,7 @@ export default {
 
   components: {
     ConsensusViewerComponent,
+    BulkAssignModal,
   },
 
   data() {
@@ -173,6 +184,7 @@ export default {
       activeImageUrl: "",
       isExporting: false,
       exportingMessage: "내보내기 중...",
+      showBulkAssignModal: false,
       colorList: [
         { backgroundColor: "#00838F", color: "white" },
         { backgroundColor: "#36A2EB", color: "white" },
@@ -524,6 +536,12 @@ export default {
         name: "consensusDetail",
         params: { id: this.$route.params.id },
       });
+    },
+
+    // 평가자 변경 완료 핸들러
+    handleAssignmentComplete() {
+      this.showBulkAssignModal = false;
+      this.loadConsensusData();
     },
 
     // 수정 페이지로 이동

@@ -56,6 +56,9 @@
           <button class="edit-button" @click="moveToAssignmentManagement">
             과제수정
           </button>
+          <button v-if="isAdmin" class="edit-button" @click="showBulkAssignModal = true">
+            평가자 변경
+          </button>
           <button v-if="isAdmin" class="delete" @click="deleteAssignment">과제삭제</button>
           <button class="export-button" @click="exportToExcel">내보내기</button>
           <button @click="exportImage">이미지 다운로드</button>
@@ -175,11 +178,21 @@
   <div v-else-if="!data.length" class="loading-message">
     <p>과제를 불러오는 중입니다...</p>
   </div>
+
+  <!-- 평가자 변경 모달 -->
+  <BulkAssignModal
+    v-if="showBulkAssignModal"
+    :regularAssignmentIds="[parseInt(assignmentId)]"
+    :assignmentIds="[]"
+    @close="showBulkAssignModal = false"
+    @assigned="handleAssignmentComplete"
+  />
 </template>
 
 <script>
 import ImageComponent from "@/components/ImageComponent.vue";
 import BBoxViewerComponent from "@/components/BBoxViewerComponent.vue";
+import BulkAssignModal from "@/components/BulkAssignModal.vue";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
 import ExcelJS from "exceljs";
@@ -191,6 +204,7 @@ export default {
   components: {
     ImageComponent,
     BBoxViewerComponent,
+    BulkAssignModal,
   },
 
   data() {
@@ -227,6 +241,7 @@ export default {
       overlaps: {},
       metadataKeys: new Set(),
       metadataJson: null,
+      showBulkAssignModal: false,
     };
   },
 
@@ -268,6 +283,12 @@ export default {
   },
 
   methods: {
+    handleAssignmentComplete() {
+      this.showBulkAssignModal = false;
+      // 데이터 새로고침
+      this.loadData();
+    },
+
     async loadData() {
       try {
         const { data } = await this.$axios.get(

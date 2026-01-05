@@ -249,18 +249,14 @@ export default {
       const boxHalf = boxSize / 2;
 
       this.fpSquares.forEach((fp) => {
-        // 좌표 범위 체크 (이미지 영역 내로 제한)
-        const clampedFpX = Math.max(0, Math.min(fp.x, this.originalWidth));
-        const clampedFpY = Math.max(0, Math.min(fp.y, this.originalHeight));
-
-        // 원본 좌표가 이미지 영역을 벗어나면 표시하지 않음
-        if (fp.x !== clampedFpX || fp.y !== clampedFpY) {
-          return;
-        }
+        // 좌표를 이미지 영역 내로 제한 (클램핑)
+        // 좌표가 영역을 벗어나도 가장 가까운 위치에 박스를 표시
+        const clampedFpX = Math.max(0, Math.min(fp.x, this.originalWidth - 25));
+        const clampedFpY = Math.max(0, Math.min(fp.y, this.originalHeight - 25));
 
         // ConsensusComponent와 동일하게 +12.5 오프셋 적용 (박스 중심 맞춤)
-        const x = imgX + (fp.x + 12.5) * scale;
-        const y = imgY + (fp.y + 12.5) * scale;
+        const x = imgX + (clampedFpX + 12.5) * scale;
+        const y = imgY + (clampedFpY + 12.5) * scale;
 
         // 응답 상태에 따른 색상 결정
         const responses = this.evaluatorResponses[fp.id] || {};

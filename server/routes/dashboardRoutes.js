@@ -112,49 +112,87 @@ router.get("/paginated", async (req, res) => {
       [...params, limitNum, offset]
     );
 
-    // 각 과제의 태그 및 답변율 계산
-    for (const assignment of assignments) {
-      // 태그 조회
-      const [tags] = await db.query(
-        `SELECT t.id, t.name, t.color
+    // 과제 ID 목록 추출
+    const assignmentIds = assignments.map(a => a.id);
+
+    if (assignmentIds.length > 0) {
+      // 배치 쿼리: 모든 과제의 태그를 한 번에 조회
+      const placeholders = assignmentIds.map(() => '?').join(',');
+      const [allTagsForAssignments] = await db.query(
+        `SELECT at.assignment_id, t.id, t.name, t.color
          FROM tags t
          JOIN assignment_tags at ON t.id = at.tag_id
-         WHERE at.assignment_id = ? AND t.deleted_at IS NULL`,
-        [assignment.id]
+         WHERE at.assignment_id IN (${placeholders}) AND t.deleted_at IS NULL`,
+        assignmentIds
       );
-      assignment.tags = tags;
 
-      // 답변율 계산
-      const totalPossibleAnswers = assignment.totalQuestions * assignment.evaluatorCount;
+      // 태그를 과제 ID별로 그룹화
+      const tagsByAssignmentId = {};
+      allTagsForAssignments.forEach(tag => {
+        if (!tagsByAssignmentId[tag.assignment_id]) {
+          tagsByAssignmentId[tag.assignment_id] = [];
+        }
+        tagsByAssignmentId[tag.assignment_id].push({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color
+        });
+      });
 
-      if (assignment.assignmentMode === "BBox" || assignment.assignmentMode === "Segment") {
+      // 배치 쿼리: BBox/Segment 모드의 답변 수 한 번에 조회
+      const bboxIds = assignments
+        .filter(a => a.assignmentMode === "BBox" || a.assignmentMode === "Segment")
+        .map(a => a.id);
+
+      const answerCountMap = {};
+
+      if (bboxIds.length > 0) {
+        const bboxPlaceholders = bboxIds.map(() => '?').join(',');
         const [bboxAnswers] = await db.query(
-          `SELECT COUNT(*) AS answeredQuestions
-           FROM (
-             SELECT DISTINCT si.user_id, q.id
-             FROM questions q
-             JOIN squares_info si ON q.id = si.question_id AND si.deleted_at IS NULL
-             WHERE q.assignment_id = ? AND q.deleted_at IS NULL
-           ) AS user_question_combinations`,
-          [assignment.id]
+          `SELECT q.assignment_id, COUNT(DISTINCT CONCAT(si.user_id, '-', q.id)) AS answeredQuestions
+           FROM questions q
+           JOIN squares_info si ON q.id = si.question_id AND si.deleted_at IS NULL
+           WHERE q.assignment_id IN (${bboxPlaceholders}) AND q.deleted_at IS NULL
+           GROUP BY q.assignment_id`,
+          bboxIds
         );
-        assignment.answeredQuestions = bboxAnswers[0].answeredQuestions;
-      } else {
-        const [answeredQuestions] = await db.query(
-          `SELECT COUNT(*) AS count
-           FROM question_responses qr
-           JOIN questions q ON qr.question_id = q.id
-           WHERE q.assignment_id = ? AND qr.selected_option >= 0
-           AND qr.deleted_at IS NULL AND q.deleted_at IS NULL`,
-          [assignment.id]
-        );
-        assignment.answeredQuestions = answeredQuestions[0].count;
+        bboxAnswers.forEach(row => {
+          answerCountMap[row.assignment_id] = row.answeredQuestions;
+        });
       }
 
-      assignment.answerRate = calculateRates(assignment.answeredQuestions, totalPossibleAnswers);
-      assignment.unansweredRate = calculateRates(totalPossibleAnswers - assignment.answeredQuestions, totalPossibleAnswers);
-      assignment.createdAt = formatDate(new Date(assignment.createdAt));
-      assignment.endAt = formatDate(new Date(assignment.endAt));
+      // 배치 쿼리: 일반 모드의 답변 수 한 번에 조회
+      const normalIds = assignments
+        .filter(a => a.assignmentMode !== "BBox" && a.assignmentMode !== "Segment")
+        .map(a => a.id);
+
+      if (normalIds.length > 0) {
+        const normalPlaceholders = normalIds.map(() => '?').join(',');
+        const [normalAnswers] = await db.query(
+          `SELECT q.assignment_id, COUNT(*) AS count
+           FROM question_responses qr
+           JOIN questions q ON qr.question_id = q.id
+           WHERE q.assignment_id IN (${normalPlaceholders}) AND qr.selected_option >= 0
+           AND qr.deleted_at IS NULL AND q.deleted_at IS NULL
+           GROUP BY q.assignment_id`,
+          normalIds
+        );
+        normalAnswers.forEach(row => {
+          answerCountMap[row.assignment_id] = row.count;
+        });
+      }
+
+      // 각 과제에 데이터 매핑
+      for (const assignment of assignments) {
+        assignment.tags = tagsByAssignmentId[assignment.id] || [];
+        assignment.answeredQuestions = answerCountMap[assignment.id] || 0;
+
+        const totalPossibleAnswers = assignment.totalQuestions * assignment.evaluatorCount;
+        assignment.answerRate = calculateRates(assignment.answeredQuestions, totalPossibleAnswers);
+        assignment.unansweredRate = calculateRates(totalPossibleAnswers - assignment.answeredQuestions, totalPossibleAnswers);
+        assignment.createdAt = formatDate(new Date(assignment.createdAt));
+        assignment.endAt = formatDate(new Date(assignment.endAt));
+      }
     }
 
     // 전체 태그 목록 (필터용)
