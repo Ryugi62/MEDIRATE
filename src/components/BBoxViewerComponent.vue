@@ -434,7 +434,7 @@ export default {
           return;
         }
 
-        ctx.lineWidth = 3 * scale;
+        ctx.lineWidth = 2 * scale;
         ctx.strokeStyle = square.color;
         ctx.globalAlpha = 0.7;
         ctx.strokeRect(square.x - boxHalf, square.y - boxHalf, boxSize, boxSize);

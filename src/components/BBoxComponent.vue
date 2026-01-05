@@ -1063,6 +1063,11 @@ export default {
           await this.loadBackgroundImage();
           this.fetchLocalInfo();
           this.resizeCanvas();
+
+          // AI 모드가 활성화되어 있으면 새 이미지의 AI 데이터 자동 로드
+          if (this.showAiBoxes && this.is_ai_use) {
+            await this.showTempAIBox();
+          }
         }
       },
     },
