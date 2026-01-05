@@ -143,8 +143,7 @@ export default {
       zoomMouseY: 0,
       isZoomActive: false,
       canvasHeight: 280,
-      // AI 데이터 캐시 (이미지별로 저장)
-      aiDataCache: {},
+      // AI 로딩 상태
       isLoadingAi: false,
       // 단축키 도움말
       helpOperations: [
@@ -419,15 +418,16 @@ export default {
     async showTempAIBox() {
       if (!this.is_ai_use || this.isLoadingAi) return;
 
-      const cacheKey = this.src.split("/").pop();
+      const cacheKey = `${this.assignmentType}/${this.src.split("/").pop()}`;
 
       try {
         this.isLoadingAi = true;
         let aiData;
 
-        // 캐시에서 먼저 확인
-        if (this.aiDataCache[cacheKey]) {
-          aiData = this.aiDataCache[cacheKey];
+        // Vuex Store 캐시에서 먼저 확인
+        const cachedData = this.$store.getters.getAiDataByKey(cacheKey);
+        if (cachedData) {
+          aiData = cachedData;
         } else {
           // 캐시에 없으면 API 호출
           const response = await this.$axios.get("/api/assignments/ai/", {
@@ -435,14 +435,14 @@ export default {
               Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
             },
             params: {
-              src: cacheKey,
+              src: this.src.split("/").pop(),
               assignmentType: this.assignmentType,
               questionIndex: this.questionIndex,
             },
           });
           aiData = response.data;
-          // 캐시에 저장
-          this.aiDataCache[cacheKey] = aiData;
+          // Vuex Store 캐시에 저장
+          this.$store.commit("setAiData", { key: cacheKey, data: aiData });
         }
 
         if (aiData.length === 0 && this.showAiAlert) {
@@ -509,8 +509,11 @@ export default {
     async prefetchAiData(imageSrc) {
       if (!this.is_ai_use) return;
 
-      const cacheKey = imageSrc.split("/").pop();
-      if (this.aiDataCache[cacheKey]) return; // 이미 캐시됨
+      const fileName = imageSrc.split("/").pop();
+      const cacheKey = `${this.assignmentType}/${fileName}`;
+
+      // Vuex Store에서 이미 캐시되었는지 확인
+      if (this.$store.getters.getAiDataByKey(cacheKey)) return;
 
       try {
         const response = await this.$axios.get("/api/assignments/ai/", {
@@ -518,12 +521,13 @@ export default {
             Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
           },
           params: {
-            src: cacheKey,
+            src: fileName,
             assignmentType: this.assignmentType,
             questionIndex: this.questionIndex,
           },
         });
-        this.aiDataCache[cacheKey] = response.data;
+        // Vuex Store에 캐시
+        this.$store.commit("setAiData", { key: cacheKey, data: response.data });
       } catch (error) {
         // 프리페치 실패는 조용히 무시
       }

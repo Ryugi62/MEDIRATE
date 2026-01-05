@@ -325,9 +325,15 @@ export default {
     },
 
     async loadAiData() {
-      console.log(this.assignmentId);
-      
+      const cacheKey = `assignment_all_${this.assignmentId}`;
+
       try {
+        // Vuex Store 캐시에서 먼저 확인
+        const cachedData = this.$store.getters.getAiDataByKey(cacheKey);
+        if (cachedData) {
+          this.aiData = cachedData;
+          return;
+        }
 
         const { data } = await this.$axios.get(
           `/api/assignments/${this.assignmentId}/ai/`,
@@ -344,6 +350,9 @@ export default {
           y: ai.y + 12.5,
           score: ai.score ? ai.score : 0.6,
         }));
+
+        // Vuex Store에 캐시
+        this.$store.commit("setAiData", { key: cacheKey, data: this.aiData });
       } catch (error) {
         console.error("Failed to load AI data:", error);
       }
@@ -617,7 +626,7 @@ export default {
       this.activeQuestionIndex = this.data[0].questions[index].questionId;
 
       this.$nextTick(() => {
-        const activeRow = this.$el.querySelector(
+        const activeRow = document.querySelector(
           ".assignment-table tbody tr.active"
         );
         if (activeRow) {

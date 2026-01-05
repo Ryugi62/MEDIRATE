@@ -8,6 +8,8 @@ export default createStore({
     user: JSON.parse(localStorage.getItem("user")) || null,
     isAuthenticated: !!localStorage.getItem("user"), // 사용자가 인증되었는지 여부
     isSlideBarOpen: localStorage.getItem("isSlideBarOpen") === "true" || false,
+    // AI 데이터 글로벌 캐시 (메모리에만 저장, localStorage 사용 안함)
+    aiDataCache: {},
     assignmentSearchHistory:
       localStorage.getItem("assignmentSearchHistory") || "",
     dashboardSearchHistory:
@@ -37,6 +39,9 @@ export default createStore({
     getUser: (state) => state.user,
     isSlideBarOpen: (state) => state.isSlideBarOpen,
     getJwtToken: (state) => state.user?.token,
+    // AI 캐시 getters
+    getAiDataCache: (state) => state.aiDataCache,
+    getAiDataByKey: (state) => (key) => state.aiDataCache[key] || null,
     tokenExpires: (state) => state.user?.expires,
     getAssignmentSearchHistory: (state) => state.assignmentSearchHistory,
     getDashboardSearchHistory: (state) => state.dashboardSearchHistory,
@@ -65,6 +70,13 @@ export default createStore({
     },
     clearUser(state) {
       state.user = null;
+    },
+    // AI 캐시 mutations
+    setAiData(state, { key, data }) {
+      state.aiDataCache[key] = data;
+    },
+    clearAiDataCache(state) {
+      state.aiDataCache = {};
     },
     toggleSlideBar(state) {
       state.isSlideBarOpen = !state.isSlideBarOpen;
@@ -171,6 +183,9 @@ export default createStore({
 
       // 인증 상태를 false로 변경
       commit("setAuthenticated", false);
+
+      // AI 캐시 클리어
+      commit("clearAiDataCache");
 
       // 로컬 스토리지에서 사용자 정보 삭제
       localStorage.removeItem("user");
