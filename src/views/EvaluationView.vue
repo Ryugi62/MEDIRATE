@@ -1165,6 +1165,7 @@ export default {
             evaluator_threshold: 2, // 기본값
             project_id: this.selectedProjectId,
             cancer_type_id: this.selectedCancerId,
+            users: this.addedUsers.map((user) => user.id), // 평가자 목록 추가
           },
           {
             headers: {

@@ -844,21 +844,25 @@ router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
     res.json({ message: "Assignment successfully updated." });
   } catch (error) {
     console.error("Error updating assignment:", error);
+    console.error("Error stack:", error.stack);
     res
       .status(500)
-      .send({ message: "Failed to update assignment", error: error.message });
+      .send({ message: "Failed to update assignment", error: error.message || String(error) });
   }
 });
 
 // 과제 질문 업데이트 함수
 const updateQuestions = async (assignmentId, questions) => {
+  // questions가 undefined/null인 경우 빈 배열로 처리
+  const safeQuestions = Array.isArray(questions) ? questions : [];
+
   const [existingQuestions] = await db.query(
     `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
 
   const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
-  const submittedQuestionIds = new Set(questions.map((q) => q.id));
+  const submittedQuestionIds = new Set(safeQuestions.map((q) => q.id));
 
   // 제출된 목록에 없는 질문 삭제
   const questionIdsToDelete = [...existingQuestionIds].filter(
@@ -876,7 +880,7 @@ const updateQuestions = async (assignmentId, questions) => {
 
   // 기존 질문 업데이트 및 새로운 질문 삽입
   await Promise.all(
-    questions.map(async (question) => {
+    safeQuestions.map(async (question) => {
       if (existingQuestionIds.has(question.id)) {
         // 기존 질문 업데이트
         await db.query(`UPDATE questions SET image = ? WHERE id = ?`, [
@@ -896,6 +900,9 @@ const updateQuestions = async (assignmentId, questions) => {
 
 // 과제 사용자 할당 업데이트 함수 (Soft Delete 적용)
 const updateUserAssignments = async (assignmentId, users, performedBy = null) => {
+  // users가 undefined/null인 경우 빈 배열로 처리
+  const safeUsers = Array.isArray(users) ? users : [];
+
   const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
@@ -904,9 +911,9 @@ const updateUserAssignments = async (assignmentId, users, performedBy = null) =>
   const existingUserIds = new Set(existingUsers.map((u) => u.user_id));
 
   const usersToRemove = [...existingUserIds].filter(
-    (userId) => !users.includes(userId)
+    (userId) => !safeUsers.includes(userId)
   );
-  const usersToAdd = users.filter((userId) => !existingUserIds.has(userId));
+  const usersToAdd = safeUsers.filter((userId) => !existingUserIds.has(userId));
 
   // 트랜잭션으로 원자성 보장
   await db.withTransaction(async (conn) => {

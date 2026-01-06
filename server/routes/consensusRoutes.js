@@ -793,11 +793,125 @@ function formatTime(ms) {
 }
 
 // ========================================
+// PUT /api/consensus/bulk-assign - 선택한 과제에 일괄 할당
+// NOTE: 이 라우트는 /:consensusId 보다 먼저 정의되어야 함
+// ========================================
+router.put("/bulk-assign", authenticateToken, async (req, res) => {
+  const { assignment_ids, user_ids } = req.body;
+
+  if (!assignment_ids || assignment_ids.length === 0) {
+    return res.status(400).json({ message: "과제를 선택해주세요." });
+  }
+
+  if (!user_ids || user_ids.length === 0) {
+    return res.status(400).json({ message: "평가자를 선택해주세요." });
+  }
+
+  // 입력값 검증: 정수 배열인지 확인
+  if (!Array.isArray(assignment_ids) || !assignment_ids.every(id => Number.isInteger(id))) {
+    return res.status(400).json({ message: "잘못된 과제 ID 형식입니다." });
+  }
+
+  if (!Array.isArray(user_ids) || !user_ids.every(id => Number.isInteger(id))) {
+    return res.status(400).json({ message: "잘못된 사용자 ID 형식입니다." });
+  }
+
+  try {
+    // 과제 존재 여부 확인
+    const [existingAssignments] = await db.query(
+      `SELECT id FROM consensus_assignments WHERE id IN (?) AND deleted_at IS NULL`,
+      [assignment_ids]
+    );
+    const existingAssignmentIds = new Set(existingAssignments.map(a => a.id));
+    const invalidAssignmentIds = assignment_ids.filter(id => !existingAssignmentIds.has(id));
+
+    if (invalidAssignmentIds.length > 0) {
+      return res.status(404).json({
+        message: "존재하지 않는 과제가 포함되어 있습니다.",
+        invalidIds: invalidAssignmentIds
+      });
+    }
+
+    // 사용자 존재 여부 확인
+    const [existingUsers] = await db.query(
+      `SELECT id FROM users WHERE id IN (?) AND deleted_at IS NULL`,
+      [user_ids]
+    );
+    const existingUserIds = new Set(existingUsers.map(u => u.id));
+    const invalidUserIds = user_ids.filter(id => !existingUserIds.has(id));
+
+    if (invalidUserIds.length > 0) {
+      return res.status(404).json({
+        message: "존재하지 않는 사용자가 포함되어 있습니다.",
+        invalidIds: invalidUserIds
+      });
+    }
+
+    await db.withTransaction(async (conn) => {
+      for (const assignmentId of assignment_ids) {
+        // 기존 할당 soft delete
+        await conn.query(
+          `UPDATE consensus_user_assignments SET deleted_at = NOW()
+           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+          [assignmentId]
+        );
+
+        // 기존 캔버스 정보 soft delete
+        await conn.query(
+          `UPDATE consensus_canvas_info SET deleted_at = NOW()
+           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+          [assignmentId]
+        );
+
+        // 새 사용자 할당
+        for (const userId of user_ids) {
+          // consensus_user_assignments에 추가
+          await conn.query(
+            `INSERT INTO consensus_user_assignments (consensus_assignment_id, user_id, deleted_at)
+             VALUES (?, ?, NULL)
+             ON DUPLICATE KEY UPDATE deleted_at = NULL`,
+            [assignmentId, userId]
+          );
+
+          // consensus_canvas_info 생성 (없는 경우)
+          const [existingCanvas] = await conn.query(
+            `SELECT id FROM consensus_canvas_info
+             WHERE consensus_assignment_id = ? AND user_id = ?`,
+            [assignmentId, userId]
+          );
+
+          if (existingCanvas.length === 0) {
+            await conn.query(
+              `INSERT INTO consensus_canvas_info (consensus_assignment_id, user_id, width, height, evaluation_time)
+               VALUES (?, ?, 0, 0, 0)`,
+              [assignmentId, userId]
+            );
+          } else {
+            // 기존 캔버스 복원
+            await conn.query(
+              `UPDATE consensus_canvas_info SET deleted_at = NULL
+               WHERE consensus_assignment_id = ? AND user_id = ?`,
+              [assignmentId, userId]
+            );
+          }
+        }
+      }
+    });
+
+    res.json({
+      message: `${assignment_ids.length}개 과제에 ${user_ids.length}명의 평가자가 할당되었습니다.`,
+    });
+  } catch (error) {
+    handleError(res, "일괄 할당 중 오류 발생", error);
+  }
+});
+
+// ========================================
 // PUT /api/consensus/:id - 과제 수정
 // ========================================
 router.put("/:consensusId", authenticateToken, async (req, res) => {
   const { consensusId } = req.params;
-  const { title, deadline, evaluator_threshold, score_threshold, project_id, cancer_type_id } = req.body;
+  const { title, deadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, users } = req.body;
 
   try {
     // 관리자 권한 확인
@@ -818,14 +932,79 @@ router.put("/:consensusId", authenticateToken, async (req, res) => {
     // Convert ISO 8601 datetime to MySQL DATE format (YYYY-MM-DD)
     const formattedDeadline = deadline ? new Date(deadline).toISOString().split('T')[0] : null;
 
-    // 업데이트 실행
-    await db.query(
-      `UPDATE consensus_assignments
-       SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?,
-           project_id = ?, cancer_type_id = ?
-       WHERE id = ? AND deleted_at IS NULL`,
-      [title, formattedDeadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, consensusId]
-    );
+    await db.withTransaction(async (conn) => {
+      // 과제 정보 업데이트
+      await conn.query(
+        `UPDATE consensus_assignments
+         SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?,
+             project_id = ?, cancer_type_id = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+        [title, formattedDeadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, consensusId]
+      );
+
+      // users가 제공된 경우 평가자 업데이트
+      if (Array.isArray(users)) {
+        // 기존 할당된 사용자 조회
+        const [existingUsers] = await conn.query(
+          `SELECT user_id FROM consensus_user_assignments
+           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
+          [consensusId]
+        );
+        const existingUserIds = new Set(existingUsers.map(u => u.user_id));
+        const newUserIds = new Set(users);
+
+        // 제거할 사용자 (기존에 있었지만 새 목록에 없는)
+        const usersToRemove = [...existingUserIds].filter(id => !newUserIds.has(id));
+        // 추가할 사용자 (새 목록에 있지만 기존에 없는)
+        const usersToAdd = users.filter(id => !existingUserIds.has(id));
+
+        // 사용자 제거 (soft delete)
+        for (const userId of usersToRemove) {
+          await conn.query(
+            `UPDATE consensus_user_assignments SET deleted_at = NOW()
+             WHERE consensus_assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+            [consensusId, userId]
+          );
+          await conn.query(
+            `UPDATE consensus_canvas_info SET deleted_at = NOW()
+             WHERE consensus_assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+            [consensusId, userId]
+          );
+        }
+
+        // 사용자 추가 또는 복원
+        for (const userId of usersToAdd) {
+          // 기존 레코드가 있으면 복원, 없으면 생성
+          await conn.query(
+            `INSERT INTO consensus_user_assignments (consensus_assignment_id, user_id, deleted_at)
+             VALUES (?, ?, NULL)
+             ON DUPLICATE KEY UPDATE deleted_at = NULL`,
+            [consensusId, userId]
+          );
+
+          // 캔버스 정보 생성 또는 복원
+          const [existingCanvas] = await conn.query(
+            `SELECT id FROM consensus_canvas_info
+             WHERE consensus_assignment_id = ? AND user_id = ?`,
+            [consensusId, userId]
+          );
+
+          if (existingCanvas.length === 0) {
+            await conn.query(
+              `INSERT INTO consensus_canvas_info (consensus_assignment_id, user_id, width, height, evaluation_time)
+               VALUES (?, ?, 0, 0, 0)`,
+              [consensusId, userId]
+            );
+          } else {
+            await conn.query(
+              `UPDATE consensus_canvas_info SET deleted_at = NULL
+               WHERE consensus_assignment_id = ? AND user_id = ?`,
+              [consensusId, userId]
+            );
+          }
+        }
+      }
+    });
 
     res.json({ message: "수정되었습니다." });
   } catch (error) {
@@ -1084,119 +1263,6 @@ router.delete("/groups/:groupId", authenticateToken, async (req, res) => {
     res.json({ message: "평가자 그룹이 삭제되었습니다." });
   } catch (error) {
     handleError(res, "평가자 그룹 삭제 중 오류 발생", error);
-  }
-});
-
-// ========================================
-// PUT /api/consensus/bulk-assign - 선택한 과제에 일괄 할당
-// ========================================
-router.put("/bulk-assign", authenticateToken, async (req, res) => {
-  const { assignment_ids, user_ids } = req.body;
-
-  if (!assignment_ids || assignment_ids.length === 0) {
-    return res.status(400).json({ message: "과제를 선택해주세요." });
-  }
-
-  if (!user_ids || user_ids.length === 0) {
-    return res.status(400).json({ message: "평가자를 선택해주세요." });
-  }
-
-  // 입력값 검증: 정수 배열인지 확인
-  if (!Array.isArray(assignment_ids) || !assignment_ids.every(id => Number.isInteger(id))) {
-    return res.status(400).json({ message: "잘못된 과제 ID 형식입니다." });
-  }
-
-  if (!Array.isArray(user_ids) || !user_ids.every(id => Number.isInteger(id))) {
-    return res.status(400).json({ message: "잘못된 사용자 ID 형식입니다." });
-  }
-
-  try {
-    // 과제 존재 여부 확인
-    const [existingAssignments] = await db.query(
-      `SELECT id FROM consensus_assignments WHERE id IN (?) AND deleted_at IS NULL`,
-      [assignment_ids]
-    );
-    const existingAssignmentIds = new Set(existingAssignments.map(a => a.id));
-    const invalidAssignmentIds = assignment_ids.filter(id => !existingAssignmentIds.has(id));
-
-    if (invalidAssignmentIds.length > 0) {
-      return res.status(404).json({
-        message: "존재하지 않는 과제가 포함되어 있습니다.",
-        invalidIds: invalidAssignmentIds
-      });
-    }
-
-    // 사용자 존재 여부 확인
-    const [existingUsers] = await db.query(
-      `SELECT id FROM users WHERE id IN (?) AND deleted_at IS NULL`,
-      [user_ids]
-    );
-    const existingUserIds = new Set(existingUsers.map(u => u.id));
-    const invalidUserIds = user_ids.filter(id => !existingUserIds.has(id));
-
-    if (invalidUserIds.length > 0) {
-      return res.status(404).json({
-        message: "존재하지 않는 사용자가 포함되어 있습니다.",
-        invalidIds: invalidUserIds
-      });
-    }
-
-    await db.withTransaction(async (conn) => {
-      for (const assignmentId of assignment_ids) {
-        // 기존 할당 soft delete
-        await conn.query(
-          `UPDATE consensus_user_assignments SET deleted_at = NOW()
-           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
-          [assignmentId]
-        );
-
-        // 기존 캔버스 정보 soft delete
-        await conn.query(
-          `UPDATE consensus_canvas_info SET deleted_at = NOW()
-           WHERE consensus_assignment_id = ? AND deleted_at IS NULL`,
-          [assignmentId]
-        );
-
-        // 새 사용자 할당
-        for (const userId of user_ids) {
-          // consensus_user_assignments에 추가
-          await conn.query(
-            `INSERT INTO consensus_user_assignments (consensus_assignment_id, user_id, deleted_at)
-             VALUES (?, ?, NULL)
-             ON DUPLICATE KEY UPDATE deleted_at = NULL`,
-            [assignmentId, userId]
-          );
-
-          // consensus_canvas_info 생성 (없는 경우)
-          const [existingCanvas] = await conn.query(
-            `SELECT id FROM consensus_canvas_info
-             WHERE consensus_assignment_id = ? AND user_id = ?`,
-            [assignmentId, userId]
-          );
-
-          if (existingCanvas.length === 0) {
-            await conn.query(
-              `INSERT INTO consensus_canvas_info (consensus_assignment_id, user_id, width, height, evaluation_time)
-               VALUES (?, ?, 0, 0, 0)`,
-              [assignmentId, userId]
-            );
-          } else {
-            // 기존 캔버스 복원
-            await conn.query(
-              `UPDATE consensus_canvas_info SET deleted_at = NULL
-               WHERE consensus_assignment_id = ? AND user_id = ?`,
-              [assignmentId, userId]
-            );
-          }
-        }
-      }
-    });
-
-    res.json({
-      message: `${assignment_ids.length}개 과제에 ${user_ids.length}명의 평가자가 할당되었습니다.`,
-    });
-  } catch (error) {
-    handleError(res, "일괄 할당 중 오류 발생", error);
   }
 });
 
