@@ -677,6 +677,9 @@ export default {
 
       this.current = 1; // 페이지 초기화
       this.$store.commit("setDashboardCurrentPage", 1);
+
+      // 선택된 항목 초기화
+      this.selectedItems = [];
       this.loadPaginatedData();
     },
 
@@ -686,6 +689,9 @@ export default {
       this.$store.commit("setDashboardSelectedTag", tagName);
       this.current = 1;
       this.$store.commit("setDashboardCurrentPage", 1);
+
+      // 선택된 항목 초기화
+      this.selectedItems = [];
       this.loadPaginatedData();
     },
 
@@ -694,6 +700,9 @@ export default {
       if (pageNumber >= 1 && pageNumber <= this.totalPages && pageNumber !== this.current) {
         this.current = pageNumber;
         this.$store.commit("setDashboardCurrentPage", pageNumber);
+
+        // 선택된 항목 초기화
+        this.selectedItems = [];
         await this.loadPaginatedData();
       }
     },
@@ -961,12 +970,12 @@ export default {
     },
 
     // 일괄 할당 완료 후 처리
-    onBulkAssigned() {
+    async onBulkAssigned() {
       this.showBulkAssignModal = false;
       this.selectedItems = [];
       this.showBulkMenu = false;
-      // 데이터 새로고침
-      this.$router.go(0);
+      // 부분 새로고침 (전체 페이지 리로드 대신)
+      await this.loadPaginatedData();
     },
 
     // 일괄 태그 추가 모달 열기
@@ -1052,7 +1061,8 @@ export default {
         alert(`${this.selectedItems.length}개 과제에 태그가 추가되었습니다.`);
         this.showBulkTagModal = false;
         this.selectedItems = [];
-        this.$router.go(0);
+        // 부분 새로고침 (전체 페이지 리로드 대신)
+        await this.loadPaginatedData();
       } catch (error) {
         console.error("태그 추가 오류:", error);
         alert("태그 추가 중 오류가 발생했습니다.");
@@ -1100,7 +1110,8 @@ export default {
 
         alert(`${this.selectedItems.length}개 과제가 삭제되었습니다.`);
         this.selectedItems = [];
-        this.$router.go(0);
+        // 부분 새로고침 (전체 페이지 리로드 대신)
+        await this.loadPaginatedData();
       } catch (error) {
         console.error("삭제 오류:", error);
         alert("삭제 중 오류가 발생했습니다.");

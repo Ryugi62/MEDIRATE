@@ -78,6 +78,15 @@ export default createStore({
     clearAiDataCache(state) {
       state.aiDataCache = {};
     },
+    // 특정 과제의 캐시만 무효화
+    clearAiDataByAssignment(state, assignmentId) {
+      const keysToDelete = Object.keys(state.aiDataCache).filter(
+        key => key.includes(`assignment_${assignmentId}_`) || key.includes(`assignment_all_${assignmentId}`)
+      );
+      keysToDelete.forEach(key => {
+        delete state.aiDataCache[key];
+      });
+    },
     toggleSlideBar(state) {
       state.isSlideBarOpen = !state.isSlideBarOpen;
       localStorage.setItem("isSlideBarOpen", state.isSlideBarOpen);

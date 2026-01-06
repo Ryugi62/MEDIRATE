@@ -797,17 +797,6 @@ export default {
         return;
       }
 
-      const today = new Date();
-      const deadline = new Date(this.assignmentDetails.deadline);
-      deadline.setHours(0, 0, 0, 0);
-      const tomorrow = new Date();
-      tomorrow.setDate(today.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      if (deadline < tomorrow) {
-        alert("마감일은 내일 이상으로 지정해야 합니다.");
-        return;
-      }
-
       this.$el.querySelectorAll("input, select").forEach((input) => {
         input.disabled = true;
       });
@@ -849,6 +838,8 @@ export default {
           })
           .then(() => {
             alert("과제가 성공적으로 저장되었습니다.");
+            // 평가자 변경 시 해당 과제의 AI 데이터 캐시 무효화
+            this.$store.commit("clearAiDataByAssignment", this.assignmentDetails.id);
             this.$store.commit("setAssignmentSearchHistory", "");
             this.$store.commit("setAssignmentCurrentPage", 1);
             this.$router.push({ name: "assignment" });

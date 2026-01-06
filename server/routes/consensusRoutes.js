@@ -320,6 +320,9 @@ router.post("/import", authenticateToken, async (req, res) => {
   }
 
   try {
+    // Convert ISO 8601 datetime to MySQL DATE format (YYYY-MM-DD)
+    const formattedDeadline = deadline ? new Date(deadline).toISOString().split('T')[0] : null;
+
     await db.withTransaction(async (conn) => {
       // 1. consensus_assignments 생성
       const [assignmentResult] = await conn.query(
@@ -327,7 +330,7 @@ router.post("/import", authenticateToken, async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
           title,
-          deadline,
+          formattedDeadline,
           fp_data.source_excel || null,
           fp_data.evaluator_threshold || 3,
           fp_data.score_threshold || 0.5,
@@ -812,13 +815,16 @@ router.put("/:consensusId", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "합의 과제를 찾을 수 없습니다." });
     }
 
+    // Convert ISO 8601 datetime to MySQL DATE format (YYYY-MM-DD)
+    const formattedDeadline = deadline ? new Date(deadline).toISOString().split('T')[0] : null;
+
     // 업데이트 실행
     await db.query(
       `UPDATE consensus_assignments
        SET title = ?, deadline = ?, evaluator_threshold = ?, score_threshold = ?,
            project_id = ?, cancer_type_id = ?
        WHERE id = ? AND deleted_at IS NULL`,
-      [title, deadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, consensusId]
+      [title, formattedDeadline, evaluator_threshold, score_threshold, project_id, cancer_type_id, consensusId]
     );
 
     res.json({ message: "수정되었습니다." });
@@ -1095,7 +1101,46 @@ router.put("/bulk-assign", authenticateToken, async (req, res) => {
     return res.status(400).json({ message: "평가자를 선택해주세요." });
   }
 
+  // 입력값 검증: 정수 배열인지 확인
+  if (!Array.isArray(assignment_ids) || !assignment_ids.every(id => Number.isInteger(id))) {
+    return res.status(400).json({ message: "잘못된 과제 ID 형식입니다." });
+  }
+
+  if (!Array.isArray(user_ids) || !user_ids.every(id => Number.isInteger(id))) {
+    return res.status(400).json({ message: "잘못된 사용자 ID 형식입니다." });
+  }
+
   try {
+    // 과제 존재 여부 확인
+    const [existingAssignments] = await db.query(
+      `SELECT id FROM consensus_assignments WHERE id IN (?) AND deleted_at IS NULL`,
+      [assignment_ids]
+    );
+    const existingAssignmentIds = new Set(existingAssignments.map(a => a.id));
+    const invalidAssignmentIds = assignment_ids.filter(id => !existingAssignmentIds.has(id));
+
+    if (invalidAssignmentIds.length > 0) {
+      return res.status(404).json({
+        message: "존재하지 않는 과제가 포함되어 있습니다.",
+        invalidIds: invalidAssignmentIds
+      });
+    }
+
+    // 사용자 존재 여부 확인
+    const [existingUsers] = await db.query(
+      `SELECT id FROM users WHERE id IN (?) AND deleted_at IS NULL`,
+      [user_ids]
+    );
+    const existingUserIds = new Set(existingUsers.map(u => u.id));
+    const invalidUserIds = user_ids.filter(id => !existingUserIds.has(id));
+
+    if (invalidUserIds.length > 0) {
+      return res.status(404).json({
+        message: "존재하지 않는 사용자가 포함되어 있습니다.",
+        invalidIds: invalidUserIds
+      });
+    }
+
     await db.withTransaction(async (conn) => {
       for (const assignmentId of assignment_ids) {
         // 기존 할당 soft delete

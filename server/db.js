@@ -149,6 +149,18 @@ const expectedColumns = {
         "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_assignment_user_user",
     },
+    // 성능 최적화 인덱스: user_id로 과제 조회 시 사용
+    {
+      name: "INDEX",
+      definition: "INDEX idx_assignment_user_user (user_id)",
+      constraintName: "idx_assignment_user_user",
+    },
+    // deleted_at 필터링 최적화
+    {
+      name: "INDEX",
+      definition: "INDEX idx_assignment_user_deleted (deleted_at)",
+      constraintName: "idx_assignment_user_deleted",
+    },
   ],
   questions: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
@@ -194,6 +206,18 @@ const expectedColumns = {
       definition:
         "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_question_responses_user",
+    },
+    // 성능 최적화 인덱스: user_id로 응답 조회 시 사용
+    {
+      name: "INDEX",
+      definition: "INDEX idx_question_responses_user (user_id)",
+      constraintName: "idx_question_responses_user",
+    },
+    // deleted_at 필터링 최적화
+    {
+      name: "INDEX",
+      definition: "INDEX idx_question_responses_deleted (deleted_at)",
+      constraintName: "idx_question_responses_deleted",
     },
   ],
   posts: [
@@ -301,6 +325,24 @@ const expectedColumns = {
         "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_canvas_info_user",
     },
+    // 성능 최적화 인덱스: user_id로 캔버스 조회 시 사용
+    {
+      name: "INDEX",
+      definition: "INDEX idx_canvas_info_user (user_id)",
+      constraintName: "idx_canvas_info_user",
+    },
+    // assignment_id + user_id 복합 인덱스
+    {
+      name: "INDEX",
+      definition: "INDEX idx_canvas_info_assignment_user (assignment_id, user_id)",
+      constraintName: "idx_canvas_info_assignment_user",
+    },
+    // deleted_at 필터링 최적화
+    {
+      name: "INDEX",
+      definition: "INDEX idx_canvas_info_deleted (deleted_at)",
+      constraintName: "idx_canvas_info_deleted",
+    },
   ],
   squares_info: [
     { name: "id", definition: "INT AUTO_INCREMENT" },
@@ -334,6 +376,73 @@ const expectedColumns = {
       definition:
         "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
       constraintName: "fk_squares_info_user",
+    },
+  ],
+  // Segment 모드용 폴리곤 정보 테이블
+  polygon_info: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "question_id", definition: "INT" },
+    { name: "canvas_id", definition: "INT" },
+    { name: "points", definition: "JSON NOT NULL" }, // [{x, y}, {x, y}, ...]
+    { name: "user_id", definition: "INT" },
+    { name: "isAI", definition: "TINYINT(1) DEFAULT 0" },
+    { name: "isTemporary", definition: "TINYINT(1) DEFAULT 0" },
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT",
+      constraintName: "fk_polygon_info_question",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE",
+      constraintName: "fk_polygon_info_canvas",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_polygon_info_user",
+    },
+  ],
+  // 평가자 할당 이력 추적 테이블
+  assignment_user_history: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "assignment_id", definition: "INT NOT NULL" },
+    { name: "user_id", definition: "INT NOT NULL" },
+    { name: "action", definition: "ENUM('ASSIGN', 'UNASSIGN') NOT NULL" },
+    { name: "performed_by", definition: "INT" }, // 변경한 관리자
+    { name: "performed_at", definition: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" },
+    { name: "previous_data", definition: "JSON DEFAULT NULL" }, // 변경 전 데이터 스냅샷 (선택적)
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE",
+      constraintName: "fk_history_assignment",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      constraintName: "fk_history_user",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL",
+      constraintName: "fk_history_performer",
     },
   ],
   // Consensus (합의) 모드 관련 테이블
@@ -756,6 +865,38 @@ const createTablesSQL = {
     FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
     FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
   )`,
+  // Segment 모드용 폴리곤 정보 테이블
+  polygon_info: `CREATE TABLE IF NOT EXISTS \`polygon_info\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`question_id\` INT,
+    \`canvas_id\` INT,
+    \`points\` JSON NOT NULL,
+    \`user_id\` INT,
+    \`isAI\` TINYINT(1) DEFAULT 0,
+    \`isTemporary\` TINYINT(1) DEFAULT 0,
+    \`deleted_at\` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`question_id\`) REFERENCES \`questions\`(\`id\`) ON DELETE RESTRICT,
+    FOREIGN KEY (\`canvas_id\`) REFERENCES \`canvas_info\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE RESTRICT
+  )`,
+  // 평가자 할당 이력 추적 테이블
+  assignment_user_history: `CREATE TABLE IF NOT EXISTS \`assignment_user_history\` (
+    \`id\` INT AUTO_INCREMENT,
+    \`assignment_id\` INT NOT NULL,
+    \`user_id\` INT NOT NULL,
+    \`action\` ENUM('ASSIGN', 'UNASSIGN') NOT NULL,
+    \`performed_by\` INT,
+    \`performed_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    \`previous_data\` JSON DEFAULT NULL,
+    PRIMARY KEY (\`id\`),
+    FOREIGN KEY (\`assignment_id\`) REFERENCES \`assignments\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
+    FOREIGN KEY (\`performed_by\`) REFERENCES \`users\`(\`id\`) ON DELETE SET NULL,
+    INDEX \`idx_history_assignment\` (\`assignment_id\`),
+    INDEX \`idx_history_user\` (\`user_id\`),
+    INDEX \`idx_history_performed_at\` (\`performed_at\`)
+  )`,
   // Consensus (합의) 모드 관련 테이블
   consensus_assignments: `CREATE TABLE IF NOT EXISTS \`consensus_assignments\` (
     \`id\` INT AUTO_INCREMENT,
@@ -944,7 +1085,7 @@ async function initializeDb() {
           if (col.name === "PRIMARY KEY") {
             // PRIMARY KEY 존재 여부 확인
             const [constraints] = await pool.query(
-              `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS 
+              `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'PRIMARY KEY'`,
               [process.env.DB_NAME, table]
             );
@@ -954,7 +1095,7 @@ async function initializeDb() {
           } else {
             // 다른 제약 조건 존재 여부 확인
             const [constraints] = await pool.query(
-              `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS 
+              `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?`,
               [process.env.DB_NAME, table, constraintName]
             );
@@ -973,6 +1114,30 @@ async function initializeDb() {
             } catch (err) {
               if (err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_DUP_KEY' || err.code === 'ER_FK_DUP_NAME') {
                 console.log(`Constraint '${constraintName}' already exists on table '${table}'.`);
+              } else {
+                throw err;
+              }
+            }
+          }
+        } else if (col.name === "INDEX") {
+          // 인덱스 추가
+          const indexName = col.constraintName;
+
+          // 인덱스 존재 여부 확인
+          const [indexes] = await pool.query(
+            `SELECT INDEX_NAME FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+            [process.env.DB_NAME, table, indexName]
+          );
+
+          if (indexes.length === 0) {
+            try {
+              const alterSQL = `ALTER TABLE \`${table}\` ADD ${col.definition}`;
+              await pool.execute(alterSQL);
+              console.log(`Added index '${indexName}' to table '${table}'.`);
+            } catch (err) {
+              if (err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_DUP_KEY') {
+                console.log(`Index '${indexName}' already exists on table '${table}'.`);
               } else {
                 throw err;
               }

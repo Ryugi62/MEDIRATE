@@ -144,6 +144,46 @@
           <strong>선택된 평가자 ({{ selectedUserIds.length }}명):</strong>
           {{ selectedUserNames.join(', ') }}
         </div>
+
+        <!-- 할당 결과 상세 (부분 실패 시 표시) -->
+        <div v-if="assignmentResults.show" class="results-overlay">
+          <div class="results-container">
+            <h3>할당 결과</h3>
+
+            <!-- 성공 목록 -->
+            <div v-if="assignmentResults.success.length > 0" class="result-section success">
+              <div class="result-header">
+                <i class="fa-solid fa-check-circle"></i>
+                성공 ({{ assignmentResults.success.length }}개)
+              </div>
+              <ul class="result-list">
+                <li v-for="item in assignmentResults.success" :key="`success-${item.id}`">
+                  <span class="badge" :class="item.type">{{ item.type === 'consensus' ? 'C' : 'R' }}</span>
+                  {{ item.title }}
+                </li>
+              </ul>
+            </div>
+
+            <!-- 실패 목록 -->
+            <div v-if="assignmentResults.failed.length > 0" class="result-section failed">
+              <div class="result-header">
+                <i class="fa-solid fa-times-circle"></i>
+                실패 ({{ assignmentResults.failed.length }}개)
+              </div>
+              <ul class="result-list">
+                <li v-for="item in assignmentResults.failed" :key="`failed-${item.id}`">
+                  <div class="failed-item">
+                    <span class="badge" :class="item.type">{{ item.type === 'consensus' ? 'C' : 'R' }}</span>
+                    <span class="item-title">{{ item.title }}</span>
+                  </div>
+                  <div class="error-message">{{ item.error }}</div>
+                </li>
+              </ul>
+            </div>
+
+            <button class="close-results-btn" @click="closeResults">확인</button>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -193,6 +233,12 @@ export default {
         description: "",
         memberIds: [],
       },
+      // 부분 실패 상세 정보
+      assignmentResults: {
+        show: false,
+        success: [],
+        failed: [],
+      },
     };
   },
 
@@ -241,6 +287,10 @@ export default {
       if (index > -1) {
         this.selectedUserIds.splice(index, 1);
       } else {
+        if (this.selectedUserIds.length >= 5) {
+          alert("평가자는 최대 5명까지 선택할 수 있습니다.");
+          return;
+        }
         this.selectedUserIds.push(userId);
       }
       this.selectedGroupId = null;
@@ -251,6 +301,10 @@ export default {
         this.selectedGroupId = null;
         this.selectedUserIds = [];
       } else {
+        if (group.members.length > 5) {
+          alert(`이 그룹은 ${group.members.length}명으로 구성되어 있습니다. 평가자는 최대 5명까지 선택할 수 있습니다.`);
+          return;
+        }
         this.selectedGroupId = group.id;
         this.selectedUserIds = group.members.map((m) => m.id);
       }
@@ -318,14 +372,13 @@ export default {
       }
 
       this.isLoading = true;
+      // 결과 초기화
+      this.assignmentResults = { show: false, success: [], failed: [] };
 
       try {
         const headers = {
           Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
         };
-
-        let successCount = 0;
-        let errorCount = 0;
 
         // Consensus 과제 일괄 할당
         if (this.assignmentIds.length > 0) {
@@ -338,10 +391,25 @@ export default {
               },
               { headers }
             );
-            successCount += this.assignmentIds.length;
+            // 성공한 consensus 과제들 기록
+            this.assignmentIds.forEach(id => {
+              this.assignmentResults.success.push({
+                id,
+                type: 'consensus',
+                title: `Consensus #${id}`
+              });
+            });
           } catch (error) {
             console.error("Consensus 일괄 할당 오류:", error);
-            errorCount += this.assignmentIds.length;
+            // 실패한 consensus 과제들 기록
+            this.assignmentIds.forEach(id => {
+              this.assignmentResults.failed.push({
+                id,
+                type: 'consensus',
+                title: `Consensus #${id}`,
+                error: error.response?.data?.message || error.message || '알 수 없는 오류'
+              });
+            });
           }
         }
 
@@ -353,6 +421,7 @@ export default {
               `/api/assignments/${assignmentId}/all`,
               { headers }
             );
+            const assignmentTitle = assignmentRes.data.title || `과제 #${assignmentId}`;
 
             // 평가자 목록 업데이트
             await this.$axios.put(
@@ -363,26 +432,59 @@ export default {
               },
               { headers }
             );
-            successCount++;
+
+            this.assignmentResults.success.push({
+              id: assignmentId,
+              type: 'regular',
+              title: assignmentTitle
+            });
           } catch (error) {
             console.error(`과제 ${assignmentId} 할당 오류:`, error);
-            errorCount++;
+            this.assignmentResults.failed.push({
+              id: assignmentId,
+              type: 'regular',
+              title: `과제 #${assignmentId}`,
+              error: error.response?.data?.message || error.message || '알 수 없는 오류'
+            });
           }
         }
 
-        const totalCount = this.assignmentIds.length + this.regularAssignmentIds.length;
+        const successCount = this.assignmentResults.success.length;
+        const errorCount = this.assignmentResults.failed.length;
+        const totalCount = successCount + errorCount;
+
+        // 성공한 과제들의 캐시 무효화
+        this.assignmentResults.success.forEach(item => {
+          if (item.type === 'regular') {
+            this.$store.commit("clearAiDataByAssignment", item.id);
+          }
+        });
+
         if (errorCount === 0) {
           alert(`${totalCount}개 과제에 ${this.selectedUserIds.length}명의 평가자가 할당되었습니다.`);
+          this.$emit("assigned");
+        } else if (successCount === 0) {
+          // 전체 실패
+          this.assignmentResults.show = true;
+          alert(`모든 과제 할당에 실패했습니다. (${errorCount}개)`);
         } else {
-          alert(`${successCount}개 과제 할당 성공, ${errorCount}개 과제 할당 실패`);
+          // 부분 실패 - 상세 정보 표시
+          this.assignmentResults.show = true;
+          alert(`${successCount}개 과제 할당 성공, ${errorCount}개 과제 할당 실패\n실패 상세 내용을 확인해주세요.`);
+          this.$emit("assigned"); // 성공한 것들은 반영
         }
-
-        this.$emit("assigned");
       } catch (error) {
         console.error("일괄 할당 오류:", error);
         alert("일괄 할당 중 오류가 발생했습니다.");
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    closeResults() {
+      this.assignmentResults.show = false;
+      if (this.assignmentResults.failed.length === 0 || this.assignmentResults.success.length > 0) {
+        this.$emit("close");
       }
     },
   },
@@ -754,5 +856,139 @@ export default {
   background: #ccc;
   color: #666;
   cursor: not-allowed;
+}
+
+/* 할당 결과 오버레이 */
+.results-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.98);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-radius: 8px;
+  z-index: 20;
+}
+
+.results-container {
+  width: 100%;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.results-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+}
+
+.result-section {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.result-section.success .result-header {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.result-section.failed .result-header {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.result-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-top: none;
+}
+
+.result-list li {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+.result-list li:last-child {
+  border-bottom: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  margin-right: 6px;
+}
+
+.badge.consensus {
+  background: #7c4dff;
+}
+
+.badge.regular {
+  background: #2196f3;
+}
+
+.failed-item {
+  display: flex;
+  align-items: center;
+}
+
+.item-title {
+  flex: 1;
+}
+
+.error-message {
+  margin-top: 4px;
+  margin-left: 24px;
+  font-size: 11px;
+  color: #c62828;
+  background: #fff5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.close-results-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: var(--blue, #007bff);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 16px;
+}
+
+.close-results-btn:hover {
+  background: var(--blue-hover, #0056b3);
 }
 </style>

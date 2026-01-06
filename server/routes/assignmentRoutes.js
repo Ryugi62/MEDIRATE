@@ -14,7 +14,7 @@ const handleError = (res, message, error) => {
   res.status(500).send(message);
 };
 
-// 과제 생성
+// 과제 생성 (트랜잭션 적용)
 router.post("/", authenticateToken, async (req, res) => {
   const {
     title,
@@ -32,49 +32,61 @@ router.post("/", authenticateToken, async (req, res) => {
   } = req.body;
 
   try {
-    const insertAssignmentQuery = `
-      INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use, project_id, cancer_type_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-    `;
-    const [assignmentResult] = await db.query(insertAssignmentQuery, [
-      title,
-      deadline,
-      assignment_type,
-      selection_type,
-      mode,
-      is_score,
-      is_ai_use,
-      project_id || null,
-      cancer_type_id || null,
-    ]);
-    const assignmentId = assignmentResult.insertId;
+    // Convert ISO 8601 datetime to MySQL DATE format (YYYY-MM-DD)
+    const formattedDeadline = deadline ? new Date(deadline).toISOString().split('T')[0] : null;
 
-    await Promise.all(
-      questions.map(async (question) => {
-        const insertQuestionQuery = `
-          INSERT INTO questions (assignment_id, image)
-          VALUES (?, ?);
-        `;
-        await db.query(insertQuestionQuery, [assignmentId, question.img]);
-      })
-    );
+    // 트랜잭션으로 원자성 보장 - 부분 실패 시 전체 롤백
+    const assignmentId = await db.withTransaction(async (conn) => {
+      // 1. 과제 생성
+      const insertAssignmentQuery = `
+        INSERT INTO assignments (title, deadline, assignment_type, selection_type, assignment_mode, is_score, is_ai_use, project_id, cancer_type_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `;
+      const [assignmentResult] = await conn.query(insertAssignmentQuery, [
+        title,
+        formattedDeadline,
+        assignment_type,
+        selection_type,
+        mode,
+        is_score,
+        is_ai_use,
+        project_id || null,
+        cancer_type_id || null,
+      ]);
+      const newAssignmentId = assignmentResult.insertId;
 
-    await Promise.all(
-      users.map(async (userId) => {
-        const insertUserQuery = `
-          INSERT INTO assignment_user (assignment_id, user_id)
-          VALUES (?, ?);
-        `;
-        await db.query(insertUserQuery, [assignmentId, userId]);
-      })
-    );
+      // 2. 질문(이미지) 삽입
+      for (const question of questions) {
+        await conn.query(
+          `INSERT INTO questions (assignment_id, image) VALUES (?, ?)`,
+          [newAssignmentId, question.img]
+        );
+      }
 
-    await createCanvasForUsers(assignmentId, users);
+      // 3. 사용자 할당
+      for (const userId of users) {
+        await conn.query(
+          `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+          [newAssignmentId, userId]
+        );
+      }
 
-    // 태그 처리
-    if (tags && tags.length > 0) {
-      await saveAssignmentTags(assignmentId, tags);
-    }
+      // 4. 캔버스 생성
+      for (const userId of users) {
+        await conn.query(
+          `INSERT INTO canvas_info (assignment_id, width, height, user_id, evaluation_time, start_time, end_time)
+           VALUES (?, 0, 0, ?, 0, NULL, NULL)`,
+          [newAssignmentId, userId]
+        );
+      }
+
+      // 5. 태그 처리
+      if (tags && tags.length > 0) {
+        await saveAssignmentTagsWithConn(newAssignmentId, tags, conn);
+      }
+
+      return newAssignmentId;
+    });
 
     res
       .status(201)
@@ -882,8 +894,8 @@ const updateQuestions = async (assignmentId, questions) => {
   );
 };
 
-// 과제 사용자 할당 업데이트 함수
-const updateUserAssignments = async (assignmentId, users) => {
+// 과제 사용자 할당 업데이트 함수 (Soft Delete 적용)
+const updateUserAssignments = async (assignmentId, users, performedBy = null) => {
   const [existingUsers] = await db.query(
     `SELECT user_id FROM assignment_user WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
@@ -896,42 +908,114 @@ const updateUserAssignments = async (assignmentId, users) => {
   );
   const usersToAdd = users.filter((userId) => !existingUserIds.has(userId));
 
-  // 할당 해제된 사용자 삭제
-  await Promise.all(
-    usersToRemove.map(async (userId) => {
-      await db.query(
-        `DELETE FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
+  // 트랜잭션으로 원자성 보장
+  await db.withTransaction(async (conn) => {
+    // 1. 할당 해제될 사용자 처리 (Soft Delete)
+    for (const userId of usersToRemove) {
+      // 1-1. canvas_id 먼저 조회 (삭제 전에 조회해야 함)
+      const [canvasRows] = await conn.query(
+        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
         [assignmentId, userId]
       );
-      await db.query(
-        `DELETE FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
-        [assignmentId, userId]
-      );
-      await db.query(
-        `DELETE FROM squares_info WHERE user_id = ? AND canvas_id IN (SELECT id FROM canvas_info WHERE assignment_id = ?)`,
+      const canvasIds = canvasRows.map((r) => r.id);
+
+      // 1-2. squares_info soft delete (자식 테이블 먼저)
+      if (canvasIds.length > 0) {
+        await conn.query(
+          `UPDATE squares_info SET deleted_at = NOW() WHERE canvas_id IN (?) AND deleted_at IS NULL`,
+          [canvasIds]
+        );
+
+        // 1-2b. polygon_info soft delete (Segment 모드용)
+        await conn.query(
+          `UPDATE polygon_info SET deleted_at = NOW() WHERE canvas_id IN (?) AND deleted_at IS NULL`,
+          [canvasIds]
+        );
+      }
+
+      // 1-3. question_responses soft delete
+      await conn.query(
+        `UPDATE question_responses SET deleted_at = NOW()
+         WHERE user_id = ? AND deleted_at IS NULL
+         AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
         [userId, assignmentId]
       );
-      await db.query(
-        `DELETE FROM question_responses WHERE user_id = ? AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
-        [userId, assignmentId]
-      );
-    })
-  );
 
-  // 새로운 사용자 할당
-  await Promise.all(
-    usersToAdd.map(async (userId) => {
-      await db.query(
-        `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+      // 1-4. canvas_info soft delete
+      await conn.query(
+        `UPDATE canvas_info SET deleted_at = NOW() WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
         [assignmentId, userId]
       );
-    })
-  );
 
-  // 새로운 사용자용 캔버스 생성
-  if (usersToAdd.length > 0) {
-    await createCanvasForUsers(assignmentId, usersToAdd);
-  }
+      // 1-5. assignment_user soft delete
+      await conn.query(
+        `UPDATE assignment_user SET deleted_at = NOW() WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+        [assignmentId, userId]
+      );
+
+      // 1-6. 이력 기록 (performedBy가 있을 경우)
+      if (performedBy) {
+        await conn.query(
+          `INSERT INTO assignment_user_history (assignment_id, user_id, action, performed_by)
+           VALUES (?, ?, 'UNASSIGN', ?)`,
+          [assignmentId, userId, performedBy]
+        );
+      }
+    }
+
+    // 2. 새로운 사용자 할당
+    for (const userId of usersToAdd) {
+      // 기존에 soft delete된 레코드가 있으면 복원, 없으면 새로 생성
+      const [existingAssignment] = await conn.query(
+        `SELECT * FROM assignment_user WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+
+      if (existingAssignment.length > 0) {
+        // 복원
+        await conn.query(
+          `UPDATE assignment_user SET deleted_at = NULL WHERE assignment_id = ? AND user_id = ?`,
+          [assignmentId, userId]
+        );
+      } else {
+        // 새로 생성
+        await conn.query(
+          `INSERT INTO assignment_user (assignment_id, user_id) VALUES (?, ?)`,
+          [assignmentId, userId]
+        );
+      }
+
+      // 캔버스도 복원 또는 생성
+      const [existingCanvas] = await conn.query(
+        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+
+      if (existingCanvas.length > 0) {
+        // 복원
+        await conn.query(
+          `UPDATE canvas_info SET deleted_at = NULL WHERE assignment_id = ? AND user_id = ?`,
+          [assignmentId, userId]
+        );
+      } else {
+        // 새로 생성
+        await conn.query(
+          `INSERT INTO canvas_info (assignment_id, width, height, user_id, evaluation_time, start_time, end_time)
+           VALUES (?, 0, 0, ?, 0, NULL, NULL)`,
+          [assignmentId, userId]
+        );
+      }
+
+      // 이력 기록
+      if (performedBy) {
+        await conn.query(
+          `INSERT INTO assignment_user_history (assignment_id, user_id, action, performed_by)
+           VALUES (?, ?, 'ASSIGN', ?)`,
+          [assignmentId, userId, performedBy]
+        );
+      }
+    }
+  });
 };
 
 // 사용자용 캔버스 생성 함수
@@ -964,6 +1048,21 @@ const updateAssignment = async (params) => {
   console.log("[DEBUG] updateAssignment - mode received:", mode);
   console.log("[DEBUG] updateAssignment - all params:", JSON.stringify(params, null, 2));
 
+  // Fetch existing assignment to preserve values not provided
+  const [existingRows] = await db.query(
+    `SELECT assignment_type, selection_type, assignment_mode FROM assignments WHERE id = ?`,
+    [assignmentId]
+  );
+  const existing = existingRows[0] || {};
+
+  // Convert ISO 8601 datetime to MySQL DATE format (YYYY-MM-DD)
+  const formattedDeadline = deadline ? new Date(deadline).toISOString().split('T')[0] : null;
+
+  // Use provided values or fall back to existing values
+  const finalAssignmentType = assignment_type !== undefined ? assignment_type : existing.assignment_type;
+  const finalSelectionType = selection_type !== undefined ? selection_type : existing.selection_type;
+  const finalMode = mode !== undefined ? mode : existing.assignment_mode;
+
   const updateQuery = `
     UPDATE assignments
     SET title = ?, deadline = ?, assignment_type = ?, selection_type = ?, assignment_mode = ?, is_score = ?, is_ai_use = ?, project_id = ?, cancer_type_id = ?
@@ -972,10 +1071,10 @@ const updateAssignment = async (params) => {
 
   const result = await db.query(updateQuery, [
     title,
-    deadline,
-    assignment_type,
-    selection_type,
-    mode,
+    formattedDeadline,
+    finalAssignmentType,
+    finalSelectionType,
+    finalMode,
     is_score,
     is_ai_use,
     project_id || null,
@@ -987,6 +1086,46 @@ const updateAssignment = async (params) => {
 };
 
 // 과제 태그 저장 함수
+// 트랜잭션 커넥션을 받는 태그 저장 함수 (과제 생성 시 사용)
+const saveAssignmentTagsWithConn = async (assignmentId, tagNames, conn) => {
+  // 기존 태그 연결 삭제
+  await conn.query(`DELETE FROM assignment_tags WHERE assignment_id = ?`, [
+    assignmentId,
+  ]);
+
+  if (!tagNames || tagNames.length === 0) return;
+
+  // 태그 생성/조회 및 연결
+  for (const name of tagNames) {
+    const tagName = name.trim().toLowerCase().replace(/^#/, "");
+    if (!tagName) continue;
+
+    // 태그 존재 확인 또는 생성
+    let tagId;
+    const [existing] = await conn.query(
+      `SELECT id FROM tags WHERE name = ? AND deleted_at IS NULL`,
+      [tagName]
+    );
+
+    if (existing.length > 0) {
+      tagId = existing[0].id;
+    } else {
+      const [insertResult] = await conn.query(
+        `INSERT INTO tags (name) VALUES (?)`,
+        [tagName]
+      );
+      tagId = insertResult.insertId;
+    }
+
+    // 연결 생성
+    await conn.query(
+      `INSERT INTO assignment_tags (assignment_id, tag_id) VALUES (?, ?)`,
+      [assignmentId, tagId]
+    );
+  }
+};
+
+// 기존 함수 유지 (과제 업데이트 등에서 사용)
 const saveAssignmentTags = async (assignmentId, tagNames) => {
   // 기존 태그 연결 삭제
   await db.query(`DELETE FROM assignment_tags WHERE assignment_id = ?`, [
@@ -1090,6 +1229,192 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     res.json({ message: "Assignment successfully deleted." });
   } catch (error) {
     handleError(res, "Error deleting assignment", error);
+  }
+});
+
+// 평가자 복구 API (Soft Delete된 평가자와 평가 데이터 복구)
+router.post("/:assignmentId/restore-evaluator/:userId", authenticateToken, async (req, res) => {
+  // 관리자만 복구 가능
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ message: "권한이 없습니다." });
+  }
+
+  const { assignmentId, userId } = req.params;
+  const performedBy = req.user.id;
+
+  try {
+    // 1. 과제 존재 확인
+    const [assignment] = await db.query(
+      `SELECT * FROM assignments WHERE id = ? AND deleted_at IS NULL`,
+      [assignmentId]
+    );
+
+    if (!assignment.length) {
+      return res.status(404).json({ message: "과제를 찾을 수 없습니다." });
+    }
+
+    // 2. 사용자 존재 확인
+    const [user] = await db.query(
+      `SELECT * FROM users WHERE id = ? AND deleted_at IS NULL`,
+      [userId]
+    );
+
+    if (!user.length) {
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    // 3. 복구할 데이터 확인 (soft delete된 레코드가 있는지)
+    const [deletedAssignment] = await db.query(
+      `SELECT * FROM assignment_user WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NOT NULL`,
+      [assignmentId, userId]
+    );
+
+    if (!deletedAssignment.length) {
+      return res.status(404).json({ message: "복구할 데이터가 없습니다. 이 평가자는 삭제되지 않았거나 할당된 적이 없습니다." });
+    }
+
+    // 4. 트랜잭션으로 복구 실행
+    await db.withTransaction(async (conn) => {
+      // 4-1. assignment_user 복구
+      await conn.query(
+        `UPDATE assignment_user SET deleted_at = NULL WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+
+      // 4-2. canvas_info 복구
+      await conn.query(
+        `UPDATE canvas_info SET deleted_at = NULL WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NOT NULL`,
+        [assignmentId, userId]
+      );
+
+      // 4-3. canvas_id 조회 (복구된 캔버스)
+      const [canvasRows] = await conn.query(
+        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ?`,
+        [assignmentId, userId]
+      );
+      const canvasIds = canvasRows.map((r) => r.id);
+
+      if (canvasIds.length > 0) {
+        // 4-4. squares_info 복구
+        await conn.query(
+          `UPDATE squares_info SET deleted_at = NULL WHERE canvas_id IN (?) AND deleted_at IS NOT NULL`,
+          [canvasIds]
+        );
+
+        // 4-5. polygon_info 복구 (Segment 모드)
+        await conn.query(
+          `UPDATE polygon_info SET deleted_at = NULL WHERE canvas_id IN (?) AND deleted_at IS NOT NULL`,
+          [canvasIds]
+        );
+      }
+
+      // 4-6. question_responses 복구
+      await conn.query(
+        `UPDATE question_responses SET deleted_at = NULL
+         WHERE user_id = ? AND deleted_at IS NOT NULL
+         AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+        [userId, assignmentId]
+      );
+
+      // 4-7. 이력 기록
+      await conn.query(
+        `INSERT INTO assignment_user_history (assignment_id, user_id, action, performed_by)
+         VALUES (?, ?, 'ASSIGN', ?)`,
+        [assignmentId, userId, performedBy]
+      );
+    });
+
+    res.json({
+      message: "평가자가 성공적으로 복구되었습니다.",
+      assignmentId: parseInt(assignmentId),
+      userId: parseInt(userId)
+    });
+  } catch (error) {
+    console.error("Error restoring evaluator:", error);
+    res.status(500).json({ message: "평가자 복구 중 오류가 발생했습니다.", error: error.message });
+  }
+});
+
+// 평가자 할당 이력 조회 API
+router.get("/:assignmentId/evaluator-history", authenticateToken, async (req, res) => {
+  const { assignmentId } = req.params;
+
+  try {
+    // 과제 존재 확인
+    const [assignment] = await db.query(
+      `SELECT * FROM assignments WHERE id = ? AND deleted_at IS NULL`,
+      [assignmentId]
+    );
+
+    if (!assignment.length) {
+      return res.status(404).json({ message: "과제를 찾을 수 없습니다." });
+    }
+
+    // 이력 조회 (최신순)
+    const [history] = await db.query(
+      `SELECT
+        h.id,
+        h.assignment_id,
+        h.user_id,
+        u.username AS user_username,
+        u.realname AS user_realname,
+        h.action,
+        h.performed_by,
+        p.username AS performer_username,
+        p.realname AS performer_realname,
+        h.performed_at
+       FROM assignment_user_history h
+       LEFT JOIN users u ON h.user_id = u.id
+       LEFT JOIN users p ON h.performed_by = p.id
+       WHERE h.assignment_id = ?
+       ORDER BY h.performed_at DESC`,
+      [assignmentId]
+    );
+
+    res.json(history);
+  } catch (error) {
+    console.error("Error fetching evaluator history:", error);
+    res.status(500).json({ message: "이력 조회 중 오류가 발생했습니다.", error: error.message });
+  }
+});
+
+// 삭제된 평가자 목록 조회 API (복구 가능한 평가자)
+router.get("/:assignmentId/deleted-evaluators", authenticateToken, async (req, res) => {
+  const { assignmentId } = req.params;
+
+  try {
+    // 과제 존재 확인
+    const [assignment] = await db.query(
+      `SELECT * FROM assignments WHERE id = ? AND deleted_at IS NULL`,
+      [assignmentId]
+    );
+
+    if (!assignment.length) {
+      return res.status(404).json({ message: "과제를 찾을 수 없습니다." });
+    }
+
+    // 삭제된 평가자 목록 (복구 가능)
+    const [deletedEvaluators] = await db.query(
+      `SELECT
+        au.user_id,
+        u.username,
+        u.realname,
+        au.deleted_at,
+        (SELECT COUNT(*) FROM canvas_info ci WHERE ci.assignment_id = au.assignment_id AND ci.user_id = au.user_id) AS has_canvas,
+        (SELECT COUNT(*) FROM question_responses qr
+         WHERE qr.user_id = au.user_id
+         AND qr.question_id IN (SELECT id FROM questions WHERE assignment_id = au.assignment_id)) AS response_count
+       FROM assignment_user au
+       JOIN users u ON au.user_id = u.id
+       WHERE au.assignment_id = ? AND au.deleted_at IS NOT NULL AND u.deleted_at IS NULL
+       ORDER BY au.deleted_at DESC`,
+      [assignmentId]
+    );
+
+    res.json(deletedEvaluators);
+  } catch (error) {
+    console.error("Error fetching deleted evaluators:", error);
+    res.status(500).json({ message: "삭제된 평가자 조회 중 오류가 발생했습니다.", error: error.message });
   }
 });
 
