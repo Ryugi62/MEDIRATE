@@ -43,7 +43,7 @@
       </div>
 
       <div class="bbox-component__actions">
-        <button @click="applyMitosis" :disabled="!is_ai_use">AI Confirm</button>
+        <button v-if="is_ai_use && showAiBoxes" @click="applyMitosis">AI Confirm</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
@@ -150,9 +150,8 @@ export default {
         { action: "좌클릭", description: "박스 추가" },
         { action: "우클릭", description: "박스 삭제" },
       ],
-      helpShortcuts: [
+      baseHelpShortcuts: [
         { key: "Ctrl+A", description: "AI 탐지" },
-        { key: "Ctrl+C", description: "AI Confirm" },
         { key: "Ctrl+Q", description: "박스 추가" },
         { key: "Ctrl+E", description: "선택 삭제" },
         { key: "Ctrl+Z", description: "되돌리기" },
@@ -166,6 +165,17 @@ export default {
   },
 
   computed: {
+    helpShortcuts() {
+      if (this.is_ai_use && this.showAiBoxes) {
+        return [
+          { key: "Ctrl+A", description: "AI 탐지" },
+          { key: "Ctrl+C", description: "AI Confirm" },
+          ...this.baseHelpShortcuts.slice(1),
+        ];
+      }
+      return this.baseHelpShortcuts;
+    },
+
     eraserActive() {
       return this.iconList.some(
         (icon) => icon.name === "fa-eraser" && icon.active
