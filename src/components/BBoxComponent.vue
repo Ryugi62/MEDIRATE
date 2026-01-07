@@ -43,7 +43,11 @@
       </div>
 
       <div class="bbox-component__actions">
-        <button v-if="is_ai_use && showAiBoxes" @click="applyMitosis">AI Confirm</button>
+        <button
+          v-if="is_ai_use"
+          :style="{ visibility: showAiBoxes ? 'visible' : 'hidden' }"
+          @click="applyMitosis"
+        >AI Confirm</button>
         <button @click="commitChanges('bbox', goNext)">Save</button>
       </div>
     </div>
