@@ -14,6 +14,11 @@ const handleError = (res, message, error) => {
   res.status(500).send(message);
 };
 
+// 자연 정렬 함수 (파일명의 숫자를 올바르게 정렬)
+const naturalSort = (a, b) => {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 // 과제 생성 (트랜잭션 적용)
 router.post("/", authenticateToken, async (req, res) => {
   const {
@@ -152,6 +157,9 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
         .status(404)
         .json({ message: "No questions found for this assignment." });
     }
+
+    // 이미지 파일명 기준 자연 정렬
+    questions.sort((a, b) => naturalSort(a.image, b.image));
 
     const assignmentType = questions[0].image.split("/").slice(-2)[0];
 
@@ -505,6 +513,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
+    // 이미지 파일명 기준 자연 정렬
+    questions.sort((a, b) => naturalSort(a.image, b.image));
+
     const questionResponsesQuery = `
       SELECT qr.question_id, qr.user_id, qr.selected_option AS selectedValue
       FROM question_responses qr
@@ -647,6 +658,9 @@ router.get("/:assignmentId/all", authenticateToken, async (req, res) => {
 
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
+
+    // 이미지 파일명 기준 자연 정렬
+    questions.sort((a, b) => naturalSort(a.image, b.image));
 
     // 태그 조회
     const [tags] = await db.query(

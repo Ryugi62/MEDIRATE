@@ -3,6 +3,11 @@ const router = express.Router();
 const db = require("../db");
 const authenticateToken = require("../jwt");
 
+// 자연 정렬 함수 (파일명의 숫자를 올바르게 정렬)
+const naturalSort = (a, b) => {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 // 공통된 날짜 변환 및 비율 계산 함수
 const formatDate = (date) => date.toISOString().split("T")[0];
 const calculateRates = (answered, total) => {
@@ -408,8 +413,9 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       return acc;
     }, {});
 
+    // 이미지 파일명 기준 자연 정렬
     Object.values(structuredData).forEach((user) =>
-      user.questions.sort((a, b) => a.questionId - b.questionId)
+      user.questions.sort((a, b) => naturalSort(a.questionImage, b.questionImage))
     );
 
     res.status(200).json({

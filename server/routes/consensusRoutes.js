@@ -23,6 +23,11 @@ const handleError = (res, message, error) => {
   res.status(500).send({ message, error: error.message });
 };
 
+// 자연 정렬 함수 (파일명의 숫자를 올바르게 정렬)
+const naturalSort = (a, b) => {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 // ========================================
 // GET /api/consensus - 합의 과제 목록
 // ========================================
@@ -234,9 +239,10 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
       end_time: null,
     };
 
-    // 6. 이미지 목록 생성 (중복 제거)
+    // 6. 이미지 목록 생성 (중복 제거 + 자연 정렬)
     const imageSet = new Set(fpSquares.map((fp) => fp.question_image));
-    const images = Array.from(imageSet).map((img) => {
+    const sortedImageList = Array.from(imageSet).sort(naturalSort);
+    const images = sortedImageList.map((img) => {
       const imageFpSquares = fpSquares.filter((fp) => fp.question_image === img);
       const respondedCount = imageFpSquares.filter(
         (fp) => responseMap[fp.id]
@@ -261,7 +267,7 @@ router.get("/:consensusId", authenticateToken, async (req, res) => {
 
     // 8. NIPA 데이터 조회 (이미지 파일명으로 직접 매핑)
     let nipaData = {};
-    const imageList = Array.from(imageSet);
+    const imageList = sortedImageList;
     if (imageList.length > 0) {
       const placeholders = imageList.map(() => '?').join(',');
       const [nipaResult] = await db.query(
