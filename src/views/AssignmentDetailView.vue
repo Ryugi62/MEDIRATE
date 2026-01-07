@@ -61,8 +61,8 @@
         <table>
           <thead>
             <tr>
-              <th>순번</th>
-              <th>문제</th>
+              <th>번호</th>
+              <th>이미지</th>
               <th v-if="!isTextBoxMode">개수</th>
               <th
                 v-for="grade in currentAssignmentDetails.selectionType"

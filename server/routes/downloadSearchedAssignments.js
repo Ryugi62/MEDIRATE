@@ -118,7 +118,7 @@ router.post(
       const allEvaluators = await getAllEvaluators(assignments);
       const commonColumns = [
         { header: `과제 ID`, key: `assignmentId`, width: 10 },
-        { header: "문제 번호", key: "questionNumber", width: 10 },
+        { header: "이미지", key: "questionNumber", width: 10 },
       ];
 
       // 모든 평가자에 대한 열 추가

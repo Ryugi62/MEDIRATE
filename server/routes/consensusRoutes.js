@@ -1310,7 +1310,7 @@ router.post(
 
         // 컬럼 인덱스 찾기
         const assignmentTypeIdx = header2.indexOf("과제 ID");
-        const questionImageIdx = header2.indexOf("문제 번호");
+        const questionImageIdx = header2.indexOf("이미지");
         const match2Idx = header2.indexOf("2일치");
         const jsonIdx = header2.indexOf("JSON");
 
@@ -1353,7 +1353,7 @@ router.post(
 
         // 컬럼 인덱스 찾기
         const assignmentTypeIdx = header3.indexOf("과제 ID");
-        const questionImageIdx = header3.indexOf("문제 번호");
+        const questionImageIdx = header3.indexOf("이미지");
         const match3Idx = header3.indexOf("3일치");
         const jsonIdx = header3.indexOf("JSON");
 

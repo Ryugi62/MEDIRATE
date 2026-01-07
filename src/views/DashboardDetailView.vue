@@ -833,7 +833,7 @@ export default {
         const resultSheet = workbook.addWorksheet("결과 Sheet");
         const columns = [
           { header: "과제 ID", key: "assignmentId", width: 15 },
-          { header: "문제 번호", key: "questionNumber", width: 20 },
+          { header: "이미지", key: "questionNumber", width: 20 },
           ...this.data.map((user) => ({
             header: user.name,
             key: user.name,

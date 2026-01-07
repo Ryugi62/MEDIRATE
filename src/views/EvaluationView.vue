@@ -296,7 +296,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>문제</th>
+                    <th>이미지</th>
                     <th
                       v-for="option in assignmentDetails.gradingScale"
                       :key="option"
@@ -1207,12 +1207,12 @@ export default {
             this.activeQuestionId = null;
           }
 
-          alert("문제가 성공적으로 삭제되었습니다.");
+          alert("이미지가 성공적으로 삭제되었습니다.");
         } else {
-          alert("삭제할 문제를 찾을 수 없습니다.");
+          alert("삭제할 이미지를 찾을 수 없습니다.");
         }
       } else {
-        alert("삭제할 문제가 선택되지 않았습니다.");
+        alert("삭제할 이미지가 선택되지 않았습니다.");
       }
     },
   },
