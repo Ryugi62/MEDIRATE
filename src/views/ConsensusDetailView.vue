@@ -108,7 +108,7 @@
 
     <div class="keyboard-guide">
       <span>조작법:</span>
-      <span class="key">왼클릭</span>=마이토시스 |
+      <span class="key">좌클릭</span>=마이토시스 |
       <span class="key">우클릭</span>=논 마이토시스 |
       <span class="key">Space</span>=전체 마이토시스 |
       <span class="key">Shift+Space</span>=전체 논 마이토시스 |

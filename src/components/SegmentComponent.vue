@@ -159,7 +159,7 @@ export default {
       canvasHeight: 280,
       // 단축키 도움말
       helpOperations: [
-        { action: "왼클릭", description: "점 추가" },
+        { action: "좌클릭", description: "점 추가" },
         { action: "드래그", description: "자유곡선 그리기" },
         { action: "우클릭", description: "폴리곤 완성" },
       ],

@@ -172,7 +172,7 @@ export default {
       canvasHeight: 280,
       // 단축키 도움말
       helpOperations: [
-        { action: "왼클릭", description: "마이토시스" },
+        { action: "좌클릭", description: "마이토시스" },
         { action: "우클릭", description: "논 마이토시스" },
       ],
       helpShortcuts: [

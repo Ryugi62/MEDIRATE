@@ -34,7 +34,7 @@ export default {
     operations: {
       type: Array,
       default: () => [],
-      // 예: [{ action: "왼클릭", description: "박스 추가" }]
+      // 예: [{ action: "좌클릭", description: "박스 추가" }]
     },
     shortcuts: {
       type: Array,
