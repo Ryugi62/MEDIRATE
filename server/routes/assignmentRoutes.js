@@ -149,6 +149,16 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
+    // DB에서 assignment_type 가져오기
+    const assignmentQuery = `SELECT assignment_type FROM assignments WHERE id = ?;`;
+    const [assignmentResult] = await db.query(assignmentQuery, [assignmentId]);
+
+    if (assignmentResult.length === 0) {
+      return res.status(404).json({ message: "Assignment not found." });
+    }
+
+    const assignmentType = assignmentResult[0].assignment_type;
+
     const questionsQuery = `SELECT id, image FROM questions WHERE assignment_id = ? AND deleted_at IS NULL;`;
     const [questions] = await db.query(questionsQuery, [assignmentId]);
 
@@ -160,8 +170,6 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
 
     // 이미지 파일명 기준 자연 정렬
     questions.sort((a, b) => naturalSort(a.image, b.image));
-
-    const assignmentType = questions[0].image.split("/").slice(-2)[0];
 
     const AI_BBOX = [];
 
