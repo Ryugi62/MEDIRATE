@@ -148,7 +148,6 @@ export default {
       // 단축키 도움말
       helpOperations: [
         { action: "좌클릭", description: "박스 추가" },
-        { action: "드래그", description: "박스 그리기" },
         { action: "우클릭", description: "박스 삭제" },
       ],
       helpShortcuts: [
