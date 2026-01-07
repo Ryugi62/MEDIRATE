@@ -51,8 +51,8 @@
     <div class="bbox-component__body">
       <div class="canvas-container">
         <canvas ref="canvas" @click="handleCanvasClick" @mousemove="handleCanvasMouseMove"
-          @mouseleave="handleCanvasMouseLeave" @mouseenter="redrawSquares" @contextmenu.prevent
-          @contextmenu="redrawSquares" :class="{ 'canvas-disabled': !isRunning }"></canvas>
+          @mouseleave="handleCanvasMouseLeave" @mouseenter="redrawSquares"
+          @contextmenu.prevent="handleRightClick" :class="{ 'canvas-disabled': !isRunning }"></canvas>
       </div>
       <ZoomLens
         :image="backgroundImage"
@@ -785,6 +785,25 @@ export default {
       }
 
       this.eraserActive ? this.eraseSquare(x, y) : this.drawSquare(x, y);
+    },
+
+    handleRightClick(event) {
+      if (!this.isRunning) return;
+
+      const { x, y } = this.getCanvasCoordinates(event);
+
+      // 이미지 영역 밖 클릭 방지
+      const canvas = this.$refs.canvas;
+      const { x: imgX, y: imgY, scale } = this.calculateImagePosition(canvas.width, canvas.height);
+      const imgWidth = this.originalWidth * scale;
+      const imgHeight = this.originalHeight * scale;
+
+      if (x < imgX || x > imgX + imgWidth || y < imgY || y > imgY + imgHeight) {
+        return;
+      }
+
+      // 우클릭으로 박스 삭제
+      this.eraseSquare(x, y);
     },
 
     drawSquare(x, y) {
