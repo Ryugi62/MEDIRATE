@@ -53,8 +53,8 @@ router.post("/", authenticateToken, async (req, res) => {
         assignment_type,
         selection_type,
         mode,
-        is_score,
-        is_ai_use,
+        is_score ? 1 : 0,
+        is_ai_use ? 1 : 0,
         project_id || null,
         cancer_type_id || null,
       ]);
@@ -260,12 +260,13 @@ router.get("/paginated", authenticateToken, async (req, res) => {
       params.push(tag);
     }
 
-    if (status !== "all") {
-      if (status === "진행 중") {
-        whereConditions.push("a.deadline >= CURRENT_DATE");
-      } else if (status === "완료") {
-        whereConditions.push("a.deadline < CURRENT_DATE");
-      }
+    // 평가 종료일 필터링: 기본적으로 종료일이 지나지 않은 과제만 표시
+    // "완료" 상태를 선택한 경우에만 종료일이 지난 과제를 표시
+    if (status === "완료") {
+      whereConditions.push("a.deadline < CURRENT_DATE");
+    } else {
+      // status가 "all" 또는 "진행 중"인 경우 종료일이 지나지 않은 과제만 표시
+      whereConditions.push("a.deadline >= CURRENT_DATE");
     }
 
     // 프로젝트 필터
@@ -434,7 +435,7 @@ router.get("/", authenticateToken, async (req, res) => {
       FROM assignments a
       JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
       LEFT JOIN canvas_info ci ON ci.assignment_id = a.id AND ci.user_id = au.user_id AND ci.deleted_at IS NULL
-      WHERE au.user_id = ? AND a.deleted_at IS NULL;
+      WHERE au.user_id = ? AND a.deleted_at IS NULL AND a.deadline >= CURRENT_DATE;
     `;
 
     const [assignments] = await db.query(assignmentsQuery, [userId, userId]);
@@ -1104,8 +1105,8 @@ const updateAssignment = async (params) => {
     finalAssignmentType,
     finalSelectionType,
     finalMode,
-    is_score,
-    is_ai_use,
+    is_score ? 1 : 0,
+    is_ai_use ? 1 : 0,
     project_id || null,
     cancer_type_id || null,
     assignmentId,
