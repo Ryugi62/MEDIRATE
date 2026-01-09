@@ -754,7 +754,21 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       canvasId = canvasResult.length > 0 ? canvasResult[0].id : null;
     }
 
-    if (beforeCanvas && beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
+    // canvas_info가 없으면 먼저 생성
+    if (!canvasId) {
+      const [insertResult] = await db.query(
+        `INSERT INTO canvas_info (assignment_id, user_id, width, height, start_time, end_time, evaluation_time)
+         VALUES (?, ?, ?, ?, NOW(), NOW(), ?)`,
+        [
+          assignmentId,
+          req.user.id,
+          beforeCanvas?.width || 0,
+          beforeCanvas?.height || 0,
+          evaluation_time || 0,
+        ]
+      );
+      canvasId = insertResult.insertId;
+    } else if (beforeCanvas && beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
       const updateCanvasQuery = `
         UPDATE canvas_info
         SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
