@@ -208,6 +208,7 @@ router.get("/tree", authenticateToken, async (req, res) => {
     let assignmentParams = [], consensusParams = [];
 
     if (forUser === "true") {
+      // 평가 수행 리스트용: 기간이 지나지 않은 과제만 표시
       assignmentQuery = `SELECT
         a.id, a.title, a.project_id, a.cancer_type_id, a.assignment_mode,
         p.name as project_name,
@@ -216,7 +217,7 @@ router.get("/tree", authenticateToken, async (req, res) => {
        JOIN assignment_user au ON a.id = au.assignment_id AND au.deleted_at IS NULL
        LEFT JOIN projects p ON a.project_id = p.id AND p.deleted_at IS NULL
        LEFT JOIN cancer_types ct ON a.cancer_type_id = ct.id AND ct.deleted_at IS NULL
-       WHERE a.deleted_at IS NULL AND au.user_id = ?`;
+       WHERE a.deleted_at IS NULL AND au.user_id = ? AND a.deadline >= CURRENT_DATE`;
       assignmentParams = [userId];
 
       consensusQuery = `SELECT
@@ -227,7 +228,7 @@ router.get("/tree", authenticateToken, async (req, res) => {
        JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
        LEFT JOIN projects p ON ca.project_id = p.id AND p.deleted_at IS NULL
        LEFT JOIN cancer_types ct ON ca.cancer_type_id = ct.id AND ct.deleted_at IS NULL
-       WHERE ca.deleted_at IS NULL AND cua.user_id = ?`;
+       WHERE ca.deleted_at IS NULL AND cua.user_id = ? AND ca.deadline >= CURRENT_DATE`;
       consensusParams = [userId];
     } else {
       assignmentQuery = `SELECT
