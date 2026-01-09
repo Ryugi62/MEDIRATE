@@ -69,7 +69,7 @@ router.get("/", authenticateToken, async (req, res) => {
       `;
       params = [userId, userId];
     } else {
-      // 일반: 할당된 과제만 조회
+      // 일반: 할당된 과제만 조회 (기간이 지나지 않은 과제만)
       query = `
         SELECT
           ca.id,
@@ -93,7 +93,7 @@ router.get("/", authenticateToken, async (req, res) => {
         FROM consensus_assignments ca
         JOIN consensus_user_assignments cua ON ca.id = cua.consensus_assignment_id AND cua.deleted_at IS NULL
         LEFT JOIN consensus_canvas_info cci ON cci.consensus_assignment_id = ca.id AND cci.user_id = ? AND cci.deleted_at IS NULL
-        WHERE cua.user_id = ? AND ca.deleted_at IS NULL
+        WHERE cua.user_id = ? AND ca.deleted_at IS NULL AND ca.deadline >= CURRENT_DATE
         ORDER BY ca.creation_date DESC
       `;
       params = [userId, userId, userId];

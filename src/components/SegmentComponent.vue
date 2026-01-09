@@ -1130,6 +1130,8 @@ export default {
       this.timerInterval = setInterval(() => {
         this.timer += 1000;
       }, 1000);
+      // 시작 시간 기록 이벤트 emit (처음 시작할 때만)
+      this.$emit("timerStarted");
     },
 
     pauseTimer() {

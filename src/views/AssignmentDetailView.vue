@@ -131,6 +131,7 @@
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
+        @timerStarted="recordStartTime"
         :is_score="!!currentAssignmentDetails.is_score"
         :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
@@ -146,6 +147,7 @@
         :assignmentType="currentAssignmentDetails.assignmentType"
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
+        @timerStarted="recordStartTime"
         :is_score="!!currentAssignmentDetails.is_score"
         :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
@@ -281,6 +283,29 @@ export default {
         });
       } catch (error) {
         console.error("Error loading assignment details:", error);
+      }
+    },
+
+    // 평가 시작 버튼 클릭 시 시작 시간 기록
+    async recordStartTime() {
+      // 이미 시작 시간이 기록되어 있으면 다시 기록하지 않음
+      if (this.currentAssignmentDetails.beforeCanvas.start_time) {
+        return;
+      }
+
+      try {
+        await this.$axios.put(
+          `/api/assignments/${this.currentAssignmentDetails.id}/start-time`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${this.$store.getters.getJwtToken}`,
+            },
+          }
+        );
+        console.log("Start time recorded successfully");
+      } catch (error) {
+        console.error("Error recording start time:", error);
       }
     },
 

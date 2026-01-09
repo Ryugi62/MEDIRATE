@@ -823,6 +823,45 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
   }
 });
 
+// 평가 시작 시간 기록 (타이머 시작 버튼 클릭 시)
+router.put("/:assignmentId/start-time", authenticateToken, async (req, res) => {
+  const { assignmentId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // canvas_info가 있는지 확인
+    const [existingCanvas] = await db.query(
+      `SELECT id, start_time FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+      [assignmentId, userId]
+    );
+
+    if (existingCanvas.length === 0) {
+      // canvas_info가 없으면 생성하면서 시작 시간 기록
+      await db.query(
+        `INSERT INTO canvas_info (assignment_id, user_id, width, height, start_time, evaluation_time)
+         VALUES (?, ?, 0, 0, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), 0)`,
+        [assignmentId, userId]
+      );
+    } else if (existingCanvas[0].start_time === null) {
+      // canvas_info가 있지만 시작 시간이 없으면 업데이트
+      await db.query(
+        `UPDATE canvas_info SET start_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul')
+         WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+        [assignmentId, userId]
+      );
+    }
+    // 이미 시작 시간이 있으면 아무것도 하지 않음
+
+    res.json({ message: "Start time recorded successfully." });
+  } catch (error) {
+    console.error("Error recording start time:", error);
+    res.status(500).send({
+      message: "Failed to record start time",
+      error: error.message,
+    });
+  }
+});
+
 // 과제 수정
 router.put("/edit/:assignmentId", authenticateToken, async (req, res) => {
   const { assignmentId } = req.params;
