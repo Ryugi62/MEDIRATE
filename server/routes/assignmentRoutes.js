@@ -758,8 +758,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       const updateCanvasQuery = `
         UPDATE canvas_info
         SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
-            start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
-            end_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul')
+            start_time = IF(start_time IS NULL, NOW(), start_time),
+            end_time = NOW()
         WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL;
       `;
       await db.query(updateCanvasQuery, [
@@ -774,8 +774,8 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       // 캔버스 크기가 0이거나 beforeCanvas가 없어도 시간은 기록되도록 함
       await db.query(
         `UPDATE canvas_info
-         SET start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
-             end_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'),
+         SET start_time = IF(start_time IS NULL, NOW(), start_time),
+             end_time = NOW(),
              evaluation_time = ?
          WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
         [evaluation_time || 0, assignmentId, req.user.id]
@@ -859,13 +859,13 @@ router.put("/:assignmentId/start-time", authenticateToken, async (req, res) => {
       // canvas_info가 없으면 생성하면서 시작 시간 기록
       await db.query(
         `INSERT INTO canvas_info (assignment_id, user_id, width, height, start_time, evaluation_time)
-         VALUES (?, ?, 0, 0, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), 0)`,
+         VALUES (?, ?, 0, 0, NOW(), 0)`,
         [assignmentId, userId]
       );
     } else if (existingCanvas[0].start_time === null) {
       // canvas_info가 있지만 시작 시간이 없으면 업데이트
       await db.query(
-        `UPDATE canvas_info SET start_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul')
+        `UPDATE canvas_info SET start_time = NOW()
          WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
         [assignmentId, userId]
       );
