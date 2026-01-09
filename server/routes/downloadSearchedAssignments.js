@@ -780,7 +780,7 @@ async function fetchAssignmentData(assignmentId) {
   );
 
   const [canvasInfo] = await db.query(
-    `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ?`,
+    `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
 

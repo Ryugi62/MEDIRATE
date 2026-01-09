@@ -750,16 +750,26 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
         SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
             start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
             end_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul')
-        WHERE assignment_id = ? AND user_id = ?;
+        WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL;
       `;
       await db.query(updateCanvasQuery, [
         beforeCanvas.width,
         beforeCanvas.height,
         lastQuestionIndex,
-        evaluation_time || 0, // 추가된 부분
+        evaluation_time || 0,
         assignmentId,
         req.user.id,
       ]);
+    } else {
+      // 캔버스 크기가 0이어도 시간은 기록되도록 함
+      await db.query(
+        `UPDATE canvas_info
+         SET start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
+             end_time = CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'),
+             evaluation_time = ?
+         WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+        [evaluation_time || 0, assignmentId, req.user.id]
+      );
     }
 
     const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ? AND user_id = ?;`;

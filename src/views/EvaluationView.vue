@@ -479,7 +479,7 @@ export default {
         gradingScale: null,
         mode: "BBox",
         is_score: true,
-        is_ai_use: true,
+        is_ai_use: false,
         is_timer: true,
         tags: [], // 태그 배열 [{id, name, color}, ...]
       },
