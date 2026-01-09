@@ -119,6 +119,9 @@ router.post(
       const commonColumns = [
         { header: `과제 ID`, key: `assignmentId`, width: 10 },
         { header: "이미지", key: "questionNumber", width: 10 },
+        { header: "시작 시간", key: "startTime", width: 20 },
+        { header: "종료 시간", key: "endTime", width: 20 },
+        { header: "소요 시간", key: "duration", width: 15 },
       ];
 
       // 모든 평가자에 대한 열 추가
@@ -222,11 +225,33 @@ router.post(
           timeSheet.addRow(row);
         }
 
+        // 과제의 시작/종료 시간 계산 (가장 빠른 시작, 가장 늦은 종료)
+        const validStartTimes = users
+          .filter((u) => u.beforeCanvas.start_time)
+          .map((u) => new Date(u.beforeCanvas.start_time));
+        const validEndTimes = users
+          .filter((u) => u.beforeCanvas.end_time)
+          .map((u) => new Date(u.beforeCanvas.end_time));
+
+        const earliestStart = validStartTimes.length > 0
+          ? formatDateTime(new Date(Math.min(...validStartTimes)))
+          : "";
+        const latestEnd = validEndTimes.length > 0
+          ? formatDateTime(new Date(Math.max(...validEndTimes)))
+          : "";
+
+        // 소요 시간 계산 (모든 평가자의 총 소요 시간)
+        const totalDuration = users.reduce((acc, u) => acc + (u.beforeCanvas.evaluation_time || 0), 0);
+        const avgDuration = users.length > 0 ? totalDuration / users.length : 0;
+
         // 결과 시트 처리
         for (const question of assignmentData.assignment[0].questions) {
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = { questionNumber: questionImageFileName };
           row["assignmentId"] = assignmentSummary.id;
+          row["startTime"] = earliestStart;
+          row["endTime"] = latestEnd;
+          row["duration"] = avgDuration > 0 ? formatDuration(Math.round(avgDuration)) : "";
 
           allEvaluators.forEach((name) => {
             const user = users.find((u) => u.name === name);
