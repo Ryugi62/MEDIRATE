@@ -744,7 +744,17 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       })
     );
 
-    if (beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
+    // canvas_info id 조회 (beforeCanvas가 없거나 id가 없는 경우를 대비)
+    let canvasId = beforeCanvas?.id;
+    if (!canvasId) {
+      const [canvasResult] = await db.query(
+        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+        [assignmentId, req.user.id]
+      );
+      canvasId = canvasResult.length > 0 ? canvasResult[0].id : null;
+    }
+
+    if (beforeCanvas && beforeCanvas.width !== 0 && beforeCanvas.height !== 0) {
       const updateCanvasQuery = `
         UPDATE canvas_info
         SET width = ?, height = ?, lastQuestionIndex = ?, evaluation_time = ?,
@@ -761,7 +771,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
         req.user.id,
       ]);
     } else {
-      // 캔버스 크기가 0이어도 시간은 기록되도록 함
+      // 캔버스 크기가 0이거나 beforeCanvas가 없어도 시간은 기록되도록 함
       await db.query(
         `UPDATE canvas_info
          SET start_time = IF(start_time IS NULL, CONVERT_TZ(NOW(), 'UTC', 'Asia/Seoul'), start_time),
@@ -773,9 +783,9 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     }
 
     const deleteSquaresQuery = `DELETE FROM squares_info WHERE canvas_id = ? AND user_id = ?;`;
-    await db.query(deleteSquaresQuery, [beforeCanvas.id, req.user.id]);
+    await db.query(deleteSquaresQuery, [canvasId, req.user.id]);
 
-    if (squares.length > 0) {
+    if (squares.length > 0 && canvasId) {
       await Promise.all(
         squares.map(async (square) => {
           const insertSquareQuery = `
@@ -784,7 +794,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           `;
 
           await db.query(insertSquareQuery, [
-            beforeCanvas.id,
+            canvasId,
             square.x,
             square.y,
             square.questionIndex,
@@ -797,10 +807,10 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     }
 
     // Segment 모드용 polygon 저장
-    if (polygons && polygons.length > 0) {
+    if (polygons && polygons.length > 0 && canvasId) {
       // 기존 polygon 삭제
       const deletePolygonsQuery = `DELETE FROM polygon_info WHERE canvas_id = ? AND user_id = ?;`;
-      await db.query(deletePolygonsQuery, [beforeCanvas.id, req.user.id]);
+      await db.query(deletePolygonsQuery, [canvasId, req.user.id]);
 
       // 새 polygon 삽입
       await Promise.all(
@@ -811,7 +821,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
           `;
 
           await db.query(insertPolygonQuery, [
-            beforeCanvas.id,
+            canvasId,
             polygon.questionIndex,
             JSON.stringify(polygon.points),  // points를 JSON으로 저장
             polygon.classType || 'Tumor',
