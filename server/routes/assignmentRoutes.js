@@ -744,15 +744,12 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
       })
     );
 
-    // canvas_info id 조회 (beforeCanvas가 없거나 id가 없는 경우를 대비)
-    let canvasId = beforeCanvas?.id;
-    if (!canvasId) {
-      const [canvasResult] = await db.query(
-        `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
-        [assignmentId, req.user.id]
-      );
-      canvasId = canvasResult.length > 0 ? canvasResult[0].id : null;
-    }
+    // canvas_info id 조회 (항상 deleted_at IS NULL 조건으로 확인)
+    const [canvasResult] = await db.query(
+      `SELECT id FROM canvas_info WHERE assignment_id = ? AND user_id = ? AND deleted_at IS NULL`,
+      [assignmentId, req.user.id]
+    );
+    let canvasId = canvasResult.length > 0 ? canvasResult[0].id : null;
 
     // canvas_info가 없으면 먼저 생성
     if (!canvasId) {

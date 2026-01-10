@@ -820,8 +820,9 @@ async function fetchAssignmentData(assignmentId) {
     // 평가 여부 판단: squares/polygons 존재 OR evaluation_time > 0 OR 응답 존재
     const hasAnnotations = userSquares.length > 0 || userPolygons.length > 0;
     const hasEvaluationTime = canvasData && canvasData.evaluation_time > 0;
+    // questionSelection: -1 = 미응답, 0 이상 = 유효한 응답
     const hasAnsweredQuestions = responses.some(
-      (r) => r.user_id === user.userId && r.questionSelection > 0
+      (r) => r.user_id === user.userId && r.questionSelection >= 0
     );
     const hasEvaluated = hasAnnotations || hasEvaluationTime || hasAnsweredQuestions;
 
