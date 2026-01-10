@@ -197,15 +197,34 @@ router.post(
 
         // 시간 시트 처리
         for (const user of users) {
+          const hasEvaluated = user.hasEvaluated;
+
+          // 시간 표시: 값 있으면 포맷, 평가했지만 미기록이면 "미기록", 미평가면 빈값
           const startTime = user.beforeCanvas.start_time
             ? formatDateTime(user.beforeCanvas.start_time)
-            : "";
+            : (hasEvaluated ? "미기록" : "");
           const endTime = user.beforeCanvas.end_time
             ? formatDateTime(user.beforeCanvas.end_time)
-            : "";
+            : (hasEvaluated ? "미기록" : "");
           const duration = user.beforeCanvas.evaluation_time
             ? formatDuration(user.beforeCanvas.evaluation_time)
-            : "";
+            : (hasEvaluated ? "미기록" : "");
+
+          // AI 표시 여부 결정: N/A (비활성화), - (미평가), Yes (사용), No (미사용)
+          let aiIndicator;
+          if (!assignmentData.is_ai_use) {
+            // AI가 과제에서 비활성화됨
+            aiIndicator = "N/A";
+          } else if (!hasEvaluated) {
+            // 미평가 상태 - AI 사용 여부 알 수 없음
+            aiIndicator = "-";
+          } else if (user.hasUsedAI) {
+            // 평가 완료 + AI 사용함
+            aiIndicator = "Yes";
+          } else {
+            // 평가 완료 + AI 미사용
+            aiIndicator = "No";
+          }
 
           const row = {
             assignmentId: assignmentSummary.id,
@@ -213,7 +232,7 @@ router.post(
             startTime: startTime,
             endTime: endTime,
             duration: duration,
-            aiIndicator: assignmentData.is_ai_use ? "Yes" : "No",
+            aiIndicator: aiIndicator,
           };
 
           if (metadataJson) {
@@ -779,34 +798,65 @@ async function fetchAssignmentData(assignmentId) {
     [assignmentId]
   );
 
+  // Segment 모드 AI 사용 여부 확인을 위한 polygon 데이터 조회
+  const [polygons] = await db.query(
+    `SELECT pi.question_id as questionIndex, pi.user_id, pi.isAI, pi.isTemporary
+     FROM polygon_info pi
+     JOIN canvas_info ci ON pi.canvas_id = ci.id
+     WHERE ci.assignment_id = ? AND pi.isTemporary = 0 AND ci.deleted_at IS NULL`,
+    [assignmentId]
+  );
+
   const [canvasInfo] = await db.query(
     `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
 
-  const structuredData = users.map((user) => ({
-    ...user,
-    questions: questions.map((q) => ({
-      questionId: q.questionId,
-      questionImage: q.questionImage,
-      originalWidth: q.originalWidth,
-      originalHeight: q.originalHeight,
-      questionSelection:
-        responses.find(
-          (r) => r.question_id === q.questionId && r.user_id === user.userId
-        )?.questionSelection || -1,
-    })),
-    squares: squares.filter((s) => s.user_id === user.userId),
-    beforeCanvas: canvasInfo.find((c) => c.user_id === user.userId) || {
-      width: 1000,
-      height: 1000,
-      start_time: null,
-      end_time: null,
-      evaluation_time: null,
-    },
-    answeredCount: 0,
-    unansweredCount: 0,
-  }));
+  const structuredData = users.map((user) => {
+    const userSquares = squares.filter((s) => s.user_id === user.userId);
+    const userPolygons = polygons.filter((p) => p.user_id === user.userId);
+    const canvasData = canvasInfo.find((c) => c.user_id === user.userId);
+
+    // 평가 여부 판단: squares/polygons 존재 OR evaluation_time > 0 OR 응답 존재
+    const hasAnnotations = userSquares.length > 0 || userPolygons.length > 0;
+    const hasEvaluationTime = canvasData && canvasData.evaluation_time > 0;
+    const hasAnsweredQuestions = responses.some(
+      (r) => r.user_id === user.userId && r.questionSelection > 0
+    );
+    const hasEvaluated = hasAnnotations || hasEvaluationTime || hasAnsweredQuestions;
+
+    // AI 실제 사용 여부: isAI=1인 squares 또는 polygons 존재
+    const hasUsedAI =
+      userSquares.some((s) => s.isAI === 1) ||
+      userPolygons.some((p) => p.isAI === 1);
+
+    return {
+      ...user,
+      questions: questions.map((q) => ({
+        questionId: q.questionId,
+        questionImage: q.questionImage,
+        originalWidth: q.originalWidth,
+        originalHeight: q.originalHeight,
+        questionSelection:
+          responses.find(
+            (r) => r.question_id === q.questionId && r.user_id === user.userId
+          )?.questionSelection || -1,
+      })),
+      squares: userSquares,
+      polygons: userPolygons,
+      beforeCanvas: canvasData || {
+        width: 1000,
+        height: 1000,
+        start_time: null,
+        end_time: null,
+        evaluation_time: null,
+      },
+      answeredCount: 0,
+      unansweredCount: 0,
+      hasEvaluated: hasEvaluated,
+      hasUsedAI: hasUsedAI,
+    };
+  });
 
   structuredData.forEach((user) => {
     user.questions.forEach((q) => {
