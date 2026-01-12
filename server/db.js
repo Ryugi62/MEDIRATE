@@ -412,6 +412,51 @@ const expectedColumns = {
       constraintName: "fk_polygon_info_user",
     },
   ],
+  // 문제별 시간 기록 테이블 (스톱워치 방식)
+  question_time_info: [
+    { name: "id", definition: "INT AUTO_INCREMENT" },
+    { name: "question_id", definition: "INT NOT NULL" },
+    { name: "canvas_id", definition: "INT NOT NULL" },
+    { name: "user_id", definition: "INT NOT NULL" },
+    { name: "start_time", definition: "INT DEFAULT 0" }, // 스톱워치 경과 시간 (밀리초)
+    { name: "end_time", definition: "INT DEFAULT 0" }, // 스톱워치 경과 시간 (밀리초)
+    { name: "deleted_at", definition: "TIMESTAMP NULL DEFAULT NULL" },
+    {
+      name: "PRIMARY KEY",
+      definition: "PRIMARY KEY (id)",
+      constraintName: "PRIMARY",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT",
+      constraintName: "fk_question_time_info_question",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (canvas_id) REFERENCES canvas_info(id) ON DELETE CASCADE",
+      constraintName: "fk_question_time_info_canvas",
+    },
+    {
+      name: "FOREIGN KEY",
+      definition:
+        "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT",
+      constraintName: "fk_question_time_info_user",
+    },
+    // question_id + canvas_id + user_id 유니크 제약 (한 문제당 한 번의 시간 기록)
+    {
+      name: "UNIQUE",
+      definition: "UNIQUE KEY unique_question_canvas_user (question_id, canvas_id, user_id)",
+      constraintName: "unique_question_canvas_user",
+    },
+    // 성능 최적화 인덱스
+    {
+      name: "INDEX",
+      definition: "INDEX idx_question_time_canvas (canvas_id)",
+      constraintName: "idx_question_time_canvas",
+    },
+  ],
   // 평가자 할당 이력 추적 테이블
   assignment_user_history: [
     { name: "id", definition: "INT AUTO_INCREMENT" },

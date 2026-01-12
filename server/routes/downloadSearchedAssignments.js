@@ -119,17 +119,15 @@ router.post(
       const commonColumns = [
         { header: `과제 ID`, key: `assignmentId`, width: 10 },
         { header: "이미지", key: "questionNumber", width: 10 },
-        { header: "시작 시간", key: "startTime", width: 20 },
-        { header: "종료 시간", key: "endTime", width: 20 },
-        { header: "소요 시간", key: "duration", width: 15 },
       ];
 
-      // 모든 평가자에 대한 열 추가
-      const evaluatorColumns = allEvaluators.map((name) => ({
-        header: name,
-        key: name,
-        width: 15,
-      }));
+      // 모든 평가자에 대한 열 추가 (개수, 시작시간, 종료시간, 소요시간)
+      const evaluatorColumns = allEvaluators.flatMap((name) => [
+        { header: `${name}_개수`, key: `${name}_count`, width: 10 },
+        { header: `${name}_시작`, key: `${name}_start`, width: 12 },
+        { header: `${name}_종료`, key: `${name}_end`, width: 12 },
+        { header: `${name}_소요`, key: `${name}_duration`, width: 12 },
+      ]);
 
       const bboxColumns = [
         {
@@ -268,15 +266,28 @@ router.post(
           const questionImageFileName = question.questionImage.split("/").pop();
           const row = { questionNumber: questionImageFileName };
           row["assignmentId"] = assignmentSummary.id;
-          row["startTime"] = earliestStart;
-          row["endTime"] = latestEnd;
-          row["duration"] = avgDuration > 0 ? formatDuration(Math.round(avgDuration)) : "";
 
+          // 각 평가자별로 문제별 시간 정보 추가
           allEvaluators.forEach((name) => {
             const user = users.find((u) => u.name === name);
-            row[name] = user
+            // 개수
+            row[`${name}_count`] = user
               ? getValidSquaresCount(user.squares, question.questionId)
-              : 0; // 과제에 할당되지 않은 평가자는 0 설정
+              : 0;
+
+            // 문제별 시간 정보 (스톱워치 방식)
+            if (user && user.questionTimes && user.questionTimes[question.questionId]) {
+              const qt = user.questionTimes[question.questionId];
+              row[`${name}_start`] = formatDuration(qt.start_time || 0);
+              row[`${name}_end`] = formatDuration(qt.end_time || 0);
+              // 소요 시간 = 종료 - 시작
+              const duration = (qt.end_time || 0) - (qt.start_time || 0);
+              row[`${name}_duration`] = duration > 0 ? formatDuration(duration) : "";
+            } else {
+              row[`${name}_start`] = "";
+              row[`${name}_end`] = "";
+              row[`${name}_duration`] = "";
+            }
           });
 
           // BBox와 Segment 모드 모두 동일한 로직 사용
@@ -808,14 +819,40 @@ async function fetchAssignmentData(assignmentId) {
   );
 
   const [canvasInfo] = await db.query(
-    `SELECT user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ? AND deleted_at IS NULL`,
+    `SELECT id, user_id, width, height, start_time, end_time, evaluation_time FROM canvas_info WHERE assignment_id = ? AND deleted_at IS NULL`,
     [assignmentId]
   );
+
+  // 문제별 시간 정보 조회 (스톱워치 방식)
+  const canvasIds = canvasInfo.map((c) => c.id).filter(Boolean);
+  let questionTimes = [];
+  if (canvasIds.length > 0) {
+    const [questionTimesResult] = await db.query(
+      `SELECT question_id, canvas_id, user_id, start_time, end_time
+       FROM question_time_info
+       WHERE canvas_id IN (?) AND deleted_at IS NULL`,
+      [canvasIds]
+    );
+    questionTimes = questionTimesResult;
+  }
 
   const structuredData = users.map((user) => {
     const userSquares = squares.filter((s) => s.user_id === user.userId);
     const userPolygons = polygons.filter((p) => p.user_id === user.userId);
     const canvasData = canvasInfo.find((c) => c.user_id === user.userId);
+
+    // 사용자별 문제별 시간 정보 (객체 형태로 변환)
+    const userQuestionTimes = {};
+    if (canvasData) {
+      questionTimes
+        .filter((qt) => qt.canvas_id === canvasData.id)
+        .forEach((qt) => {
+          userQuestionTimes[qt.question_id] = {
+            start_time: qt.start_time,
+            end_time: qt.end_time,
+          };
+        });
+    }
 
     // 평가 여부 판단: squares/polygons 존재 OR evaluation_time > 0 OR 응답 존재
     const hasAnnotations = userSquares.length > 0 || userPolygons.length > 0;
@@ -852,6 +889,7 @@ async function fetchAssignmentData(assignmentId) {
         end_time: null,
         evaluation_time: null,
       },
+      questionTimes: userQuestionTimes, // 문제별 시간 정보
       answeredCount: 0,
       unansweredCount: 0,
       hasEvaluated: hasEvaluated,

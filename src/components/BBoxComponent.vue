@@ -105,9 +105,10 @@ export default {
     is_ai_use: { type: Boolean, required: true, default: true },
     is_timer: { type: Boolean, required: false, default: true },
     evaluation_time: { type: Number, required: false, default: 0 },
+    questionTimes: { type: Object, required: false, default: () => ({}) }, // 문제별 시간 정보
   },
 
-  emits: ["update:squares", "commitAssignmentChanges"],
+  emits: ["update:squares", "commitAssignmentChanges", "timerStarted", "questionTimeUpdate"],
 
   data() {
     return {
@@ -137,6 +138,8 @@ export default {
       timer: 0,
       isRunning: false,
       timerInterval: null,
+      localQuestionTimes: {}, // 문제별 시간 정보 (로컬)
+      previousQuestionIndex: null, // 이전 문제 인덱스
       // 슬라이드 전환 시 race condition 방지
       currentLoadId: 0,
       isUnmounted: false,
@@ -378,6 +381,37 @@ export default {
       if (this.timer === 0) {
         this.timer = this.evaluation_time || 0;
       }
+
+      // 문제별 시간 정보 초기화
+      this.localQuestionTimes = { ...this.questionTimes };
+    },
+
+    // 문제 전환 시 시간 기록
+    recordQuestionTime(currentQuestionId, isEnd = false) {
+      if (!this.isRunning) return;
+
+      const currentTime = this.timer;
+
+      // 현재 문제의 시간 정보가 없으면 생성
+      if (!this.localQuestionTimes[currentQuestionId]) {
+        this.localQuestionTimes[currentQuestionId] = {
+          start_time: currentTime,
+          end_time: 0,
+        };
+      }
+
+      // 시작 시간이 0이면 현재 시간으로 설정
+      if (this.localQuestionTimes[currentQuestionId].start_time === 0) {
+        this.localQuestionTimes[currentQuestionId].start_time = currentTime;
+      }
+
+      // 종료 시간 업데이트 (저장 시 또는 문제 전환 시)
+      if (isEnd) {
+        this.localQuestionTimes[currentQuestionId].end_time = currentTime;
+      }
+
+      // 부모 컴포넌트에 시간 정보 업데이트 알림
+      this.$emit("questionTimeUpdate", this.localQuestionTimes);
     },
 
     async activateIcon(selectedIcon) {
@@ -1070,8 +1104,11 @@ export default {
       this.localSquares = [...this.temporarySquares];
       this.$emit("update:squares", this.localSquares);
 
-      // 타이머 값을 포함하여 데이터 제출
-      this.$emit("commitAssignmentChanges", type, goNext, this.timer);
+      // 현재 문제의 종료 시간 기록
+      this.recordQuestionTime(this.questionIndex, true);
+
+      // 타이머 값과 문제별 시간 정보를 포함하여 데이터 제출
+      this.$emit("commitAssignmentChanges", type, goNext, this.timer, this.localQuestionTimes);
     },
 
     // 타이머 관련 메서드
@@ -1081,6 +1118,10 @@ export default {
       this.timerInterval = setInterval(() => {
         this.timer += 1000; // 1초(1000ms)마다 증가
       }, 1000);
+
+      // 현재 문제의 시작 시간 기록
+      this.recordQuestionTime(this.questionIndex, false);
+
       // 시작 시간 기록 이벤트 emit (처음 시작할 때만)
       this.$emit("timerStarted");
     },
@@ -1150,6 +1191,19 @@ export default {
             await this.showTempAIBox();
           }
         }
+      },
+    },
+
+    // 문제 전환 감지 (스톱워치 시간 기록)
+    questionIndex: {
+      handler: function (newVal, oldVal) {
+        if (this.isRunning && oldVal !== null && oldVal !== newVal) {
+          // 이전 문제의 종료 시간 기록
+          this.recordQuestionTime(oldVal, true);
+          // 새 문제의 시작 시간 기록
+          this.recordQuestionTime(newVal, false);
+        }
+        this.previousQuestionIndex = oldVal;
       },
     },
 

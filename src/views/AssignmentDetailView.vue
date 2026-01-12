@@ -132,10 +132,12 @@
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
         @timerStarted="recordStartTime"
+        @questionTimeUpdate="handleQuestionTimeUpdate"
         :is_score="!!currentAssignmentDetails.is_score"
         :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
         :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
+        :questionTimes="localQuestionTimes"
       />
 
       <SegmentComponent
@@ -148,10 +150,12 @@
         :assignmentIndex="currentAssignmentDetails.id"
         @commitAssignmentChanges="commitAssignmentChanges"
         @timerStarted="recordStartTime"
+        @questionTimeUpdate="handleQuestionTimeUpdate"
         :is_score="!!currentAssignmentDetails.is_score"
         :is_ai_use="!!currentAssignmentDetails.is_ai_use"
         :is_timer="currentAssignmentDetails.is_timer !== false"
         :evaluation_time="currentAssignmentDetails.beforeCanvas.evaluation_time"
+        :questionTimes="localQuestionTimes"
       />
     </div>
   </div>
@@ -177,6 +181,7 @@ export default {
       isOut: false,
       keyPressInterval: null,
       keyRepeatDelay: 200, // 밀리초 단위, 필요에 따라 조정
+      localQuestionTimes: {}, // 문제별 시간 정보 (로컬)
     };
   },
 
@@ -281,9 +286,17 @@ export default {
             console.warn("Active row not found!");
           }
         });
+
+        // 문제별 시간 정보 초기화
+        this.localQuestionTimes = response.data.questionTimes || {};
       } catch (error) {
         console.error("Error loading assignment details:", error);
       }
+    },
+
+    // 문제별 시간 정보 업데이트 핸들러
+    handleQuestionTimeUpdate(questionTimes) {
+      this.localQuestionTimes = { ...questionTimes };
     },
 
     // 평가 시작 버튼 클릭 시 시작 시간 기록
@@ -312,7 +325,8 @@ export default {
     async commitAssignmentChanges(
       mode = "textbox",
       goNext = true,
-      evaluation_time = 0
+      evaluation_time = 0,
+      question_times = null
     ) {
       const radioButtons = this.$el.querySelectorAll(
         ".grades-table table tbody input[type='radio']"
@@ -361,6 +375,7 @@ export default {
         polygons: this.currentAssignmentDetails.polygons || [],  // Segment 모드용
         lastQuestionIndex: this.activeQuestionId,
         evaluation_time: evaluation_time, // Always use the new evaluation_time
+        question_times: question_times || this.localQuestionTimes, // 문제별 시간 정보 (스톱워치 방식)
       };
 
       try {

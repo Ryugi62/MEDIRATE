@@ -604,6 +604,27 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       });
     }
 
+    // 문제별 시간 정보 조회 (스톱워치 방식)
+    let questionTimes = {};
+    if (canvas.length > 0) {
+      const questionTimesQuery = `
+        SELECT question_id, start_time, end_time
+        FROM question_time_info
+        WHERE canvas_id = ? AND user_id = ? AND deleted_at IS NULL;
+      `;
+      const [questionTimesResult] = await db.query(questionTimesQuery, [
+        canvas[0].id,
+        userId,
+      ]);
+      // 객체 형태로 변환 { questionId: { start_time, end_time } }
+      questionTimesResult.forEach(qt => {
+        questionTimes[qt.question_id] = {
+          start_time: qt.start_time,
+          end_time: qt.end_time,
+        };
+      });
+    }
+
     const uniqueQuestionIndex = [
       ...new Set(squares.map((square) => square.questionIndex)),
     ];
@@ -617,6 +638,7 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
       beforeCanvas: canvas[0],
       squares,
       polygons,  // Segment 모드용
+      questionTimes, // 문제별 시간 정보 (스톱워치 방식)
     };
 
     res.json(responseData);
@@ -720,6 +742,7 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     polygons,  // Segment 모드용
     lastQuestionIndex,
     evaluation_time, // 추가된 부분
+    question_times, // 문제별 시간 기록 (스톱워치 방식)
   } = req.body;
 
   try {
@@ -839,6 +862,28 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
             req.user.id,
             polygon.isAI ? 1 : 0,
             polygon.isTemporary ? 1 : 0,
+          ]);
+        })
+      );
+    }
+
+    // 문제별 시간 기록 저장 (스톱워치 방식)
+    if (question_times && Object.keys(question_times).length > 0 && canvasId) {
+      await Promise.all(
+        Object.entries(question_times).map(async ([questionId, timeData]) => {
+          const insertTimeQuery = `
+            INSERT INTO question_time_info (question_id, canvas_id, user_id, start_time, end_time)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              start_time = IF(VALUES(start_time) > 0 AND start_time = 0, VALUES(start_time), start_time),
+              end_time = VALUES(end_time);
+          `;
+          await db.query(insertTimeQuery, [
+            parseInt(questionId),
+            canvasId,
+            req.user.id,
+            timeData.start_time || 0,
+            timeData.end_time || 0,
           ]);
         })
       );
