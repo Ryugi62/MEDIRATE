@@ -827,13 +827,18 @@ async function fetchAssignmentData(assignmentId) {
   const canvasIds = canvasInfo.map((c) => c.id).filter(Boolean);
   let questionTimes = [];
   if (canvasIds.length > 0) {
-    const [questionTimesResult] = await db.query(
-      `SELECT question_id, canvas_id, user_id, start_time, end_time
-       FROM question_time_info
-       WHERE canvas_id IN (?) AND deleted_at IS NULL`,
-      [canvasIds]
-    );
-    questionTimes = questionTimesResult;
+    try {
+      const [questionTimesResult] = await db.query(
+        `SELECT question_id, canvas_id, user_id, start_time, end_time
+         FROM question_time_info
+         WHERE canvas_id IN (?) AND deleted_at IS NULL`,
+        [canvasIds]
+      );
+      questionTimes = questionTimesResult;
+    } catch (err) {
+      // 테이블이 없거나 에러 발생 시 빈 배열 유지
+      console.log("question_time_info 조회 실패 (테이블이 없을 수 있음):", err.message);
+    }
   }
 
   const structuredData = users.map((user) => {
