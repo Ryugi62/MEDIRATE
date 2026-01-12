@@ -74,7 +74,14 @@
                     :key="person.name"
                     :style="getStyleForPerson(index)"
                   >
-                    {{ person.name }}
+                    <label class="evaluator-checkbox">
+                      <input
+                        type="checkbox"
+                        v-model="selectedEvaluators"
+                        :value="person.name"
+                      />
+                      {{ person.name }}
+                    </label>
                   </th>
                   <template v-if="isBBoxOrSegment">
                     <th
@@ -242,6 +249,7 @@ export default {
       metadataKeys: new Set(),
       metadataJson: null,
       showBulkAssignModal: false,
+      selectedEvaluators: [],
     };
   },
 
@@ -318,6 +326,9 @@ export default {
           squares: person.squares || [],
           color: this.colorList[index % this.colorList.length].backgroundColor,
         }));
+
+        // Initialize selectedEvaluators with all evaluators selected
+        this.selectedEvaluators = this.data.map((person) => person.name);
       } catch (error) {
         console.error("Failed to load data:", error);
         throw error;
@@ -770,7 +781,18 @@ export default {
       try {
         const workbook = new ExcelJS.Workbook();
 
-        // 시간 Sheet 생성
+        // Filter data by selected evaluators
+        const filteredData = this.data.filter((user) =>
+          this.selectedEvaluators.includes(user.name)
+        );
+
+        if (filteredData.length === 0) {
+          alert("내보낼 평가자를 선택해주세요.");
+          this.isExporting = false;
+          return;
+        }
+
+        // 시간 Sheet 생성 (전체 시간)
         const timeSheet = workbook.addWorksheet("시간 Sheet");
 
         // 시간 시트의 열 정의
@@ -789,21 +811,21 @@ export default {
 
         timeSheet.columns = timeSheetColumns;
 
-        // 시간 시트 데이터 추가
-        for (const user of this.data) {
-          const startTime = user.beforeCanvas.start_time
+        // 시간 시트 데이터 추가 (선택된 평가자만)
+        for (const user of filteredData) {
+          const startTime = user.beforeCanvas?.start_time
             ? format(
                 new Date(user.beforeCanvas.start_time),
                 "yyyy-MM-dd HH:mm:ss"
               )
             : "";
-          const endTime = user.beforeCanvas.end_time
+          const endTime = user.beforeCanvas?.end_time
             ? format(
                 new Date(user.beforeCanvas.end_time),
                 "yyyy-MM-dd HH:mm:ss"
               )
             : "";
-          const duration = user.beforeCanvas.evaluation_time
+          const duration = user.beforeCanvas?.evaluation_time
             ? this.formatDuration(user.beforeCanvas.evaluation_time)
             : "";
 
@@ -829,12 +851,61 @@ export default {
 
         timeSheet.getRow(1).font = { bold: true };
 
+        // 문항별 시간 Sheet 생성
+        const questionTimeSheet = workbook.addWorksheet("문항별 시간");
+
+        // 문항별 시간 시트의 열 정의 (선택된 평가자별 컬럼 동적 생성)
+        const questionTimeColumns = [
+          { header: "과제 ID", key: "assignmentId", width: 15 },
+          { header: "이미지", key: "questionImage", width: 30 },
+        ];
+
+        // 선택된 평가자별 시작/종료/소요 시간 컬럼 추가
+        for (const user of filteredData) {
+          questionTimeColumns.push(
+            { header: `${user.name}_시작`, key: `${user.name}_start`, width: 12 },
+            { header: `${user.name}_종료`, key: `${user.name}_end`, width: 12 },
+            { header: `${user.name}_소요`, key: `${user.name}_duration`, width: 12 }
+          );
+        }
+
+        questionTimeSheet.columns = questionTimeColumns;
+
+        // 문항별 시간 데이터 추가
+        if (this.data.length > 0 && this.data[0].questions) {
+          for (const question of this.data[0].questions) {
+            const questionImageFileName = question.questionImage.split("/").pop();
+            const row = {
+              assignmentId: this.assignmentId,
+              questionImage: questionImageFileName,
+            };
+
+            // 선택된 평가자의 해당 문항 시간 데이터 추가
+            for (const user of filteredData) {
+              const questionTimes = user.questionTimes || {};
+              const timeData = questionTimes[question.questionId] || {};
+
+              const startMs = timeData.start_time || 0;
+              const endMs = timeData.end_time || 0;
+              const durationMs = endMs - startMs;
+
+              row[`${user.name}_start`] = startMs > 0 ? this.formatDuration(startMs) : "";
+              row[`${user.name}_end`] = endMs > 0 ? this.formatDuration(endMs) : "";
+              row[`${user.name}_duration`] = durationMs > 0 ? this.formatDuration(durationMs) : "";
+            }
+
+            questionTimeSheet.addRow(row);
+          }
+        }
+
+        questionTimeSheet.getRow(1).font = { bold: true };
+
         // 결과 Sheet 생성
         const resultSheet = workbook.addWorksheet("결과 Sheet");
         const columns = [
           { header: "과제 ID", key: "assignmentId", width: 15 },
           { header: "이미지", key: "questionNumber", width: 20 },
-          ...this.data.map((user) => ({
+          ...filteredData.map((user) => ({
             header: user.name,
             key: user.name,
             width: 15,
@@ -889,7 +960,7 @@ export default {
             assignmentId: this.assignmentId,
             questionNumber: questionImageFileName,
           };
-          this.data.forEach((user) => {
+          filteredData.forEach((user) => {
             row[user.name] = this.getValidSquaresCount(
               user.squares,
               question.questionId
@@ -1337,6 +1408,20 @@ td > img {
 }
 .table-head {
   top: 0;
+}
+
+.evaluator-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.evaluator-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
 }
 
 .export-button {

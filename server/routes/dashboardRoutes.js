@@ -362,12 +362,26 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
     const canvasData =
       assignment_mode === "BBox" || assignment_mode === "Segment"
         ? await fetchData(
-            `SELECT ci.id, ci.width, ci.height, ci.user_id
+            `SELECT ci.id, ci.width, ci.height, ci.user_id, ci.start_time, ci.end_time, ci.evaluation_time
              FROM canvas_info ci
              WHERE ci.assignment_id = ? AND ci.deleted_at IS NULL`,
             [assignmentId]
           )
         : [];
+
+    // Per-question time data fetch
+    let questionTimeData = [];
+    try {
+      questionTimeData = await fetchData(
+        `SELECT qti.question_id, qti.user_id, qti.start_time, qti.end_time
+         FROM question_time_info qti
+         JOIN questions q ON qti.question_id = q.id AND q.deleted_at IS NULL
+         WHERE q.assignment_id = ? AND qti.deleted_at IS NULL`,
+        [assignmentId]
+      );
+    } catch (err) {
+      console.log("[DEBUG] question_time_info table may not exist, skipping:", err.message);
+    }
 
     let fileName = "";
 
@@ -394,13 +408,23 @@ router.get("/:assignmentId", authenticateToken, async (req, res) => {
           answeredCount: 0,
           unansweredCount: 0,
         };
-        if (assignment_mode === "BBox") {
+        if (assignment_mode === "BBox" || assignment_mode === "Segment") {
           acc[name].squares = squaresData.filter(
             (square) => square.user_id === userId
           );
           acc[name].beforeCanvas = canvasData.find(
             (canvas) => canvas.user_id === userId
           );
+          // Add per-question time data for this user
+          acc[name].questionTimes = questionTimeData
+            .filter((qt) => qt.user_id === userId)
+            .reduce((timeAcc, qt) => {
+              timeAcc[qt.question_id] = {
+                start_time: qt.start_time || 0,
+                end_time: qt.end_time || 0,
+              };
+              return timeAcc;
+            }, {});
         }
       }
 
