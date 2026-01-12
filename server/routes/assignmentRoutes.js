@@ -868,7 +868,9 @@ router.put("/:assignmentId", authenticateToken, async (req, res) => {
     }
 
     // 문제별 시간 기록 저장 (스톱워치 방식)
+    console.log("question_times 받음:", question_times, "canvasId:", canvasId);
     if (question_times && Object.keys(question_times).length > 0 && canvasId) {
+      console.log("question_times 저장 시작:", Object.keys(question_times).length, "개");
       await Promise.all(
         Object.entries(question_times).map(async ([questionId, timeData]) => {
           const insertTimeQuery = `
