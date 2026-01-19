@@ -484,25 +484,26 @@ export default {
         if (this.selectedMode === "all" || this.selectedMode === "Consensus") {
           // 1. Consensus 데이터 조회
           const consensusRes = await this.$axios.get("/api/consensus?all=true", { headers });
-          let consensusData = consensusRes.data.map((c) => ({
-            id: `C${c.id}`,
-            consensusId: c.id,
-            title: c.title,
-            mode: "Consensus",
-            createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
-            endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
-            evaluatorCount: c.evaluator_count || 0,
-            answerRate: c.overall_completion_rate != null
-              ? Number(c.overall_completion_rate).toFixed(1) + "%"
-              : "0%",
-            unansweredRate: c.overall_completion_rate != null
-              ? (100 - Number(c.overall_completion_rate)).toFixed(1) + "%"
-              : "100%",
-            tags: c.tags || [],
-            isConsensus: true,
-            project_id: c.project_id,
-            cancer_type_id: c.cancer_type_id,
-          }));
+          let consensusData = consensusRes.data.map((c) => {
+            const completionRate = c.overall_completion_rate != null ? Number(c.overall_completion_rate) : 0;
+            const validRate = isNaN(completionRate) ? 0 : completionRate;
+
+            return {
+              id: `C${c.id}`,
+              consensusId: c.id,
+              title: c.title,
+              mode: "Consensus",
+              createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
+              endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
+              evaluatorCount: c.evaluator_count || 0,
+              answerRate: validRate.toFixed(1) + "%",
+              unansweredRate: (100 - validRate).toFixed(1) + "%",
+              tags: c.tags || [],
+              isConsensus: true,
+              project_id: c.project_id,
+              cancer_type_id: c.cancer_type_id,
+            };
+          });
 
           // 2. "all" 모드일 때 일반 과제도 조회
           let regularData = [];
