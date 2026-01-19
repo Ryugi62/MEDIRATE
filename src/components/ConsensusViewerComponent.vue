@@ -431,7 +431,38 @@ export default {
       const boxSize = 20 * scale;
       const boxHalf = boxSize / 2;
 
-      ctx.strokeStyle = "#FFFF00";
+      // 기존 색상 계산 (drawFpSquares와 동일한 로직)
+      const responses = this.evaluatorResponses[fp.id] || {};
+      const responseValues = Object.values(responses);
+      const agreeCount = responseValues.filter((r) => r.response === "agree").length;
+      const disagreeCount = responseValues.filter((r) => r.response === "disagree").length;
+      const totalResponses = responseValues.length;
+
+      let strokeColor;
+      if (totalResponses === 0) {
+        strokeColor = "#2196F3";
+      } else if (fp.is_gold_standard) {
+        strokeColor = "#FFD700";
+      } else if (agreeCount >= this.threshold) {
+        strokeColor = "#00C853";
+      } else if (disagreeCount >= this.threshold) {
+        strokeColor = "#FF0000";
+      } else {
+        strokeColor = "#2196F3";
+      }
+
+      // 흰색 외곽선 (하이라이트 효과)
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 5 * scale;
+      ctx.strokeRect(
+        fp.canvasX - boxHalf,
+        fp.canvasY - boxHalf,
+        boxSize,
+        boxSize
+      );
+
+      // 기존 색상 테두리 (두껍게)
+      ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 3 * scale;
       ctx.strokeRect(
         fp.canvasX - boxHalf,
@@ -440,8 +471,7 @@ export default {
         boxSize
       );
 
-      // 평가자별 응답 툴팁 표시
-      const responses = this.evaluatorResponses[fp.id] || {};
+      // 평가자별 응답 툴팁 표시 (responses는 위에서 이미 선언됨)
       const tooltipLines = [];
 
       this.evaluators.forEach((evaluator) => {
