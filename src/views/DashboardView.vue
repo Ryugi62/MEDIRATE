@@ -493,10 +493,10 @@ export default {
             endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
             evaluatorCount: c.evaluator_count || 0,
             answerRate: c.overall_completion_rate != null
-              ? c.overall_completion_rate.toFixed(1) + "%"
+              ? Number(c.overall_completion_rate).toFixed(1) + "%"
               : "0%",
             unansweredRate: c.overall_completion_rate != null
-              ? (100 - c.overall_completion_rate).toFixed(1) + "%"
+              ? (100 - Number(c.overall_completion_rate)).toFixed(1) + "%"
               : "100%",
             tags: c.tags || [],
             isConsensus: true,
