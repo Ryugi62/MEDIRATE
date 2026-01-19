@@ -428,7 +428,7 @@ export default {
           class: "evaluator",
         },
         {
-          name: "답변완료율",
+          name: "전체 답변완료율",
           key: "answerRate",
           sortable: true,
           class: "answer-rate",
@@ -492,8 +492,12 @@ export default {
             createdAt: c.creation_date ? new Date(c.creation_date).toISOString().split("T")[0] : "N/A",
             endAt: c.deadline ? new Date(c.deadline).toISOString().split("T")[0] : "N/A",
             evaluatorCount: c.evaluator_count || 0,
-            answerRate: c.total_fp > 0 ? ((c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "0%",
-            unansweredRate: c.total_fp > 0 ? (100 - (c.responded_fp || 0) / c.total_fp * 100).toFixed(1) + "%" : "100%",
+            answerRate: c.overall_completion_rate != null
+              ? c.overall_completion_rate.toFixed(1) + "%"
+              : "0%",
+            unansweredRate: c.overall_completion_rate != null
+              ? (100 - c.overall_completion_rate).toFixed(1) + "%"
+              : "100%",
             tags: c.tags || [],
             isConsensus: true,
             project_id: c.project_id,

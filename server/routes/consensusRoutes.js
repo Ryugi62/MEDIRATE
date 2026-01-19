@@ -58,6 +58,23 @@ router.get("/", authenticateToken, async (req, res) => {
            FROM consensus_responses cr
            JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
            WHERE cfp.consensus_assignment_id = ca.id AND cr.user_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL) AS responded_fp,
+          ROUND(
+            COALESCE(
+              (SELECT COUNT(*)
+               FROM consensus_responses cr2
+               JOIN consensus_fp_squares cfp2 ON cr2.fp_square_id = cfp2.id
+               WHERE cfp2.consensus_assignment_id = ca.id
+                 AND cr2.deleted_at IS NULL
+                 AND cfp2.deleted_at IS NULL) * 100.0 /
+              NULLIF(
+                (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) *
+                (SELECT COUNT(*) FROM consensus_user_assignments WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL),
+                0
+              ),
+              0
+            ),
+            1
+          ) AS overall_completion_rate,
           cci.evaluation_time,
           cci.start_time,
           cci.end_time,
@@ -87,6 +104,23 @@ router.get("/", authenticateToken, async (req, res) => {
            FROM consensus_responses cr
            JOIN consensus_fp_squares cfp ON cr.fp_square_id = cfp.id
            WHERE cfp.consensus_assignment_id = ca.id AND cr.user_id = ? AND cr.deleted_at IS NULL AND cfp.deleted_at IS NULL) AS responded_fp,
+          ROUND(
+            COALESCE(
+              (SELECT COUNT(*)
+               FROM consensus_responses cr2
+               JOIN consensus_fp_squares cfp2 ON cr2.fp_square_id = cfp2.id
+               WHERE cfp2.consensus_assignment_id = ca.id
+                 AND cr2.deleted_at IS NULL
+                 AND cfp2.deleted_at IS NULL) * 100.0 /
+              NULLIF(
+                (SELECT COUNT(*) FROM consensus_fp_squares WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL) *
+                (SELECT COUNT(*) FROM consensus_user_assignments WHERE consensus_assignment_id = ca.id AND deleted_at IS NULL),
+                0
+              ),
+              0
+            ),
+            1
+          ) AS overall_completion_rate,
           cci.evaluation_time,
           cci.start_time,
           cci.end_time
