@@ -141,6 +141,7 @@
       </div>
     </div>
     <div class="legend-bar">
+      <span class="legend-item gs">골드 스탠다드 (합의)</span>
       <span class="legend-item agree">마이토시스</span>
       <span class="legend-item disagree">논 마이토시스</span>
       <span class="legend-item pending">미응답</span>
@@ -1039,8 +1040,12 @@ tbody tr:hover:not(.active) {
   border-radius: 2px;
 }
 
+.legend-item.gs::before {
+  background-color: #FFD700;
+}
+
 .legend-item.agree::before {
-  background-color: #00ff00;
+  background-color: #00C853;
 }
 
 .legend-item.disagree::before {
@@ -1048,11 +1053,7 @@ tbody tr:hover:not(.active) {
 }
 
 .legend-item.pending::before {
-  background-color: #ffa500;
-}
-
-.legend-item.gs::before {
-  background-color: #ffc107;
+  background-color: #2196F3;
 }
 
 .legend-item.nipa-2::before {

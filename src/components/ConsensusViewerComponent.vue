@@ -274,24 +274,24 @@ export default {
 
         if (totalResponses === 0) {
           // 미응답
-          strokeColor = "#FFA500";
-          fillColor = "rgba(255, 165, 0, 0.2)";
+          strokeColor = "#2196F3";
+          fillColor = "rgba(33, 150, 243, 0.2)";
         } else if (fp.is_gold_standard) {
           // 골드 스탠다드
           strokeColor = "#FFD700";
           fillColor = "rgba(255, 215, 0, 0.3)";
         } else if (agreeCount >= this.threshold) {
           // 마이토시스
-          strokeColor = "#00FF00";
-          fillColor = "rgba(0, 255, 0, 0.2)";
+          strokeColor = "#00C853";
+          fillColor = "rgba(0, 200, 83, 0.4)";
         } else if (disagreeCount >= this.threshold) {
           // 논 마이토시스
           strokeColor = "#FF0000";
-          fillColor = "rgba(255, 0, 0, 0.2)";
+          fillColor = "rgba(255, 0, 0, 0.3)";
         } else {
           // 판정 미확정
-          strokeColor = "#FFA500";
-          fillColor = "rgba(255, 165, 0, 0.2)";
+          strokeColor = "#2196F3";
+          fillColor = "rgba(33, 150, 243, 0.2)";
         }
 
         // 사각형 그리기

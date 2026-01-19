@@ -592,14 +592,14 @@ export default {
         let color;
         let fillAlpha = 0;
         if (response === "agree") {
-          color = "#00FF00"; // 녹색 - 마이토시스
-          fillAlpha = 0.2;
+          color = "#00C853"; // 진한 녹색 - 마이토시스
+          fillAlpha = 0.4;
         } else if (response === "disagree") {
           color = "#FF0000"; // 빨강 - 논 마이토시스
-          fillAlpha = 0.2;
+          fillAlpha = 0.3;
         } else {
-          color = "#FFA500"; // 주황 - 미응답
-          fillAlpha = 0;
+          color = "#2196F3"; // 파란색 - 미응답
+          fillAlpha = 0.2;
         }
 
         // 배경 채우기 (응답된 경우)
@@ -904,17 +904,18 @@ export default {
 }
 
 .legend-item.pending::before {
-  border-color: #ffa500;
+  border-color: #2196F3;
+  background-color: rgba(33, 150, 243, 0.2);
 }
 
 .legend-item.agree::before {
-  border-color: #00ff00;
-  background-color: rgba(0, 255, 0, 0.2);
+  border-color: #00C853;
+  background-color: rgba(0, 200, 83, 0.4);
 }
 
 .legend-item.disagree::before {
   border-color: #ff0000;
-  background-color: rgba(255, 0, 0, 0.2);
+  background-color: rgba(255, 0, 0, 0.3);
 }
 
 .consensus-component__actions {
