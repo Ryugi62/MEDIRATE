@@ -774,8 +774,9 @@ export default {
       console.log('[DEBUG] scaleRatio:', scaleRatio);
 
       this.temporarySquares.forEach((square, idx) => {
-        // AI 박스는 원본 좌표로 저장되므로 제외
-        if (square.isAI) return;
+        // 새로 불러온 AI 탐지 박스(isTemporaryAI)는 원본 좌표이므로 제외
+        // 저장된 AI 박스(isAI && !isTemporaryAI)는 캔버스 좌표이므로 변환 필요
+        if (square.isTemporaryAI) return;
 
         const oldX = square.x, oldY = square.y;
         square.x = square.x * scaleRatio;
