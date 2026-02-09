@@ -109,7 +109,7 @@ router.get("/ai", authenticateToken, async (req, res) => {
   try {
     const { src, assignmentType, questionIndex } = req.query;
 
-    const jsonSrc = src.replace(/\.(jpg|png)/, ".json");
+    const jsonSrc = decodeURIComponent(src).replace(/\.(jpg|png)/, ".json");
 
     // Asynchronous file reading with fs.promises.readFile
     const jsonContent = await fsPromises.readFile(
