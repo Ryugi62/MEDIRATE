@@ -174,10 +174,9 @@ router.get("/:assignmentId/ai", authenticateToken, async (req, res) => {
     const AI_BBOX = [];
 
     questions.forEach((question) => {
-      const jsonSrc = question.image
-        .split("/")
-        .pop()
-        .replace(/\.(jpg|png)/, ".json");
+      const jsonSrc = decodeURIComponent(
+        question.image.split("/").pop()
+      ).replace(/\.(jpg|png)/, ".json");
 
       try {
         const jsonContent = fs.readFileSync(
