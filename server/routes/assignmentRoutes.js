@@ -1143,6 +1143,31 @@ const updateUserAssignments = async (assignmentId, users, performedBy = null) =>
           `UPDATE canvas_info SET deleted_at = NULL WHERE assignment_id = ? AND user_id = ?`,
           [assignmentId, userId]
         );
+
+        // canvas_id 목록 조회 (방금 복원된 캔버스들)
+        const canvasIds = existingCanvas.map((r) => r.id);
+
+        // squares_info 복원
+        if (canvasIds.length > 0) {
+          await conn.query(
+            `UPDATE squares_info SET deleted_at = NULL WHERE canvas_id IN (?) AND deleted_at IS NOT NULL`,
+            [canvasIds]
+          );
+
+          // polygon_info 복원
+          await conn.query(
+            `UPDATE polygon_info SET deleted_at = NULL WHERE canvas_id IN (?) AND deleted_at IS NOT NULL`,
+            [canvasIds]
+          );
+        }
+
+        // question_responses 복원
+        await conn.query(
+          `UPDATE question_responses SET deleted_at = NULL
+           WHERE user_id = ? AND deleted_at IS NOT NULL
+           AND question_id IN (SELECT id FROM questions WHERE assignment_id = ?)`,
+          [userId, assignmentId]
+        );
       } else {
         // 새로 생성
         await conn.query(
